@@ -19,6 +19,7 @@ export function errorHandler(
     })
   }
 
-  console.error(err)
-  return res.status(500).json({ error: 'Internal server error' })
+  console.error('[500]', err)
+  const message = process.env.NODE_ENV === 'development' && err instanceof Error ? err.message : 'Internal server error'
+  return res.status(500).json({ error: message })
 }

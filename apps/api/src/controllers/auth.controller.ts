@@ -6,8 +6,9 @@ const registerSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
   displayName: z.string().min(1).max(100),
-  familyName: z.string().min(1).max(200),
+  familyName: z.string().min(1).max(200).optional(),
   role: z.enum(['PARENT', 'CHILD']).optional(),
+  inviteCode: z.string().optional(),
 })
 
 const loginSchema = z.object({

@@ -1,7 +1,7 @@
 'use client'
 import { useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -12,7 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Loader2, ChevronRight, ChevronLeft } from 'lucide-react'
+import { Loader2, ChevronRight, ChevronLeft, Users } from 'lucide-react'
 
 const step1Schema = z.object({
   displayName: z.string().min(2, 'Tên phải có ít nhất 2 ký tự'),
@@ -29,6 +29,8 @@ type Step2 = z.infer<typeof step2Schema>
 
 export default function RegisterPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const inviteCode = searchParams.get('invite')
   const { setAuth } = useAuth()
   const [step, setStep] = useState(1)
   const [step1Data, setStep1Data] = useState<Step1 | null>(null)
@@ -37,9 +39,26 @@ export default function RegisterPage() {
   const form1 = useForm<Step1>({ resolver: zodResolver(step1Schema) })
   const form2 = useForm<Step2>({ resolver: zodResolver(step2Schema) })
 
-  const onStep1 = (data: Step1) => {
-    setStep1Data(data)
-    setStep(2)
+  const onStep1 = async (data: Step1) => {
+    if (inviteCode) {
+      // Flow invite: đăng ký 1 bước, tham gia gia đình có sẵn
+      setLoading(true)
+      try {
+        const { data: res } = await api.post('/auth/register', { ...data, inviteCode })
+        setAuth({ ...res.user, familyMember: res.user.familyMember }, res.accessToken, res.refreshToken)
+        toast.success('Chào mừng đến với gia đình! 🎉')
+        router.push('/dashboard')
+      } catch (err: unknown) {
+        const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? 'Đăng ký thất bại'
+        toast.error(msg)
+      } finally {
+        setLoading(false)
+      }
+    } else {
+      // Flow thường: qua bước 2 để nhập tên gia đình
+      setStep1Data(data)
+      setStep(2)
+    }
   }
 
   const onStep2 = async (data: Step2) => {
@@ -51,7 +70,7 @@ export default function RegisterPage() {
         familyName: data.familyName,
         role: 'PARENT',
       })
-      setAuth(res.user, res.accessToken, res.refreshToken)
+      setAuth({ ...res.user, familyMember: res.user.familyMember }, res.accessToken, res.refreshToken)
       toast.success('Chào mừng đến với Family Care! 🎉')
       router.push('/dashboard')
     } catch (err: unknown) {
@@ -70,13 +89,21 @@ export default function RegisterPage() {
         </div>
         <CardTitle className="text-2xl">Tạo tài khoản</CardTitle>
         <CardDescription>
-          Bước {step}/2 – {step === 1 ? 'Thông tin cá nhân' : 'Thông tin gia đình'}
+          {inviteCode ? (
+            <span className="flex items-center justify-center gap-1 text-blue-600 font-medium">
+              <Users className="w-4 h-4" />
+              Bạn đang được mời tham gia gia đình
+            </span>
+          ) : (
+            `Bước ${step}/2 – ${step === 1 ? 'Thông tin cá nhân' : 'Thông tin gia đình'}`
+          )}
         </CardDescription>
-        {/* Progress bar */}
-        <div className="flex gap-2 mt-2">
-          <div className="h-1.5 flex-1 rounded-full bg-blue-500" />
-          <div className={`h-1.5 flex-1 rounded-full ${step === 2 ? 'bg-blue-500' : 'bg-gray-200'}`} />
-        </div>
+        {!inviteCode && (
+          <div className="flex gap-2 mt-2">
+            <div className="h-1.5 flex-1 rounded-full bg-blue-500" />
+            <div className={`h-1.5 flex-1 rounded-full ${step === 2 ? 'bg-blue-500' : 'bg-gray-200'}`} />
+          </div>
+        )}
       </CardHeader>
       <CardContent>
         {step === 1 ? (
@@ -96,8 +123,9 @@ export default function RegisterPage() {
               <Input type="password" placeholder="Tối thiểu 6 ký tự" {...form1.register('password')} />
               {form1.formState.errors.password && <p className="text-sm text-red-500">{form1.formState.errors.password.message}</p>}
             </div>
-            <Button type="submit" className="w-full">
-              Tiếp theo <ChevronRight className="w-4 h-4 ml-1" />
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+              {inviteCode ? 'Tham gia gia đình' : <span className="flex items-center justify-center gap-1">Tiếp theo <ChevronRight className="w-4 h-4" /></span>}
             </Button>
           </form>
         ) : (

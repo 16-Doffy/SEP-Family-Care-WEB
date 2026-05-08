@@ -3,13 +3,15 @@ import { prisma } from '../config/database'
 import type { Prisma } from '@prisma/client'
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from '../utils/jwt'
 import { Errors } from '../utils/errors'
+import { validateInviteCode, joinFamily } from './family.service'
 
 interface RegisterInput {
   email: string
   password: string
   displayName: string
-  familyName: string
+  familyName?: string
   role?: 'PARENT' | 'CHILD'
+  inviteCode?: string
 }
 
 export async function register(input: RegisterInput) {
@@ -17,46 +19,60 @@ export async function register(input: RegisterInput) {
   if (existing) throw Errors.Conflict('Email already in use')
 
   const passwordHash = await bcrypt.hash(input.password, 10)
+
+  // --- Flow 1: Register with invite code (join existing family) ---
+  if (input.inviteCode) {
+    // Validate invite before creating user to fail fast
+    validateInviteCode(input.inviteCode)
+
+    const user = await prisma.user.create({
+      data: { email: input.email, passwordHash, displayName: input.displayName, role: 'CHILD' },
+    })
+
+    let member
+    try {
+      member = await joinFamily(user.id, input.inviteCode)
+    } catch (err) {
+      await prisma.user.delete({ where: { id: user.id } })
+      throw err
+    }
+
+    const updatedUser = await prisma.user.findUniqueOrThrow({
+      where: { id: user.id },
+      include: { familyMember: { include: { family: true } } },
+    })
+
+    const tokens = generateTokens(updatedUser.id, updatedUser.email, updatedUser.role, member.familyId, member.id)
+    await saveRefreshToken(updatedUser.id, tokens.refreshToken)
+
+    const { passwordHash: _, ...safeUser } = updatedUser
+    return { ...tokens, user: { ...safeUser, familyMember: updatedUser.familyMember } }
+  }
+
+  // --- Flow 2: Normal registration (create new family) ---
+  if (!input.familyName) throw Errors.BadRequest('Family name is required')
+
   const role = input.role ?? 'PARENT'
 
-  // Create user + family + wallets in one transaction
   const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     const user = await tx.user.create({
-      data: {
-        email: input.email,
-        passwordHash,
-        displayName: input.displayName,
-        role,
-      },
+      data: { email: input.email, passwordHash, displayName: input.displayName, role },
     })
 
     const family = await tx.family.create({
-      data: { name: input.familyName },
+      data: { name: input.familyName! },
     })
 
     const member = await tx.familyMember.create({
       data: { userId: user.id, familyId: family.id },
     })
 
-    // Joint wallet (shared)
     await tx.wallet.create({
-      data: {
-        familyId: family.id,
-        name: 'Ví Gia Đình',
-        type: 'JOINT',
-        balance: 0,
-      },
+      data: { familyId: family.id, name: 'Ví Gia Đình', type: 'JOINT', balance: 0 },
     })
 
-    // Personal wallet for the founding member
     await tx.wallet.create({
-      data: {
-        familyId: family.id,
-        name: `Ví ${input.displayName}`,
-        type: 'PERSONAL',
-        balance: 0,
-        ownerId: member.id,
-      },
+      data: { familyId: family.id, name: `Ví ${input.displayName}`, type: 'PERSONAL', balance: 0, ownerId: member.id },
     })
 
     return { user, family, member }
@@ -66,7 +82,10 @@ export async function register(input: RegisterInput) {
   await saveRefreshToken(result.user.id, tokens.refreshToken)
 
   const { passwordHash: _, ...safeUser } = result.user
-  return { ...tokens, user: safeUser, familyMember: result.member }
+  return {
+    ...tokens,
+    user: { ...safeUser, familyMember: { ...result.member, family: result.family } },
+  }
 }
 
 export async function login(email: string, password: string) {

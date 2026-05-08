@@ -30,6 +30,16 @@ export async function updateFamily(familyId: string, name: string) {
   return prisma.family.update({ where: { id: familyId }, data: { name } })
 }
 
+export function validateInviteCode(code: string) {
+  const invite = INVITE_STORE.get(code)
+  if (!invite) throw Errors.NotFound('Invite code')
+  if (invite.expiresAt < Date.now()) {
+    INVITE_STORE.delete(code)
+    throw Errors.BadRequest('Invite code expired')
+  }
+  return invite
+}
+
 export async function generateInviteCode(familyId: string, role: string): Promise<string> {
   const code = randomBytes(16).toString('hex')
   INVITE_STORE.set(code, {
