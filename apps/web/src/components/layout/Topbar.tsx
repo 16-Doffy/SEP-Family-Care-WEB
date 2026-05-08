@@ -1,5 +1,5 @@
 'use client'
-import { Bell } from 'lucide-react'
+import { Bell, Siren } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useEffect, useState } from 'react'
 import { api } from '@/lib/api'
@@ -7,6 +7,7 @@ import { useSocket } from '@/context/SocketContext'
 import { useAuth } from '@/context/AuthContext'
 import { formatDateTime } from '@/lib/utils'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import toast from 'react-hot-toast'
 
 interface Notification {
   id: string
@@ -21,6 +22,7 @@ export function Topbar({ title }: { title?: string }) {
   const [unreadCount, setUnreadCount] = useState(0)
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [open, setOpen] = useState(false)
+  const [sosSending, setSosSending] = useState(false)
   const socket = useSocket()
   const { user } = useAuth()
 
@@ -58,10 +60,39 @@ export function Topbar({ title }: { title?: string }) {
     }
   }
 
+  const handleSOS = async () => {
+    if (!user?.familyMember) {
+      toast.error('Bạn cần tham gia gia đình để dùng SOS')
+      return
+    }
+    if (!confirm('Gửi tín hiệu SOS khẩn cấp đến tất cả thành viên gia đình?')) return
+    setSosSending(true)
+    try {
+      await api.post('/notifications/sos')
+      toast.success('Đã gửi SOS đến gia đình!')
+    } catch {
+      toast.error('Gửi SOS thất bại')
+    } finally {
+      setSosSending(false)
+    }
+  }
+
   return (
     <header className="h-16 border-b bg-white flex items-center justify-between px-6 sticky top-0 z-10">
       <h1 className="text-lg font-semibold text-gray-900">{title ?? 'Family Care'}</h1>
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2">
+        {user?.familyMember && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleSOS}
+            disabled={sosSending}
+            title="Gửi SOS khẩn cấp"
+            className="text-red-500 hover:text-red-600 hover:bg-red-50"
+          >
+            <Siren className="w-5 h-5" />
+          </Button>
+        )}
         <Button variant="ghost" size="icon" className="relative" onClick={handleOpen}>
           <Bell className="w-5 h-5" />
           {unreadCount > 0 && (

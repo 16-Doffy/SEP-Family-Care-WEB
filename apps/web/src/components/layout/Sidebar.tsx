@@ -1,7 +1,7 @@
 'use client'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, Wallet, CheckSquare, Settings, Users, Shield, LogOut } from 'lucide-react'
+import { Home, Wallet, CheckSquare, Settings, Users, Shield, LogOut, MessageSquare, CalendarDays } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/context/AuthContext'
 import { useRouter } from 'next/navigation'
@@ -11,6 +11,8 @@ const navItems = [
   { href: '/dashboard', label: 'Tổng quan', icon: Home },
   { href: '/wallet', label: 'Ví tiền', icon: Wallet },
   { href: '/tasks', label: 'Nhiệm vụ', icon: CheckSquare },
+  { href: '/chat', label: 'Trò chuyện', icon: MessageSquare },
+  { href: '/calendar', label: 'Lịch gia đình', icon: CalendarDays },
   { href: '/family', label: 'Gia đình', icon: Users },
   { href: '/settings', label: 'Cài đặt', icon: Settings },
 ]

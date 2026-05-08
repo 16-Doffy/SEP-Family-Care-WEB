@@ -91,6 +91,13 @@ export async function joinFamily(userId: string, code: string) {
   })
 
   INVITE_STORE.delete(code)
+
+  // Auto-join group chats of the family
+  try {
+    const { addParticipantToGroupChats } = await import('./chat.service')
+    await addParticipantToGroupChats(invite.familyId, userId)
+  } catch {}
+
   return member
 }
 
