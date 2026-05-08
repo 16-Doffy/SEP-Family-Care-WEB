@@ -1,0 +1,207 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+enum Role {
+  SUPER_ADMIN
+  PARENT
+  CHILD
+}
+
+enum Plan {
+  FREE
+  BASIC
+  PREMIUM
+}
+
+enum WalletType {
+  JOINT
+  PERSONAL
+}
+
+enum TransactionType {
+  DEPOSIT
+  WITHDRAWAL
+  TRANSFER
+  TASK_REWARD
+}
+
+enum TaskStatus {
+  PENDING
+  IN_PROGRESS
+  SUBMITTED
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum NotificationType {
+  TASK_ASSIGNED
+  TASK_SUBMITTED
+  TASK_APPROVED
+  TASK_REJECTED
+  TRANSFER_RECEIVED
+  MEMBER_JOINED
+  SYSTEM
+}
+
+// ─── Models ───────────────────────────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  displayName  String
+  avatarUrl    String?
+  role         Role     @default(CHILD)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  familyMember  FamilyMember?
+  refreshTokens RefreshToken[]
+  notifications Notification[]
+  taskProofs    TaskProof[]
+
+  @@index([email])
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([userId])
+}
+
+model Family {
+  id        String   @id @default(cuid())
+  name      String
+  plan      Plan     @default(FREE)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members FamilyMember[]
+  wallets Wallet[]
+  tasks   Task[]
+}
+
+model FamilyMember {
+  id       String   @id @default(cuid())
+  userId   String   @unique
+  familyId String
+  nickname String?
+  joinedAt DateTime @default(now())
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  family       Family        @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  wallet       Wallet?       @relation("PersonalWallet")
+  assignedTasks Task[]       @relation("AssignedTasks")
+  createdTasks  Task[]       @relation("CreatedTasks")
+
+  @@index([familyId])
+}
+
+model Wallet {
+  id        String     @id @default(cuid())
+  familyId  String
+  name      String
+  type      WalletType
+  balance   Decimal    @default(0) @db.Decimal(15, 2)
+  currency  String     @default("VND")
+  ownerId   String?    @unique
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  family               Family        @relation(fields: [familyId], references: [id])
+  owner                FamilyMember? @relation("PersonalWallet", fields: [ownerId], references: [id])
+  sentTransactions     Transaction[] @relation("FromWallet")
+  receivedTransactions Transaction[] @relation("ToWallet")
+
+  @@index([familyId])
+}
+
+model Transaction {
+  id           String          @id @default(cuid())
+  fromWalletId String?
+  toWalletId   String?
+  amount       Decimal         @db.Decimal(15, 2)
+  type         TransactionType
+  description  String?
+  taskId       String?
+  createdAt    DateTime        @default(now())
+
+  fromWallet Wallet? @relation("FromWallet", fields: [fromWalletId], references: [id])
+  toWallet   Wallet? @relation("ToWallet", fields: [toWalletId], references: [id])
+  task       Task?   @relation(fields: [taskId], references: [id])
+
+  @@index([fromWalletId])
+  @@index([toWalletId])
+  @@index([createdAt])
+}
+
+model Task {
+  id           String     @id @default(cuid())
+  familyId     String
+  title        String
+  description  String?
+  status       TaskStatus @default(PENDING)
+  reward       Decimal?   @db.Decimal(15, 2)
+  dueDate      DateTime?
+  createdById  String
+  assignedToId String?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  family       Family        @relation(fields: [familyId], references: [id])
+  createdBy    FamilyMember  @relation("CreatedTasks", fields: [createdById], references: [id])
+  assignedTo   FamilyMember? @relation("AssignedTasks", fields: [assignedToId], references: [id])
+  proofs       TaskProof[]
+  transactions Transaction[]
+
+  @@index([familyId, status])
+  @@index([assignedToId])
+}
+
+model TaskProof {
+  id          String   @id @default(cuid())
+  taskId      String
+  submittedBy String
+  imageUrl    String?
+  note        String?
+  createdAt   DateTime @default(now())
+
+  task      Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  submitter User @relation(fields: [submittedBy], references: [id])
+
+  @@index([taskId])
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType
+  title     String
+  body      String
+  isRead    Boolean          @default(false)
+  metadata  Json?
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@index([createdAt])
+}
