@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import * as ctrl from '../controllers/admin.controller'
 import * as planCtrl from '../controllers/subscription-plan.controller'
+import * as paymentCtrl from '../controllers/payment.controller'
 import { authenticate, requireRole } from '../middleware/auth'
 
 const router = Router()
@@ -21,5 +22,8 @@ router.delete('/plans/:id', planCtrl.deletePlan)
 
 // Assign plan to family
 router.put('/families/:familyId/plan', planCtrl.assignToFamily)
+
+// Revenue stats
+router.get('/revenue', paymentCtrl.getRevenue)
 
 export default router

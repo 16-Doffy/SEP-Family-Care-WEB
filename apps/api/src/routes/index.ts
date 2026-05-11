@@ -11,6 +11,8 @@ import sosRoutes from './sos.routes'
 import moneyRequestRoutes from './money-request.routes'
 import albumRoutes from './album.routes'
 import locationRoutes from './location.routes'
+import aiRoutes from './ai.routes'
+import paymentRoutes from './payment.routes'
 
 const router = Router()
 
@@ -26,5 +28,7 @@ router.use('/sos', sosRoutes)
 router.use('/money-requests', moneyRequestRoutes)
 router.use('/album', albumRoutes)
 router.use('/location', locationRoutes)
+router.use('/ai', aiRoutes)
+router.use('/payments', paymentRoutes)
 
 export { router as apiRouter }
