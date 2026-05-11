@@ -2,7 +2,7 @@
 import React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, Wallet, CheckSquare, Settings, Users, Shield, LogOut, MessageSquare, CalendarDays, Siren, Image } from 'lucide-react'
+import { Home, Wallet, CheckSquare, Settings, Users, Shield, LogOut, MessageSquare, CalendarDays, Siren, Image, MapPin } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/context/AuthContext'
 import { useRouter } from 'next/navigation'
@@ -15,6 +15,7 @@ const navItems: { href: string; label: string; icon: React.ComponentType<{ class
   { href: '/chat', label: 'Trò chuyện', icon: MessageSquare },
   { href: '/calendar', label: 'Lịch gia đình', icon: CalendarDays },
   { href: '/album', label: 'Album ảnh', icon: Image },
+  { href: '/location', label: 'Vị trí gia đình', icon: MapPin },
   { href: '/sos', label: 'SOS Khẩn cấp', icon: Siren, danger: true },
   { href: '/family', label: 'Gia đình', icon: Users },
   { href: '/settings', label: 'Cài đặt', icon: Settings },

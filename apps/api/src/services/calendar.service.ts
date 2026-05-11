@@ -65,6 +65,7 @@ export async function updateEvent(
       ...data,
       startDate: data.startDate ? new Date(data.startDate) : undefined,
       endDate: data.endDate ? new Date(data.endDate) : undefined,
+      ...(data.startDate && { reminderSent: false }),
     },
     include: {
       createdBy: {

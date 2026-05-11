@@ -68,7 +68,7 @@ export function Topbar({ title }: { title?: string }) {
     if (!confirm('Gửi tín hiệu SOS khẩn cấp đến tất cả thành viên gia đình?')) return
     setSosSending(true)
     try {
-      await api.post('/notifications/sos')
+      await api.post('/sos', {})
       toast.success('Đã gửi SOS đến gia đình!')
     } catch {
       toast.error('Gửi SOS thất bại')

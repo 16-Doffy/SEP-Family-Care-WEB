@@ -88,15 +88,20 @@ export async function getMessages(conversationId: string, userId: string, cursor
   })
   if (!participant) throw Errors.Forbidden()
 
-  const messages = await prisma.message.findMany({
+  const PAGE_SIZE = 30
+  const rows = await prisma.message.findMany({
     where: { conversationId },
     select: MESSAGE_SELECT,
     orderBy: { createdAt: 'desc' },
-    take: 50,
+    take: PAGE_SIZE + 1,
     ...(cursor && { cursor: { id: cursor }, skip: 1 }),
   })
 
-  return messages.reverse()
+  const hasMore = rows.length > PAGE_SIZE
+  const page = hasMore ? rows.slice(0, PAGE_SIZE) : rows
+  const nextCursor = hasMore ? page[page.length - 1].id : null
+
+  return { messages: page.reverse(), nextCursor, hasMore }
 }
 
 export async function sendMessage(input: {

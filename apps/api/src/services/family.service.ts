@@ -2,6 +2,7 @@ import { prisma } from '../config/database'
 import { Errors } from '../utils/errors'
 import type { Prisma } from '@prisma/client'
 import { randomBytes } from 'crypto'
+import { assertCanAddMember } from './plan-limits.service'
 
 const INVITE_STORE = new Map<string, { familyId: string; role: string; expiresAt: number }>()
 
@@ -9,6 +10,7 @@ export async function getFamily(familyId: string) {
   return prisma.family.findUniqueOrThrow({
     where: { id: familyId },
     include: {
+      subscriptionPlan: true,
       members: {
         include: {
           user: {
@@ -60,6 +62,8 @@ export async function joinFamily(userId: string, code: string) {
 
   const existingMember = await prisma.familyMember.findUnique({ where: { userId } })
   if (existingMember) throw Errors.Conflict('You are already in a family')
+
+  await assertCanAddMember(invite.familyId)
 
   const member = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     // Update user role

@@ -42,8 +42,8 @@ export async function getOrCreatePrivateChat(req: Request, res: Response, next: 
 export async function getMessages(req: Request, res: Response, next: NextFunction) {
   try {
     const { cursor } = req.query
-    const messages = await chatService.getMessages(req.params.id, req.user.userId, cursor as string | undefined)
-    res.json(messages)
+    const result = await chatService.getMessages(req.params.id, req.user.userId, cursor as string | undefined)
+    res.json(result)
   } catch (e) { next(e) }
 }
 

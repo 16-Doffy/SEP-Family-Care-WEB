@@ -1,6 +1,5 @@
 import type { Request, Response, NextFunction } from 'express'
 import * as notificationService from '../services/notification.service'
-import { prisma } from '../config/database'
 
 export async function getNotifications(req: Request, res: Response, next: NextFunction) {
   try {
@@ -24,35 +23,3 @@ export async function markAllRead(req: Request, res: Response, next: NextFunctio
   } catch (e) { next(e) }
 }
 
-export async function sendSOS(req: Request, res: Response, next: NextFunction) {
-  try {
-    if (!req.user.familyId) {
-      res.status(400).json({ error: 'Not in a family' })
-      return
-    }
-
-    const sender = await prisma.user.findUniqueOrThrow({
-      where: { id: req.user.userId },
-      select: { displayName: true },
-    })
-
-    const members = await prisma.familyMember.findMany({
-      where: { familyId: req.user.familyId, userId: { not: req.user.userId } },
-      select: { userId: true },
-    })
-
-    await Promise.all(
-      members.map((m) =>
-        notificationService.createNotification({
-          userId: m.userId,
-          type: 'SOS',
-          title: '🆘 SOS Khẩn cấp!',
-          body: `${sender.displayName} đang cần giúp đỡ khẩn cấp!`,
-          metadata: { senderId: req.user.userId },
-        }),
-      ),
-    )
-
-    res.json({ message: 'SOS sent to all family members' })
-  } catch (e) { next(e) }
-}

@@ -32,16 +32,22 @@ function getConvoInitial(convo: Conversation, myId: string) {
   return getInitials(other?.user.displayName ?? '?')
 }
 
+interface MessagesPage { messages: ChatMessage[]; nextCursor: string | null; hasMore: boolean }
+
 export default function ChatPage() {
   const { user } = useAuth()
   const socket = useSocket()
   const qc = useQueryClient()
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [messages, setMessages] = useState<ChatMessage[]>([])
+  const [nextCursor, setNextCursor] = useState<string | null>(null)
+  const [hasMore, setHasMore] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [inputText, setInputText] = useState('')
   const [typingUsers, setTypingUsers] = useState<string[]>([])
   const [isTyping, setIsTyping] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const messagesScrollRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -53,18 +59,44 @@ export default function ChatPage() {
     enabled: !!user?.familyMember,
   })
 
-  const { data: fetchedMessages = [], isLoading: loadingMsgs } = useQuery<ChatMessage[]>({
+  const { data: firstPage, isLoading: loadingMsgs } = useQuery<MessagesPage>({
     queryKey: ['messages', selectedId],
     queryFn: () => api.get(`/chat/conversations/${selectedId}/messages`).then((r) => r.data),
     enabled: !!selectedId,
   })
 
   useEffect(() => {
-    if (fetchedMessages.length > 0) {
-      setMessages(fetchedMessages)
+    if (firstPage) {
+      setMessages(firstPage.messages)
+      setNextCursor(firstPage.nextCursor)
+      setHasMore(firstPage.hasMore)
       setTimeout(scrollToBottom, 100)
     }
-  }, [fetchedMessages])
+  }, [firstPage])
+
+  const loadMore = useCallback(async () => {
+    if (!selectedId || !nextCursor || loadingMore || !hasMore) return
+    const scrollEl = messagesScrollRef.current
+    const prevHeight = scrollEl?.scrollHeight ?? 0
+    setLoadingMore(true)
+    try {
+      const { data } = await api.get<MessagesPage>(`/chat/conversations/${selectedId}/messages`, { params: { cursor: nextCursor } })
+      setMessages((prev) => [...data.messages, ...prev])
+      setNextCursor(data.nextCursor)
+      setHasMore(data.hasMore)
+      requestAnimationFrame(() => {
+        if (scrollEl) scrollEl.scrollTop = scrollEl.scrollHeight - prevHeight
+      })
+    } catch {
+      toast.error('Không tải được tin cũ')
+    } finally {
+      setLoadingMore(false)
+    }
+  }, [selectedId, nextCursor, loadingMore, hasMore])
+
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    if (e.currentTarget.scrollTop < 80 && hasMore && !loadingMore) loadMore()
+  }
 
   useEffect(() => {
     if (!socket || !selectedId) return
@@ -118,6 +150,8 @@ export default function ChatPage() {
       await qc.invalidateQueries({ queryKey: ['conversations'] })
       setSelectedId(data.id)
       setMessages([])
+      setNextCursor(null)
+      setHasMore(false)
     } catch { toast.error('Không thể mở nhóm chat') }
   }, [qc])
 
@@ -127,6 +161,8 @@ export default function ChatPage() {
       await qc.invalidateQueries({ queryKey: ['conversations'] })
       setSelectedId(data.id)
       setMessages([])
+      setNextCursor(null)
+      setHasMore(false)
     } catch { toast.error('Không thể mở chat riêng') }
   }, [qc])
 
@@ -182,7 +218,7 @@ export default function ChatPage() {
                 return (
                   <button
                     key={convo.id}
-                    onClick={() => { setSelectedId(convo.id); setMessages([]) }}
+                    onClick={() => { setSelectedId(convo.id); setMessages([]); setNextCursor(null); setHasMore(false) }}
                     className={cn(
                       'w-full flex items-center gap-3 p-3 text-left hover:bg-gray-50 transition-colors border-b',
                       selectedId === convo.id && 'bg-blue-50',
@@ -253,7 +289,13 @@ export default function ChatPage() {
               </div>
 
               {/* Messages */}
-              <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50">
+              <div ref={messagesScrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50">
+                {loadingMore && (
+                  <div className="flex justify-center py-2"><Loader2 className="w-4 h-4 animate-spin text-muted-foreground" /></div>
+                )}
+                {!loadingMore && !hasMore && messages.length > 0 && (
+                  <p className="text-center text-[10px] text-muted-foreground py-1">— Đầu cuộc trò chuyện —</p>
+                )}
                 {loadingMsgs ? (
                   <div className="flex justify-center py-8"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>
                 ) : messages.length === 0 ? (

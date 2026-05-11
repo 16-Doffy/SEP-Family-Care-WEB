@@ -10,6 +10,7 @@ import calendarRoutes from './calendar.routes'
 import sosRoutes from './sos.routes'
 import moneyRequestRoutes from './money-request.routes'
 import albumRoutes from './album.routes'
+import locationRoutes from './location.routes'
 
 const router = Router()
 
@@ -24,5 +25,6 @@ router.use('/calendar', calendarRoutes)
 router.use('/sos', sosRoutes)
 router.use('/money-requests', moneyRequestRoutes)
 router.use('/album', albumRoutes)
+router.use('/location', locationRoutes)
 
 export { router as apiRouter }

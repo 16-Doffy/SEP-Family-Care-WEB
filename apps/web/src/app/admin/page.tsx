@@ -1,4 +1,5 @@
 'use client'
+import Link from 'next/link'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import { Topbar } from '@/components/layout/Topbar'
@@ -6,8 +7,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { formatDate } from '@/lib/utils'
-import { Users, Home, Activity } from 'lucide-react'
+import { Users, Home, Activity, Crown } from 'lucide-react'
 import toast from 'react-hot-toast'
+
+interface AdminPlan { id: string; code: string; name: string; isActive: boolean }
 
 export default function AdminPage() {
   const qc = useQueryClient()
@@ -27,6 +30,11 @@ export default function AdminPage() {
     queryFn: () => api.get('/admin/users').then((r) => r.data),
   })
 
+  const { data: plans = [] } = useQuery<AdminPlan[]>({
+    queryKey: ['admin-plans-light'],
+    queryFn: () => api.get('/admin/plans?includeInactive=true').then((r) => r.data.plans),
+  })
+
   const toggleUser = useMutation({
     mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) =>
       api.put(`/admin/users/${id}`, { isActive }),
@@ -36,10 +44,30 @@ export default function AdminPage() {
     },
   })
 
+  const assignPlan = useMutation({
+    mutationFn: ({ familyId, planId }: { familyId: string; planId: string | null }) =>
+      api.put(`/admin/families/${familyId}/plan`, { planId }),
+    onSuccess: () => {
+      toast.success('Đã đổi gói')
+      qc.invalidateQueries({ queryKey: ['admin-families'] })
+    },
+    onError: () => toast.error('Không thể đổi gói'),
+  })
+
   return (
     <div>
       <Topbar title="Admin Dashboard" />
       <div className="p-6 space-y-6">
+        {/* Quick links */}
+        <div className="flex gap-2">
+          <Link href="/admin/plans">
+            <Button variant="outline" className="gap-2">
+              <Crown className="w-4 h-4 text-amber-500" />
+              Quản lý gói thuê bao
+            </Button>
+          </Link>
+        </div>
+
         {/* Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <Card>
@@ -84,10 +112,21 @@ export default function AdminPage() {
                   <th className="text-left py-2">Ngày tạo</th>
                 </tr></thead>
                 <tbody>
-                  {families.map((f: { id: string; name: string; plan: string; createdAt: string; _count: { members: number } }) => (
+                  {families.map((f: { id: string; name: string; plan: string; planId: string | null; subscriptionPlan?: { id: string; name: string } | null; createdAt: string; _count: { members: number } }) => (
                     <tr key={f.id} className="border-b last:border-0">
                       <td className="py-2 font-medium">{f.name}</td>
-                      <td className="py-2"><Badge variant="outline">{f.plan}</Badge></td>
+                      <td className="py-2">
+                        <select
+                          className="text-sm border rounded px-2 py-1 bg-white"
+                          value={f.planId ?? ''}
+                          onChange={(e) => assignPlan.mutate({ familyId: f.id, planId: e.target.value || null })}
+                        >
+                          <option value="">— (Legacy: {f.plan}) —</option>
+                          {plans.filter((p) => p.isActive).map((p) => (
+                            <option key={p.id} value={p.id}>{p.name}</option>
+                          ))}
+                        </select>
+                      </td>
                       <td className="py-2">{f._count.members}</td>
                       <td className="py-2 text-muted-foreground">{formatDate(f.createdAt)}</td>
                     </tr>

@@ -54,6 +54,7 @@ enum NotificationType {
   SOS
   MONEY_REQUEST
   MONEY_RESOLVED
+  CALENDAR_REMINDER
   SYSTEM
 }
 
@@ -102,6 +103,7 @@ model User {
   sentMessages             Message[]
   sosAlerts                SosAlert[]               @relation("SentSOS")
   resolvedSosAlerts        SosAlert[]               @relation("ResolvedSOS")
+  locationShare            LocationShare?
 
   @@index([email])
 }
@@ -123,17 +125,43 @@ model Family {
   id        String   @id @default(cuid())
   name      String
   plan      Plan     @default(FREE)
+  planId    String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  members       FamilyMember[]
-  wallets       Wallet[]
-  tasks         Task[]
-  conversations Conversation[]
-  events        FamilyEvent[]
-  sosAlerts     SosAlert[]
-  moneyRequests MoneyRequest[]
-  albumPhotos   AlbumPhoto[]
+  subscriptionPlan SubscriptionPlan? @relation(fields: [planId], references: [id])
+  members          FamilyMember[]
+  wallets          Wallet[]
+  tasks            Task[]
+  conversations    Conversation[]
+  events           FamilyEvent[]
+  sosAlerts        SosAlert[]
+  moneyRequests    MoneyRequest[]
+  albumPhotos      AlbumPhoto[]
+  locationShares   LocationShare[]
+
+  @@index([planId])
+}
+
+model SubscriptionPlan {
+  id            String   @id @default(cuid())
+  code          String   @unique
+  name          String
+  description   String?
+  price         Decimal  @default(0) @db.Decimal(12, 2)
+  currency      String   @default("VND")
+  billingPeriod String   @default("MONTHLY")
+  maxMembers    Int?
+  maxTasksPerMonth Int?
+  features      Json     @default("[]")
+  isActive      Boolean  @default(true)
+  sortOrder     Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  families Family[]
+
+  @@index([isActive, sortOrder])
 }
 
 model FamilyMember {
@@ -300,10 +328,11 @@ model FamilyEvent {
   description String?
   startDate   DateTime
   endDate     DateTime?
-  allDay      Boolean   @default(false)
-  color       String    @default("#3b82f6")
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  allDay       Boolean   @default(false)
+  color        String    @default("#3b82f6")
+  reminderSent Boolean   @default(false)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   family    Family       @relation(fields: [familyId], references: [id])
   createdBy FamilyMember @relation(fields: [createdById], references: [id])
@@ -354,6 +383,23 @@ model MoneyRequest {
   @@index([familyId, status])
   @@index([requesterId])
   @@index([createdAt])
+}
+
+model LocationShare {
+  id         String   @id @default(cuid())
+  userId     String   @unique
+  familyId   String
+  isSharing  Boolean  @default(false)
+  latitude   Float?
+  longitude  Float?
+  accuracy   Float?
+  updatedAt  DateTime @updatedAt
+  createdAt  DateTime @default(now())
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  family Family @relation(fields: [familyId], references: [id], onDelete: Cascade)
+
+  @@index([familyId, isSharing])
 }
 
 model AlbumPhoto {

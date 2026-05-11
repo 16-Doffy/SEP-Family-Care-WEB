@@ -50,7 +50,7 @@ export default function FamilyPage() {
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-xl font-semibold">{family?.name ?? 'Gia đình của bạn'}</h2>
-            <p className="text-sm text-muted-foreground">Gói: {family?.plan ?? 'FREE'}</p>
+            <p className="text-sm text-muted-foreground">Gói: {family?.subscriptionPlan?.name ?? family?.plan ?? 'FREE'}</p>
           </div>
           {isParent && (
             <Button onClick={() => setInviteOpen(true)}>

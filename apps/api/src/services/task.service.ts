@@ -4,6 +4,7 @@ import { TASK_TRANSITIONS } from '@family-care/shared'
 import type { TaskStatus } from '@family-care/shared'
 import { transfer } from './wallet.service'
 import { createNotification } from './notification.service'
+import { assertCanCreateTask } from './plan-limits.service'
 
 const TASK_INCLUDE = {
   createdBy: {
@@ -52,6 +53,7 @@ export async function createTask(
     assignedToId?: string
   },
 ) {
+  await assertCanCreateTask(familyId)
   const task = await prisma.task.create({
     data: {
       familyId,

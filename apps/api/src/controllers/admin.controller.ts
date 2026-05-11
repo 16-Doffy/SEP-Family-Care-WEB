@@ -17,6 +17,7 @@ export async function getFamilies(_req: Request, res: Response, next: NextFuncti
     const families = await prisma.family.findMany({
       include: {
         _count: { select: { members: true } },
+        subscriptionPlan: true,
         members: {
           include: { user: { select: { email: true, role: true } } },
           take: 1,

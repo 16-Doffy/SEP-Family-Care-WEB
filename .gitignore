@@ -2,45 +2,90 @@
 node_modules/
 .pnp
 .pnp.js
+.pnpm-store/
 
 # Build outputs
 dist/
 build/
 .next/
 out/
+.turbo/
+.swc/
 
-# Environment files
+# Environment files (NEVER commit secrets)
 .env
 .env.local
+.env.development
+.env.development.local
+.env.test
+.env.test.local
 .env.production
+.env.production.local
+.env.*.local
 
 # Logs
 *.log
+logs/
 npm-debug.log*
 pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
 # OS
 .DS_Store
 Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
 
 # Editor
 .vscode/
 .idea/
 *.swp
 *.swo
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
 
-# Docker
-docker-compose.override.local.yml
+# Cache
+.cache/
+.eslintcache
+.parcel-cache/
+.npm/
+.yarn/
 
-# Database
-*.sqlite
-*.db
-
-# Uploads
-apps/api/uploads/
-
-# Prisma
-apps/api/prisma/migrations/
+# Test coverage
+coverage/
+*.lcov
+.nyc_output/
 
 # TypeScript
 *.tsbuildinfo
+next-env.d.ts.bak
+
+# Docker
+docker-compose.override.local.yml
+docker-compose.override.yml
+
+# Database
+*.sqlite
+*.sqlite3
+*.db
+
+# Uploads (user-generated content — don't commit)
+apps/api/uploads/*
+!apps/api/uploads/.gitkeep
+
+# Prisma — using `db push` workflow, migrations not tracked
+apps/api/prisma/migrations/
+
+# Temp files
+*.tmp
+*.temp
+*.bak
+*.orig
+
+# Local-only scripts
+scratch/
+.local/
