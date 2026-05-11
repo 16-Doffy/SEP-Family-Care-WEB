@@ -3,6 +3,8 @@ import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/context/AuthContext'
 import { Sidebar } from '@/components/layout/Sidebar'
+import { SOSButton } from '@/components/sos/SOSButton'
+import { SOSAlertBanner } from '@/components/sos/SOSAlertBanner'
 import { Loader2 } from 'lucide-react'
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
@@ -31,6 +33,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <main className="flex-1 flex flex-col min-w-0">
         {children}
       </main>
+      <SOSButton />
+      <SOSAlertBanner />
     </div>
   )
 }

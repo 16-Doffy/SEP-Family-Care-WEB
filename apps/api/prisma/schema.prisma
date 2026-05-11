@@ -52,6 +52,8 @@ enum NotificationType {
   MEMBER_JOINED
   CHAT_MESSAGE
   SOS
+  MONEY_REQUEST
+  MONEY_RESOLVED
   SYSTEM
 }
 
@@ -64,6 +66,19 @@ enum MessageType {
   TEXT
   IMAGE
   LOCATION
+}
+
+enum SosStatus {
+  ACTIVE
+  ACKNOWLEDGED
+  RESOLVED
+  FALSE_ALARM
+}
+
+enum MoneyRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }
 
 // ─── Models ───────────────────────────────────────────────────────────────────
@@ -85,6 +100,8 @@ model User {
   taskProofs               TaskProof[]
   conversationParticipants ConversationParticipant[]
   sentMessages             Message[]
+  sosAlerts                SosAlert[]               @relation("SentSOS")
+  resolvedSosAlerts        SosAlert[]               @relation("ResolvedSOS")
 
   @@index([email])
 }
@@ -114,6 +131,9 @@ model Family {
   tasks         Task[]
   conversations Conversation[]
   events        FamilyEvent[]
+  sosAlerts     SosAlert[]
+  moneyRequests MoneyRequest[]
+  albumPhotos   AlbumPhoto[]
 }
 
 model FamilyMember {
@@ -129,6 +149,9 @@ model FamilyMember {
   assignedTasks Task[]       @relation("AssignedTasks")
   createdTasks  Task[]       @relation("CreatedTasks")
   createdEvents FamilyEvent[]
+  moneyRequests         MoneyRequest[] @relation("RequestedMoney")
+  resolvedMoneyRequests MoneyRequest[] @relation("ResolvedMoneyRequest")
+  uploadedAlbumPhotos   AlbumPhoto[]
 
   @@index([familyId])
 }
@@ -286,4 +309,64 @@ model FamilyEvent {
   createdBy FamilyMember @relation(fields: [createdById], references: [id])
 
   @@index([familyId, startDate])
+}
+
+model SosAlert {
+  id           String    @id @default(cuid())
+  familyId     String
+  senderId     String
+  latitude     Float?
+  longitude    Float?
+  address      String?
+  message      String?
+  status       SosStatus @default(ACTIVE)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  resolvedAt   DateTime?
+  resolvedById String?
+
+  family     Family @relation(fields: [familyId], references: [id])
+  sender     User   @relation("SentSOS", fields: [senderId], references: [id])
+  resolvedBy User?  @relation("ResolvedSOS", fields: [resolvedById], references: [id])
+
+  @@index([familyId, status])
+  @@index([senderId])
+  @@index([createdAt])
+}
+
+model MoneyRequest {
+  id           String             @id @default(cuid())
+  familyId     String
+  requesterId  String
+  amount       Decimal            @db.Decimal(15, 2)
+  reason       String?
+  status       MoneyRequestStatus @default(PENDING)
+  note         String?
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  resolvedAt   DateTime?
+  resolvedById String?
+
+  family     Family       @relation(fields: [familyId], references: [id])
+  requester  FamilyMember @relation("RequestedMoney", fields: [requesterId], references: [id])
+  resolvedBy FamilyMember? @relation("ResolvedMoneyRequest", fields: [resolvedById], references: [id])
+
+  @@index([familyId, status])
+  @@index([requesterId])
+  @@index([createdAt])
+}
+
+model AlbumPhoto {
+  id         String   @id @default(cuid())
+  familyId   String
+  uploaderId String
+  imageUrl   String
+  caption    String?
+  createdAt  DateTime @default(now())
+
+  family   Family       @relation(fields: [familyId], references: [id])
+  uploader FamilyMember @relation(fields: [uploaderId], references: [id])
+
+  @@index([familyId, createdAt])
+  @@index([uploaderId])
 }

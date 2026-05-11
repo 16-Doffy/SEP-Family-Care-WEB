@@ -7,6 +7,9 @@ import notificationRoutes from './notification.routes'
 import adminRoutes from './admin.routes'
 import chatRoutes from './chat.routes'
 import calendarRoutes from './calendar.routes'
+import sosRoutes from './sos.routes'
+import moneyRequestRoutes from './money-request.routes'
+import albumRoutes from './album.routes'
 
 const router = Router()
 
@@ -18,5 +21,8 @@ router.use('/notifications', notificationRoutes)
 router.use('/admin', adminRoutes)
 router.use('/chat', chatRoutes)
 router.use('/calendar', calendarRoutes)
+router.use('/sos', sosRoutes)
+router.use('/money-requests', moneyRequestRoutes)
+router.use('/album', albumRoutes)
 
 export { router as apiRouter }

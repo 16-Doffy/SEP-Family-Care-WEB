@@ -1,18 +1,21 @@
 'use client'
+import React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, Wallet, CheckSquare, Settings, Users, Shield, LogOut, MessageSquare, CalendarDays } from 'lucide-react'
+import { Home, Wallet, CheckSquare, Settings, Users, Shield, LogOut, MessageSquare, CalendarDays, Siren, Image } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/context/AuthContext'
 import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
 
-const navItems = [
+const navItems: { href: string; label: string; icon: React.ComponentType<{ className?: string }>; danger?: boolean }[] = [
   { href: '/dashboard', label: 'Tổng quan', icon: Home },
   { href: '/wallet', label: 'Ví tiền', icon: Wallet },
   { href: '/tasks', label: 'Nhiệm vụ', icon: CheckSquare },
   { href: '/chat', label: 'Trò chuyện', icon: MessageSquare },
   { href: '/calendar', label: 'Lịch gia đình', icon: CalendarDays },
+  { href: '/album', label: 'Album ảnh', icon: Image },
+  { href: '/sos', label: 'SOS Khẩn cấp', icon: Siren, danger: true },
   { href: '/family', label: 'Gia đình', icon: Users },
   { href: '/settings', label: 'Cài đặt', icon: Settings },
 ]
@@ -54,14 +57,18 @@ export function Sidebar() {
       </div>
 
       <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-        {items.map(({ href, label, icon: Icon }) => (
+        {items.map(({ href, label, icon: Icon, danger }) => (
           <Link
             key={href}
             href={href}
             className={cn(
               'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-              pathname.startsWith(href)
+              pathname.startsWith(href) && danger
+                ? 'bg-red-50 text-red-700'
+                : pathname.startsWith(href)
                 ? 'bg-blue-50 text-blue-700'
+                : danger
+                ? 'text-red-600 hover:bg-red-50 hover:text-red-700'
                 : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900',
             )}
           >
