@@ -11,9 +11,10 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
 import { formatCurrency, formatDateTime } from '@/lib/utils'
-import { Wallet, ArrowUpRight, ArrowDownLeft, Plus, ArrowLeftRight, Loader2, HandCoins, CheckCircle, XCircle, Clock } from 'lucide-react'
+import { Wallet, ArrowUpRight, ArrowDownLeft, Plus, ArrowLeftRight, Loader2, HandCoins, CheckCircle, XCircle, Clock, CreditCard } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import toast from 'react-hot-toast'
+import { TopupDialog } from '@/components/payment/TopupDialog'
 
 interface WalletType { id: string; name: string; type: string; balance: number | string; currency: string; owner?: { user: { displayName: string } } | null }
 interface Transaction { id: string; amount: number; type: string; description?: string; createdAt: string; fromWallet?: { name: string } | null; toWallet?: { name: string } | null }
@@ -35,6 +36,7 @@ export default function WalletPage() {
   const qc = useQueryClient()
   const [transferOpen, setTransferOpen] = useState(false)
   const [depositOpen, setDepositOpen] = useState(false)
+  const [topupOpen, setTopupOpen] = useState(false)
   const [requestOpen, setRequestOpen] = useState(false)
   const [rejectOpen, setRejectOpen] = useState<MoneyRequest | null>(null)
   const [selectedWallet, setSelectedWallet] = useState<WalletType | null>(null)
@@ -151,8 +153,11 @@ export default function WalletPage() {
             )}
             {isParent && (
               <>
+                <Button variant="outline" onClick={() => setTopupOpen(true)} className="gap-2 border-blue-300 text-blue-700 hover:bg-blue-50">
+                  <CreditCard className="w-4 h-4" />Nạp qua cổng
+                </Button>
                 <Button variant="outline" onClick={() => setDepositOpen(true)}>
-                  <Plus className="w-4 h-4 mr-2" />Nạp tiền
+                  <Plus className="w-4 h-4 mr-2" />Nạp thủ công
                 </Button>
                 <Button onClick={() => setTransferOpen(true)}>
                   <ArrowLeftRight className="w-4 h-4 mr-2" />Chuyển tiền
@@ -433,6 +438,9 @@ export default function WalletPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Topup via payment gateway */}
+      <TopupDialog open={topupOpen} onOpenChange={setTopupOpen} wallets={wallets} />
 
       {/* Reject with note modal */}
       <Dialog open={!!rejectOpen} onOpenChange={() => { setRejectOpen(null); setRejectNote('') }}>

@@ -2,7 +2,7 @@
 import React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, Wallet, CheckSquare, Settings, Users, Shield, LogOut, MessageSquare, CalendarDays, Siren, Image, MapPin } from 'lucide-react'
+import { Home, Wallet, CheckSquare, Settings, Users, Shield, LogOut, MessageSquare, CalendarDays, Siren, Image, MapPin, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/context/AuthContext'
 import { useRouter } from 'next/navigation'
@@ -13,6 +13,7 @@ const navItems: { href: string; label: string; icon: React.ComponentType<{ class
   { href: '/wallet', label: 'Ví tiền', icon: Wallet },
   { href: '/tasks', label: 'Nhiệm vụ', icon: CheckSquare },
   { href: '/chat', label: 'Trò chuyện', icon: MessageSquare },
+  { href: '/ai-chat', label: 'Trợ lý AI', icon: Sparkles },
   { href: '/calendar', label: 'Lịch gia đình', icon: CalendarDays },
   { href: '/album', label: 'Album ảnh', icon: Image },
   { href: '/location', label: 'Vị trí gia đình', icon: MapPin },

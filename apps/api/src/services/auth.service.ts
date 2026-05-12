@@ -128,9 +128,9 @@ export async function refreshTokens(oldRefreshToken: string) {
 
   const tokens = generateTokens(user.id, user.email, user.role, familyId, memberId)
 
-  // Rotate refresh token
+  // Rotate refresh token — deleteMany avoids P2025 if token was already deleted by a concurrent request
   await prisma.$transaction([
-    prisma.refreshToken.delete({ where: { token: oldRefreshToken } }),
+    prisma.refreshToken.deleteMany({ where: { token: oldRefreshToken } }),
     prisma.refreshToken.create({
       data: {
         token: tokens.refreshToken,
@@ -175,11 +175,16 @@ function generateTokens(
 }
 
 async function saveRefreshToken(userId: string, token: string) {
-  await prisma.refreshToken.create({
-    data: {
-      token,
-      userId,
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-    },
-  })
+  await prisma.$transaction([
+    prisma.refreshToken.deleteMany({
+      where: { userId, expiresAt: { lt: new Date() } },
+    }),
+    prisma.refreshToken.create({
+      data: {
+        token,
+        userId,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      },
+    }),
+  ])
 }

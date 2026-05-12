@@ -15,7 +15,7 @@ export const albumUpload = multer({
   }),
   limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: (_req, file, cb) =>
-    cb(null, /jpeg|jpg|png|gif|webp/.test(path.extname(file.originalname).toLowerCase())),
+    cb(null, /jpeg|jpg|png|gif|webp|jfif|jpe|heic|heif|avif|bmp|tiff|tif/.test(path.extname(file.originalname).toLowerCase())),
 })
 
 export async function uploadPhotos(req: Request, res: Response, next: NextFunction) {

@@ -59,11 +59,17 @@ export default function AdminPage() {
       <Topbar title="Admin Dashboard" />
       <div className="p-6 space-y-6">
         {/* Quick links */}
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <Link href="/admin/plans">
             <Button variant="outline" className="gap-2">
               <Crown className="w-4 h-4 text-amber-500" />
               Quản lý gói thuê bao
+            </Button>
+          </Link>
+          <Link href="/admin/revenue">
+            <Button variant="outline" className="gap-2">
+              <Activity className="w-4 h-4 text-green-600" />
+              Thống kê doanh thu
             </Button>
           </Link>
         </div>

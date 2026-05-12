@@ -79,9 +79,16 @@ export default function AlbumPage() {
     onError: () => toast.error('Xóa thất bại'),
   })
 
+  const IMAGE_EXTS = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp', 'jfif', 'jpe', 'heic', 'heif', 'avif', 'bmp', 'tiff', 'tif'])
+  const isImageFile = (f: File) => {
+    if (f.type.startsWith('image/')) return true
+    const ext = f.name.split('.').pop()?.toLowerCase() ?? ''
+    return IMAGE_EXTS.has(ext)
+  }
+
   const handleFiles = (files: FileList | null) => {
     if (!files) return
-    const arr = Array.from(files).filter((f) => f.type.startsWith('image/')).slice(0, 10)
+    const arr = Array.from(files).filter(isImageFile).slice(0, 10)
     setSelectedFiles(arr)
     if (arr.length > 0) setUploadOpen(true)
   }
@@ -117,7 +124,7 @@ export default function AlbumPage() {
           <input
             ref={fileInputRef}
             type="file"
-            accept="image/*"
+            accept="image/*,.jfif,.jpe,.heic,.heif,.avif,.bmp,.tiff,.tif"
             multiple
             className="hidden"
             onChange={(e) => handleFiles(e.target.files)}

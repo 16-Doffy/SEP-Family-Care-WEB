@@ -13,8 +13,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { getInitials } from '@/lib/utils'
-import { UserPlus, Copy, Loader2 } from 'lucide-react'
+import { UserPlus, Copy, Loader2, Crown } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { UpgradePlanDialog } from '@/components/payment/UpgradePlanDialog'
 
 export default function FamilyPage() {
   const { user } = useAuth()
@@ -22,6 +23,7 @@ export default function FamilyPage() {
   const [inviteOpen, setInviteOpen] = useState(false)
   const [inviteCode, setInviteCode] = useState('')
   const [inviteRole, setInviteRole] = useState<'PARENT' | 'CHILD'>('CHILD')
+  const [upgradeOpen, setUpgradeOpen] = useState(false)
 
   const { data: family } = useQuery({
     queryKey: ['family'],
@@ -50,13 +52,30 @@ export default function FamilyPage() {
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-xl font-semibold">{family?.name ?? 'Gia đình của bạn'}</h2>
-            <p className="text-sm text-muted-foreground">Gói: {family?.subscriptionPlan?.name ?? family?.plan ?? 'FREE'}</p>
+            <div className="flex items-center gap-2 mt-1">
+              <p className="text-sm text-muted-foreground">Gói: {family?.subscriptionPlan?.name ?? family?.plan ?? 'FREE'}</p>
+              {family?.subscriptionExpiresAt && (
+                <span className="text-xs text-muted-foreground">
+                  · Hết hạn: {new Date(family.subscriptionExpiresAt).toLocaleDateString('vi-VN')}
+                </span>
+              )}
+              {family?.subscriptionStatus === 'EXPIRED' && (
+                <Badge variant="destructive" className="text-[10px]">Đã hết hạn</Badge>
+              )}
+            </div>
           </div>
-          {isParent && (
-            <Button onClick={() => setInviteOpen(true)}>
-              <UserPlus className="w-4 h-4 mr-2" />Mời thành viên
-            </Button>
-          )}
+          <div className="flex gap-2">
+            {isParent && (
+              <Button variant="outline" onClick={() => setUpgradeOpen(true)} className="gap-2">
+                <Crown className="w-4 h-4 text-amber-500" />Nâng cấp gói
+              </Button>
+            )}
+            {isParent && (
+              <Button onClick={() => setInviteOpen(true)}>
+                <UserPlus className="w-4 h-4 mr-2" />Mời thành viên
+              </Button>
+            )}
+          </div>
         </div>
 
         <Card>
@@ -124,6 +143,12 @@ export default function FamilyPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <UpgradePlanDialog
+        open={upgradeOpen}
+        onOpenChange={setUpgradeOpen}
+        currentPlanId={family?.subscriptionPlan?.id ?? null}
+      />
     </div>
   )
 }
