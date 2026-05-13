@@ -4,8 +4,6 @@ import type { Prisma } from '@prisma/client'
 import { randomBytes } from 'crypto'
 import { assertCanAddMember } from './plan-limits.service'
 
-const INVITE_STORE = new Map<string, { familyId: string; role: string; expiresAt: number }>()
-
 export async function getFamily(familyId: string) {
   return prisma.family.findUniqueOrThrow({
     where: { id: familyId },
@@ -32,11 +30,11 @@ export async function updateFamily(familyId: string, name: string) {
   return prisma.family.update({ where: { id: familyId }, data: { name } })
 }
 
-export function validateInviteCode(code: string) {
-  const invite = INVITE_STORE.get(code)
+export async function validateInviteCode(code: string) {
+  const invite = await prisma.familyInvite.findUnique({ where: { code } })
   if (!invite) throw Errors.NotFound('Invite code')
-  if (invite.expiresAt < Date.now()) {
-    INVITE_STORE.delete(code)
+  if (invite.usedAt) throw Errors.BadRequest('Invite code already used')
+  if (invite.expiresAt.getTime() < Date.now()) {
     throw Errors.BadRequest('Invite code expired')
   }
   return invite
@@ -44,21 +42,19 @@ export function validateInviteCode(code: string) {
 
 export async function generateInviteCode(familyId: string, role: string): Promise<string> {
   const code = randomBytes(16).toString('hex')
-  INVITE_STORE.set(code, {
-    familyId,
-    role,
-    expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000, // 7 days
+  await prisma.familyInvite.create({
+    data: {
+      familyId,
+      code,
+      role: role as 'PARENT' | 'CHILD',
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+    },
   })
   return code
 }
 
 export async function joinFamily(userId: string, code: string) {
-  const invite = INVITE_STORE.get(code)
-  if (!invite) throw Errors.NotFound('Invite code')
-  if (invite.expiresAt < Date.now()) {
-    INVITE_STORE.delete(code)
-    throw Errors.BadRequest('Invite code expired')
-  }
+  const invite = await validateInviteCode(code)
 
   const existingMember = await prisma.familyMember.findUnique({ where: { userId } })
   if (existingMember) throw Errors.Conflict('You are already in a family')
@@ -91,10 +87,13 @@ export async function joinFamily(userId: string, code: string) {
       },
     })
 
+    await tx.familyInvite.update({
+      where: { code },
+      data: { usedAt: new Date() },
+    })
+
     return newMember
   })
-
-  INVITE_STORE.delete(code)
 
   // Auto-join group chats of the family
   try {

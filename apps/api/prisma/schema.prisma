@@ -163,9 +163,25 @@ model Family {
   albumPhotos      AlbumPhoto[]
   locationShares   LocationShare[]
   payments         Payment[]
+  invites          FamilyInvite[]
 
   @@index([planId])
   @@index([subscriptionStatus, subscriptionExpiresAt])
+}
+
+model FamilyInvite {
+  id        String    @id @default(cuid())
+  code      String    @unique
+  familyId  String
+  role      Role
+  usedAt    DateTime?
+  expiresAt DateTime
+  createdAt DateTime  @default(now())
+
+  family Family @relation(fields: [familyId], references: [id], onDelete: Cascade)
+
+  @@index([familyId])
+  @@index([code, expiresAt, usedAt])
 }
 
 model SubscriptionPlan {

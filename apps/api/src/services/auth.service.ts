@@ -23,7 +23,7 @@ export async function register(input: RegisterInput) {
   // --- Flow 1: Register with invite code (join existing family) ---
   if (input.inviteCode) {
     // Validate invite before creating user to fail fast
-    validateInviteCode(input.inviteCode)
+    await validateInviteCode(input.inviteCode)
 
     const user = await prisma.user.create({
       data: { email: input.email, passwordHash, displayName: input.displayName, role: 'CHILD' },
