@@ -1,5 +1,6 @@
 import { prisma } from '../config/database'
 import { Errors } from '../utils/errors'
+import type { Prisma } from '@prisma/client'
 
 const MESSAGE_SELECT = {
   id: true,
@@ -123,7 +124,7 @@ export async function sendMessage(input: {
         senderId: input.senderId,
         type: input.type,
         content: input.content,
-        metadata: input.metadata ?? {},
+        metadata: (input.metadata ?? {}) as Prisma.InputJsonObject,
       },
       select: MESSAGE_SELECT,
     }),

@@ -1,6 +1,7 @@
 import express from 'express'
 import cors from 'cors'
 import helmet from 'helmet'
+import rateLimit from 'express-rate-limit'
 import path from 'path'
 import { createServer } from 'http'
 import { initSocket } from './config/socket'
@@ -24,6 +25,20 @@ export function createApp() {
   }))
   app.use(express.json())
   app.use(express.urlencoded({ extended: true }))
+
+  app.use('/api/auth', rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 30,
+    standardHeaders: true,
+    legacyHeaders: false,
+  }))
+
+  app.use('/api', rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 500,
+    standardHeaders: true,
+    legacyHeaders: false,
+  }))
 
   // Serve uploaded files
   app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')))

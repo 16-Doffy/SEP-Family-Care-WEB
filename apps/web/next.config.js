@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'standalone',
+  ...(process.env.NEXT_STANDALONE === 'true' ? { output: 'standalone' } : {}),
   images: {
     remotePatterns: [
       { protocol: 'http', hostname: 'localhost' },

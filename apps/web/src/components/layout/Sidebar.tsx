@@ -22,7 +22,7 @@ const navItems: { href: string; label: string; icon: React.ComponentType<{ class
   { href: '/settings', label: 'Cài đặt', icon: Settings },
 ]
 
-const adminItems = [
+const adminItems: { href: string; label: string; icon: React.ComponentType<{ className?: string }>; danger?: boolean }[] = [
   { href: '/admin', label: 'Admin', icon: Shield },
 ]
 

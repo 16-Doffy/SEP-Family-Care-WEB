@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useForm } from 'react-hook-form'
@@ -27,7 +27,7 @@ const step2Schema = z.object({
 type Step1 = z.infer<typeof step1Schema>
 type Step2 = z.infer<typeof step2Schema>
 
-export default function RegisterPage() {
+function RegisterForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const inviteCode = searchParams.get('invite')
@@ -154,5 +154,13 @@ export default function RegisterPage() {
         </p>
       </CardContent>
     </Card>
+  )
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={<Card className="w-full max-w-md shadow-xl"><CardContent className="p-8 text-center text-muted-foreground">Đang tải...</CardContent></Card>}>
+      <RegisterForm />
+    </Suspense>
   )
 }

@@ -7,10 +7,22 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { formatDate } from '@/lib/utils'
-import { Users, Home, Activity, Crown } from 'lucide-react'
+import { Users, Home, Activity, Crown, Server, Database, Download, HardDrive } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 interface AdminPlan { id: string; code: string; name: string; isActive: boolean }
+
+interface SystemHealth {
+  status: string
+  database: string
+  nodeEnv: string
+  platform: string
+  uptimeSeconds: number
+  cpu: { cores: number; loadAverage: number[] }
+  memory: { rss: number; heapUsed: number; heapTotal: number; systemFree: number; systemTotal: number }
+  uploads: { files: number; bytes: number }
+  timestamp: string
+}
 
 export default function AdminPage() {
   const qc = useQueryClient()
@@ -35,6 +47,12 @@ export default function AdminPage() {
     queryFn: () => api.get('/admin/plans?includeInactive=true').then((r) => r.data.plans),
   })
 
+  const { data: health } = useQuery<SystemHealth>({
+    queryKey: ['admin-system-health'],
+    queryFn: () => api.get('/admin/system/health').then((r) => r.data),
+    refetchInterval: 30000,
+  })
+
   const toggleUser = useMutation({
     mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) =>
       api.put(`/admin/users/${id}`, { isActive }),
@@ -54,6 +72,33 @@ export default function AdminPage() {
     onError: () => toast.error('Không thể đổi gói'),
   })
 
+  const exportBackup = async () => {
+    try {
+      const res = await api.get('/admin/backup/export', { responseType: 'blob' })
+      const url = URL.createObjectURL(res.data)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `family-care-backup-${new Date().toISOString().slice(0, 10)}.json`
+      a.click()
+      URL.revokeObjectURL(url)
+      toast.success('Đã xuất backup')
+    } catch {
+      toast.error('Không thể xuất backup')
+    }
+  }
+
+  const formatBytes = (bytes?: number) => {
+    if (!bytes) return '0 B'
+    const units = ['B', 'KB', 'MB', 'GB']
+    let value = bytes
+    let unit = 0
+    while (value >= 1024 && unit < units.length - 1) {
+      value /= 1024
+      unit += 1
+    }
+    return `${value.toFixed(value >= 10 ? 0 : 1)} ${units[unit]}`
+  }
+
   return (
     <div>
       <Topbar title="Admin Dashboard" />
@@ -72,6 +117,10 @@ export default function AdminPage() {
               Thống kê doanh thu
             </Button>
           </Link>
+          <Button variant="outline" className="gap-2" onClick={exportBackup}>
+            <Download className="w-4 h-4 text-blue-600" />
+            Xuất backup
+          </Button>
         </div>
 
         {/* Stats */}
@@ -100,6 +149,45 @@ export default function AdminPage() {
               <div>
                 <p className="text-2xl font-bold">{stats?.activeUsers ?? 0}</p>
                 <p className="text-sm text-muted-foreground">Đang hoạt động</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Card>
+            <CardContent className="pt-6 flex items-center gap-3">
+              <Server className="w-8 h-8 text-indigo-600" />
+              <div>
+                <p className="text-2xl font-bold">{health?.status ?? '...'}</p>
+                <p className="text-sm text-muted-foreground">API status</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6 flex items-center gap-3">
+              <Database className="w-8 h-8 text-emerald-600" />
+              <div>
+                <p className="text-2xl font-bold">{health?.database ?? '...'}</p>
+                <p className="text-sm text-muted-foreground">Database</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6 flex items-center gap-3">
+              <Activity className="w-8 h-8 text-orange-600" />
+              <div>
+                <p className="text-2xl font-bold">{health ? `${health.cpu.cores} cores` : '...'}</p>
+                <p className="text-sm text-muted-foreground">CPU</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6 flex items-center gap-3">
+              <HardDrive className="w-8 h-8 text-slate-600" />
+              <div>
+                <p className="text-2xl font-bold">{formatBytes(health?.uploads.bytes)}</p>
+                <p className="text-sm text-muted-foreground">{health?.uploads.files ?? 0} upload files</p>
               </div>
             </CardContent>
           </Card>

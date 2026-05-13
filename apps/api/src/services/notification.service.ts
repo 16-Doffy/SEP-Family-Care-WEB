@@ -1,5 +1,6 @@
 import { prisma } from '../config/database'
 import type { NotificationType } from '@family-care/shared'
+import type { Prisma } from '@prisma/client'
 
 interface CreateNotificationInput {
   userId: string
@@ -22,7 +23,7 @@ export async function createNotification(input: CreateNotificationInput) {
       type: input.type,
       title: input.title,
       body: input.body,
-      metadata: input.metadata ?? {},
+      metadata: (input.metadata ?? {}) as Prisma.InputJsonObject,
     },
   })
 

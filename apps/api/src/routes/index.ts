@@ -13,6 +13,7 @@ import albumRoutes from './album.routes'
 import locationRoutes from './location.routes'
 import aiRoutes from './ai.routes'
 import paymentRoutes from './payment.routes'
+import subscriptionPlanRoutes from './subscription-plan.routes'
 
 const router = Router()
 
@@ -30,5 +31,6 @@ router.use('/album', albumRoutes)
 router.use('/location', locationRoutes)
 router.use('/ai', aiRoutes)
 router.use('/payments', paymentRoutes)
+router.use('/subscription-plans', subscriptionPlanRoutes)
 
 export { router as apiRouter }

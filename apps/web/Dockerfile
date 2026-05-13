@@ -16,6 +16,11 @@ CMD ["pnpm", "dev"]
 
 # ── Builder ───────────────────────────────────────────────────────────────────
 FROM base AS builder
+# NEXT_PUBLIC_* vars are baked into the bundle at build time
+ARG NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_SOCKET_URL
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_SOCKET_URL=$NEXT_PUBLIC_SOCKET_URL
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml* ./
 COPY apps/api/package.json ./apps/api/
 COPY apps/web/package.json apps/web/.npmrc ./apps/web/

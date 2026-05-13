@@ -9,6 +9,8 @@ const router = Router()
 router.use(authenticate, requireRole('SUPER_ADMIN'))
 
 router.get('/stats', ctrl.getStats)
+router.get('/system/health', ctrl.getSystemHealth)
+router.get('/backup/export', ctrl.exportBackup)
 router.get('/families', ctrl.getFamilies)
 router.get('/users', ctrl.getUsers)
 router.put('/users/:id', ctrl.updateUser)
