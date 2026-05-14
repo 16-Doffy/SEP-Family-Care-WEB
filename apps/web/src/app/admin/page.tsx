@@ -1,3 +1,7 @@
+/**
+ * Trang tổng quan Admin Dashboard — xem thống kê hệ thống, quản lý gia đình và người dùng.
+ * Chỉ dành cho SUPER_ADMIN (đã được bảo vệ bởi AdminLayout).
+ */
 'use client'
 import Link from 'next/link'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -10,8 +14,10 @@ import { formatDate } from '@/lib/utils'
 import { Users, Home, Activity, Crown, Server, Database, Download, HardDrive } from 'lucide-react'
 import toast from 'react-hot-toast'
 
+/** Thông tin gói thuê bao rút gọn dùng trong dropdown gán gói cho gia đình */
 interface AdminPlan { id: string; code: string; name: string; isActive: boolean }
 
+/** Thông tin sức khỏe hệ thống từ API `/admin/system/health` */
 interface SystemHealth {
   status: string
   database: string
@@ -24,6 +30,10 @@ interface SystemHealth {
   timestamp: string
 }
 
+/**
+ * Admin Dashboard — tổng quan hệ thống và công cụ quản lý.
+ * Tự động refetch health check mỗi 30 giây để theo dõi trạng thái server.
+ */
 export default function AdminPage() {
   const qc = useQueryClient()
 
@@ -72,6 +82,10 @@ export default function AdminPage() {
     onError: () => toast.error('Không thể đổi gói'),
   })
 
+  /**
+   * Xuất backup toàn bộ dữ liệu hệ thống dạng JSON.
+   * Dùng kỹ thuật tạo thẻ <a> ảo để trigger download file từ Blob response.
+   */
   const exportBackup = async () => {
     try {
       const res = await api.get('/admin/backup/export', { responseType: 'blob' })
@@ -80,6 +94,7 @@ export default function AdminPage() {
       a.href = url
       a.download = `family-care-backup-${new Date().toISOString().slice(0, 10)}.json`
       a.click()
+      // Giải phóng bộ nhớ sau khi download
       URL.revokeObjectURL(url)
       toast.success('Đã xuất backup')
     } catch {
@@ -87,6 +102,10 @@ export default function AdminPage() {
     }
   }
 
+  /**
+   * Chuyển đổi kích thước byte sang đơn vị dễ đọc (B, KB, MB, GB).
+   * @param bytes - Số byte cần chuyển đổi
+   */
   const formatBytes = (bytes?: number) => {
     if (!bytes) return '0 B'
     const units = ['B', 'KB', 'MB', 'GB']

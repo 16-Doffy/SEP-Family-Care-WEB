@@ -1,7 +1,28 @@
+/**
+ * @module money-request.service
+ * @description Dịch vụ quản lý yêu cầu xin tiền trong gia đình.
+ * Cho phép thành viên gửi yêu cầu xin tiền tới phụ huynh; phụ huynh có thể
+ * duyệt (APPROVED) hoặc từ chối (REJECTED) yêu cầu.
+ *
+ * Khi duyệt, hệ thống tự động thực hiện chuyển khoản từ ví chung (JOINT)
+ * sang ví cá nhân của người yêu cầu thông qua `wallet.service`.
+ */
+
 import { prisma } from '../config/database'
 import { Errors } from '../utils/errors'
 import { transfer } from './wallet.service'
 
+/**
+ * Tạo một yêu cầu xin tiền mới trong gia đình.
+ *
+ * @param input - Thông tin yêu cầu
+ * @param input.familyId - ID của gia đình
+ * @param input.requesterId - ID của `FamilyMember` (không phải `User`) đang gửi yêu cầu
+ * @param input.amount - Số tiền cần xin (phải lớn hơn 0)
+ * @param input.reason - Lý do xin tiền (tùy chọn)
+ * @returns Bản ghi `MoneyRequest` vừa tạo, kèm thông tin người yêu cầu.
+ * @throws {BadRequestError} Nếu số tiền <= 0
+ */
 export async function createMoneyRequest(input: {
   familyId: string
   requesterId: string  // FamilyMember.id
@@ -23,9 +44,18 @@ export async function createMoneyRequest(input: {
   })
 }
 
+/**
+ * Lấy toàn bộ lịch sử yêu cầu xin tiền của một gia đình.
+ * Sắp xếp: các yêu cầu đang chờ (PENDING) lên trước, trong mỗi trạng thái
+ * sắp theo mới nhất. Giới hạn 100 bản ghi để tránh quá tải.
+ *
+ * @param familyId - ID của gia đình cần truy vấn
+ * @returns Mảng `MoneyRequest` kèm thông tin người yêu cầu và người xử lý.
+ */
 export async function getMoneyRequests(familyId: string) {
   return prisma.moneyRequest.findMany({
     where: { familyId },
+    // status 'asc': APPROVED < PENDING < REJECTED theo alphabet → PENDING lên trước
     orderBy: [{ status: 'asc' }, { createdAt: 'desc' }],
     take: 100,
     include: {
@@ -35,6 +65,13 @@ export async function getMoneyRequests(familyId: string) {
   })
 }
 
+/**
+ * Lấy danh sách các yêu cầu xin tiền đang chờ xử lý (PENDING) trong một gia đình.
+ * Thường dùng để hiển thị badge số yêu cầu cần duyệt cho phụ huynh.
+ *
+ * @param familyId - ID của gia đình cần truy vấn
+ * @returns Mảng `MoneyRequest` có trạng thái PENDING, kèm thông tin người yêu cầu.
+ */
 export async function getPendingRequests(familyId: string) {
   return prisma.moneyRequest.findMany({
     where: { familyId, status: 'PENDING' },
@@ -45,6 +82,28 @@ export async function getPendingRequests(familyId: string) {
   })
 }
 
+/**
+ * Xử lý (duyệt hoặc từ chối) một yêu cầu xin tiền.
+ *
+ * Luồng khi APPROVED:
+ * 1. Tìm ví chung (JOINT) của gia đình và ví cá nhân của người yêu cầu.
+ * 2. Kiểm tra số dư ví chung có đủ không.
+ * 3. Thực hiện chuyển tiền từ ví chung sang ví cá nhân.
+ * 4. Cập nhật trạng thái yêu cầu thành APPROVED.
+ *
+ * Chỉ xử lý được yêu cầu đang ở trạng thái PENDING — nếu đã xử lý rồi sẽ báo lỗi.
+ *
+ * @param input - Thông tin xử lý yêu cầu
+ * @param input.id - ID của yêu cầu cần xử lý
+ * @param input.familyId - ID của gia đình (để xác nhận quyền truy cập)
+ * @param input.status - Trạng thái mới: `'APPROVED'` để duyệt, `'REJECTED'` để từ chối
+ * @param input.resolvedById - ID của `FamilyMember` (phụ huynh) đang xử lý
+ * @param input.note - Ghi chú kèm theo khi từ chối (tùy chọn)
+ * @returns Bản ghi `MoneyRequest` đã cập nhật, kèm thông tin người yêu cầu và người xử lý.
+ * @throws {NotFoundError} Nếu yêu cầu không tồn tại, không thuộc gia đình, hoặc đã được xử lý
+ * @throws {NotFoundError} Nếu ví chung hoặc ví cá nhân không tồn tại (khi APPROVED)
+ * @throws {InsufficientFundsError} Nếu số dư ví chung không đủ (khi APPROVED)
+ */
 export async function resolveMoneyRequest(input: {
   id: string
   familyId: string
@@ -52,6 +111,7 @@ export async function resolveMoneyRequest(input: {
   resolvedById: string  // FamilyMember.id
   note?: string
 }) {
+  // Chỉ tìm yêu cầu đang PENDING để tránh xử lý lại yêu cầu đã được giải quyết
   const request = await prisma.moneyRequest.findFirst({
     where: { id: input.id, familyId: input.familyId, status: 'PENDING' },
     include: {
@@ -61,7 +121,7 @@ export async function resolveMoneyRequest(input: {
   if (!request) throw Errors.NotFound('Yêu cầu không tồn tại hoặc đã được xử lý')
 
   if (input.status === 'APPROVED') {
-    // Find joint wallet
+    // Tìm ví chung của gia đình để trừ tiền ra
     const jointWallet = await prisma.wallet.findFirst({
       where: { familyId: input.familyId, type: 'JOINT' },
     })
@@ -70,11 +130,12 @@ export async function resolveMoneyRequest(input: {
     const personalWallet = request.requester.wallet
     if (!personalWallet) throw Errors.NotFound('Ví cá nhân của người yêu cầu')
 
+    // Chuyển về Number vì Prisma trả về Decimal cho trường tiền tệ
     const balance = Number(jointWallet.balance)
     const amount = Number(request.amount)
     if (balance < amount) throw Errors.InsufficientFunds()
 
-    // Execute transfer
+    // Thực hiện chuyển khoản; hàm transfer xử lý ghi transaction log và cập nhật số dư
     await transfer({
       fromWalletId: jointWallet.id,
       toWalletId: personalWallet.id,
@@ -84,6 +145,7 @@ export async function resolveMoneyRequest(input: {
     })
   }
 
+  // Cập nhật trạng thái sau khi chuyển tiền thành công (hoặc khi từ chối)
   return prisma.moneyRequest.update({
     where: { id: input.id },
     data: {
@@ -99,6 +161,15 @@ export async function resolveMoneyRequest(input: {
   })
 }
 
+/**
+ * Lấy danh sách `userId` của tất cả phụ huynh trong một gia đình.
+ * Dùng để gửi thông báo đến tất cả phụ huynh khi có yêu cầu xin tiền mới.
+ *
+ * Lọc theo vai trò `PARENT` và `SUPER_ADMIN` vì cả hai đều có quyền duyệt yêu cầu.
+ *
+ * @param familyId - ID của gia đình cần lấy danh sách phụ huynh
+ * @returns Mảng `userId` (string[]) của các thành viên có vai trò phụ huynh.
+ */
 export async function getParentUserIds(familyId: string): Promise<string[]> {
   const members = await prisma.familyMember.findMany({
     where: { familyId, user: { role: { in: ['PARENT', 'SUPER_ADMIN'] } } },

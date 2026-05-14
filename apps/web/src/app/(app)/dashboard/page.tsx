@@ -1,3 +1,7 @@
+/**
+ * Trang tổng quan (Dashboard) của ứng dụng Family Care.
+ * Hiển thị tóm tắt: số dư ví, nhiệm vụ, thành viên gia đình và nhiệm vụ gần đây.
+ */
 'use client'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/lib/api'
@@ -9,25 +13,35 @@ import { Badge } from '@/components/ui/badge'
 import { formatCurrency, getInitials } from '@/lib/utils'
 import { Wallet, CheckSquare, Users, TrendingUp } from 'lucide-react'
 
+/**
+ * Trang Dashboard — điểm đến đầu tiên sau khi đăng nhập.
+ * Chỉ gọi API khi user đã có familyMember (đã tham gia gia đình),
+ * tránh lỗi khi user vừa đăng ký chưa có gia đình.
+ */
 export default function DashboardPage() {
   const { user } = useAuth()
 
+  // Lấy thông tin gia đình bao gồm ví và danh sách thành viên
   const { data: family } = useQuery({
     queryKey: ['family'],
     queryFn: () => api.get('/family').then((r) => r.data),
     enabled: !!user?.familyMember,
   })
 
+  // Lấy danh sách nhiệm vụ để tính số liệu tóm tắt
   const { data: tasksData } = useQuery({
     queryKey: ['tasks-summary'],
     queryFn: () => api.get('/tasks').then((r) => r.data),
     enabled: !!user?.familyMember,
   })
 
+  // Ví chung của gia đình thường là ví đầu tiên trong danh sách
   const jointWallet = family?.wallets?.[0]
   const members = family?.members ?? []
   const tasks = tasksData ?? []
+  // Đếm nhiệm vụ đang chờ phụ huynh duyệt
   const pendingApprovals = tasks.filter((t: { status: string }) => t.status === 'SUBMITTED').length
+  // Đếm nhiệm vụ đang hoạt động (chưa làm hoặc đang làm)
   const activeTasks = tasks.filter((t: { status: string }) => ['PENDING', 'IN_PROGRESS'].includes(t.status)).length
 
   return (

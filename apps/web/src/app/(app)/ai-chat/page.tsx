@@ -1,3 +1,7 @@
+/**
+ * Trang trợ lý AI gia đình — chat với AI về tài chính, nhiệm vụ và lịch.
+ * Sử dụng optimistic update để hiển thị tin nhắn người dùng ngay lập tức trước khi AI trả lời.
+ */
 'use client'
 import { useEffect, useRef, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -10,6 +14,7 @@ import { Sparkles, Send, Trash2, Loader2, Bot, User as UserIcon } from 'lucide-r
 import toast from 'react-hot-toast'
 import { cn } from '@/lib/utils'
 
+/** Tin nhắn trong cuộc hội thoại AI */
 interface AiMessage {
   id: string
   role: 'user' | 'assistant'
@@ -18,12 +23,15 @@ interface AiMessage {
   createdAt: string
 }
 
+/** Phản hồi từ API lịch sử chat AI */
 interface HistoryResponse {
   conversation: { id: string }
   messages: AiMessage[]
+  /** Provider hiện tại: 'openai' nếu có API key, 'mock' khi chạy offline */
   provider: 'openai' | 'mock'
 }
 
+/** Gợi ý câu hỏi nhanh hiển thị khi chưa có tin nhắn nào */
 const SUGGESTIONS = [
   'Số dư ví của tôi là bao nhiêu?',
   'Tôi có bao nhiêu nhiệm vụ chưa làm?',
@@ -31,11 +39,17 @@ const SUGGESTIONS = [
   'Cho tôi vài mẹo tiết kiệm cho gia đình',
 ]
 
+/**
+ * Trang AI Chat với optimistic UI.
+ * Khi gửi tin nhắn, hiển thị ngay tin của user rồi chờ AI phản hồi.
+ * Nếu AI lỗi, rollback về state trước để tránh tin nhắn rác.
+ */
 export default function AiChatPage() {
   const qc = useQueryClient()
   const [input, setInput] = useState('')
   const scrollRef = useRef<HTMLDivElement>(null)
 
+  // Lấy lịch sử hội thoại AI khi trang tải
   const { data, isLoading } = useQuery<HistoryResponse>({
     queryKey: ['ai-history'],
     queryFn: () => api.get('/ai/history').then((r) => r.data),
@@ -43,7 +57,12 @@ export default function AiChatPage() {
 
   const sendMut = useMutation({
     mutationFn: (content: string) => api.post('/ai/message', { content }).then((r) => r.data),
+    /**
+     * Optimistic update: thêm tin nhắn người dùng vào cache ngay lập tức
+     * để giao diện phản hồi nhanh, không cần chờ server.
+     */
     onMutate: async (content) => {
+      // Hủy các query đang chạy để tránh ghi đè optimistic update
       await qc.cancelQueries({ queryKey: ['ai-history'] })
       const previous = qc.getQueryData<HistoryResponse>(['ai-history'])
       const optimisticUser: AiMessage = {
@@ -58,9 +77,11 @@ export default function AiChatPage() {
       )
       return { previous }
     },
+    // Sau khi thành công, fetch lại để có tin nhắn AI thật từ server
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['ai-history'] })
     },
+    // Nếu thất bại, khôi phục state cũ (rollback optimistic update)
     onError: (_err, _vars, ctx) => {
       if (ctx?.previous) qc.setQueryData(['ai-history'], ctx.previous)
       toast.error('AI không phản hồi được, thử lại nhé')
@@ -79,6 +100,11 @@ export default function AiChatPage() {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
   }, [data?.messages.length, sendMut.isPending])
 
+  /**
+   * Gửi tin nhắn tới AI.
+   * Chấp nhận nội dung trực tiếp (khi click suggestion) hoặc dùng giá trị ô input.
+   * @param content - Nội dung tin nhắn (tùy chọn, mặc định dùng state `input`)
+   */
   const handleSend = (content?: string) => {
     const text = (content ?? input).trim()
     if (!text || sendMut.isPending) return

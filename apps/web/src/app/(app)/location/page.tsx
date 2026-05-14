@@ -1,3 +1,7 @@
+/**
+ * Trang chia sẻ vị trí thời gian thực trong gia đình.
+ * Sử dụng Geolocation API và Socket.IO để cập nhật và nhận vị trí từ các thành viên.
+ */
 'use client'
 import { useEffect, useMemo, useState } from 'react'
 import dynamic from 'next/dynamic'
@@ -13,6 +17,10 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import toast from 'react-hot-toast'
 import type { MapMarker } from '@/components/location/MapView'
 
+/**
+ * MapView được import động (dynamic) với ssr: false vì Leaflet/bản đồ
+ * không tương thích với server-side rendering (sử dụng window, document).
+ */
 const MapView = dynamic(() => import('@/components/location/MapView').then((m) => m.MapView), {
   ssr: false,
   loading: () => (
@@ -22,7 +30,10 @@ const MapView = dynamic(() => import('@/components/location/MapView').then((m) =
   ),
 })
 
+/** Thông tin người dùng đang chia sẻ vị trí */
 interface ShareUser { id: string; displayName: string; avatarUrl?: string | null }
+
+/** Bản ghi chia sẻ vị trí của một thành viên */
 interface Share {
   id: string
   userId: string
@@ -35,8 +46,13 @@ interface Share {
   user: ShareUser
 }
 
+/** Khoảng thời gian tối thiểu (ms) giữa hai lần gửi vị trí lên server để tránh spam API */
 const UPDATE_INTERVAL_MS = 15_000
 
+/**
+ * Trang chia sẻ vị trí — hiển thị bản đồ và danh sách thành viên đang chia sẻ.
+ * Kết hợp polling REST API (30s) và Socket.IO realtime để cập nhật vị trí.
+ */
 export default function LocationPage() {
   const { user } = useAuth()
   const socket = useSocket()
@@ -59,16 +75,22 @@ export default function LocationPage() {
     enabled: !!user?.familyMember,
   })
 
+  // Đồng bộ trạng thái sharing từ server khi trang tải lần đầu
   useEffect(() => {
     if (myShare?.isSharing) setIsSharing(true)
   }, [myShare])
 
-  // Listen to socket for realtime peer updates
+  /**
+   * Lắng nghe sự kiện `location:update` từ Socket.IO để cập nhật vị trí
+   * của các thành viên khác trong gia đình theo thời gian thực.
+   * Cập nhật trực tiếp React Query cache thay vì gọi API để giảm độ trễ.
+   */
   useEffect(() => {
     if (!socket) return
     const handler = ({ share }: { share: Share }) => {
       qc.setQueryData<Share[]>(['family-locations'], (prev) => {
         const list = prev ?? []
+        // Xóa bản ghi cũ của user rồi thêm bản ghi mới vào đầu danh sách
         const filtered = list.filter((s) => s.userId !== share.userId)
         return share.isSharing && share.latitude != null && share.longitude != null
           ? [share, ...filtered]
@@ -79,7 +101,11 @@ export default function LocationPage() {
     return () => { socket.off('location:update', handler) }
   }, [socket, qc])
 
-  // Geolocation watcher — runs when sharing is ON
+  /**
+   * Watcher theo dõi vị trí GPS liên tục khi chia sẻ được bật.
+   * Dùng throttle (UPDATE_INTERVAL_MS) để không gửi quá nhiều request.
+   * Cleanup bằng clearWatch khi isSharing tắt hoặc component unmount.
+   */
   useEffect(() => {
     if (!isSharing) return
     if (typeof navigator === 'undefined' || !navigator.geolocation) {
@@ -90,6 +116,7 @@ export default function LocationPage() {
     let lastSent = 0
     const pushUpdate = async (pos: GeolocationPosition) => {
       const now = Date.now()
+      // Throttle: chỉ gửi tối đa 1 lần mỗi UPDATE_INTERVAL_MS
       if (now - lastSent < UPDATE_INTERVAL_MS) return
       lastSent = now
       try {
@@ -114,12 +141,17 @@ export default function LocationPage() {
     return () => navigator.geolocation.clearWatch(watchId)
   }, [isSharing])
 
+  /**
+   * Bật/tắt chia sẻ vị trí.
+   * Khi bật: yêu cầu quyền định vị, gửi vị trí ngay lập tức rồi mới cập nhật state.
+   * Khi tắt: gọi API patch để tắt sharing, không cần vị trí hiện tại.
+   */
   const handleToggle = async () => {
     const next = !isSharing
     setToggleLoading(true)
     try {
       if (next) {
-        // Ask geolocation permission first; user may decline.
+        // Yêu cầu quyền định vị trước; người dùng có thể từ chối
         if (!navigator.geolocation) {
           toast.error('Trình duyệt không hỗ trợ định vị')
           return
@@ -151,6 +183,10 @@ export default function LocationPage() {
     }
   }
 
+  /**
+   * Chuyển đổi danh sách Share thành mảng MapMarker cho component bản đồ.
+   * useMemo tránh tính toán lại mỗi khi render trừ khi shares hoặc userId thay đổi.
+   */
   const markers = useMemo<MapMarker[]>(
     () =>
       shares

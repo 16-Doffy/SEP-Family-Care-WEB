@@ -1,3 +1,7 @@
+/**
+ * Trang SOS khẩn cấp — xem và xử lý các cảnh báo SOS trong gia đình.
+ * Tự động refetch mỗi 15 giây để cập nhật trạng thái khẩn cấp mới nhất.
+ */
 'use client'
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -10,6 +14,7 @@ import { cn } from '@/lib/utils'
 import toast from 'react-hot-toast'
 import Link from 'next/link'
 
+/** Kiểu dữ liệu cảnh báo SOS trả về từ API */
 interface SosAlert {
   id: string
   senderId: string
@@ -24,6 +29,7 @@ interface SosAlert {
   resolvedBy?: { id: string; displayName: string } | null
 }
 
+/** Cấu hình màu sắc và nhãn cho từng trạng thái SOS */
 const STATUS_CONFIG = {
   ACTIVE: { label: 'Đang khẩn cấp', color: 'bg-red-100 text-red-700 border-red-200', dot: 'bg-red-500 animate-pulse' },
   ACKNOWLEDGED: { label: 'Đang xử lý', color: 'bg-orange-100 text-orange-700 border-orange-200', dot: 'bg-orange-500' },
@@ -31,6 +37,11 @@ const STATUS_CONFIG = {
   FALSE_ALARM: { label: 'Báo động giả', color: 'bg-gray-100 text-gray-600 border-gray-200', dot: 'bg-gray-400' },
 }
 
+/**
+ * Badge hiển thị trạng thái SOS với màu sắc tương ứng.
+ * ACTIVE có hiệu ứng nhấp nháy (animate-pulse) để thu hút chú ý.
+ * @param status - Trạng thái của cảnh báo SOS
+ */
 function StatusBadge({ status }: { status: SosAlert['status'] }) {
   const cfg = STATUS_CONFIG[status]
   return (
@@ -41,11 +52,16 @@ function StatusBadge({ status }: { status: SosAlert['status'] }) {
   )
 }
 
+/**
+ * Trang SOS — lịch sử và trạng thái các cảnh báo khẩn cấp.
+ * refetchInterval = 15 giây để luôn có dữ liệu mới nhất mà không cần reload trang.
+ */
 export default function SOSPage() {
   const { user } = useAuth()
   const qc = useQueryClient()
   const [filter, setFilter] = useState<'active' | 'all'>('active')
 
+  // Chuyển endpoint API dựa vào bộ lọc: chỉ khẩn cấp hoặc toàn bộ lịch sử
   const { data, isLoading } = useQuery<{ alerts: SosAlert[] }>({
     queryKey: ['sos', filter],
     queryFn: () => api.get(filter === 'active' ? '/sos/active' : '/sos').then((r) => r.data),

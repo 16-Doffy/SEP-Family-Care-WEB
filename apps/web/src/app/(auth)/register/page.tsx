@@ -1,3 +1,8 @@
+/**
+ * Trang đăng ký tài khoản mới cho Family Care.
+ * Hỗ trợ 2 luồng: đăng ký thông thường (tạo gia đình mới, 2 bước)
+ * hoặc đăng ký qua link mời (tham gia gia đình có sẵn, 1 bước).
+ */
 'use client'
 import { Suspense, useState } from 'react'
 import Link from 'next/link'
@@ -14,12 +19,14 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Loader2, ChevronRight, ChevronLeft, Users } from 'lucide-react'
 
+/** Schema Zod cho bước 1: thông tin cá nhân của người dùng */
 const step1Schema = z.object({
   displayName: z.string().min(2, 'Tên phải có ít nhất 2 ký tự'),
   email: z.string().email('Email không hợp lệ'),
   password: z.string().min(6, 'Mật khẩu ít nhất 6 ký tự'),
 })
 
+/** Schema Zod cho bước 2: đặt tên gia đình mới (chỉ dùng khi không có invite code) */
 const step2Schema = z.object({
   familyName: z.string().min(2, 'Tên gia đình phải có ít nhất 2 ký tự'),
 })
@@ -27,18 +34,30 @@ const step2Schema = z.object({
 type Step1 = z.infer<typeof step1Schema>
 type Step2 = z.infer<typeof step2Schema>
 
+/**
+ * Form đăng ký thực tế. Được bọc trong Suspense vì sử dụng `useSearchParams`
+ * (hook này yêu cầu Suspense boundary trong Next.js App Router).
+ */
 function RegisterForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  // Lấy invite code từ query string (?invite=...) nếu có
   const inviteCode = searchParams.get('invite')
   const { setAuth } = useAuth()
   const [step, setStep] = useState(1)
+  // Lưu dữ liệu bước 1 để gộp vào request ở bước 2
   const [step1Data, setStep1Data] = useState<Step1 | null>(null)
   const [loading, setLoading] = useState(false)
 
   const form1 = useForm<Step1>({ resolver: zodResolver(step1Schema) })
   const form2 = useForm<Step2>({ resolver: zodResolver(step2Schema) })
 
+  /**
+   * Xử lý hoàn thành bước 1.
+   * Nếu có invite code: đăng ký ngay 1 bước và tham gia gia đình.
+   * Nếu không: chuyển sang bước 2 để nhập tên gia đình.
+   * @param data - Thông tin cá nhân từ form bước 1
+   */
   const onStep1 = async (data: Step1) => {
     if (inviteCode) {
       // Flow invite: đăng ký 1 bước, tham gia gia đình có sẵn
@@ -61,6 +80,12 @@ function RegisterForm() {
     }
   }
 
+  /**
+   * Xử lý hoàn thành bước 2.
+   * Gộp dữ liệu từ bước 1 và bước 2, gửi lên API tạo tài khoản + gia đình mới.
+   * Role mặc định là PARENT vì người tạo gia đình luôn là phụ huynh.
+   * @param data - Tên gia đình từ form bước 2
+   */
   const onStep2 = async (data: Step2) => {
     if (!step1Data) return
     setLoading(true)
@@ -157,6 +182,10 @@ function RegisterForm() {
   )
 }
 
+/**
+ * Trang đăng ký — bọc RegisterForm trong Suspense để xử lý
+ * việc đọc search params phía client một cách an toàn theo App Router.
+ */
 export default function RegisterPage() {
   return (
     <Suspense fallback={<Card className="w-full max-w-md shadow-xl"><CardContent className="p-8 text-center text-muted-foreground">Đang tải...</CardContent></Card>}>

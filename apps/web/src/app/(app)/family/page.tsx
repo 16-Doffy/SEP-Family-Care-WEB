@@ -1,3 +1,7 @@
+/**
+ * Trang quản lý gia đình: xem danh sách thành viên, mời người mới và nâng cấp gói.
+ * Chỉ phụ huynh mới có thể tạo link mời và nâng cấp gói đăng ký.
+ */
 'use client'
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -17,10 +21,16 @@ import { UserPlus, Copy, Loader2, Crown } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { UpgradePlanDialog } from '@/components/payment/UpgradePlanDialog'
 
+/**
+ * Trang gia đình — quản lý thành viên và gói đăng ký.
+ * inviteCode được lưu trong state để hiển thị link mời sau khi tạo,
+ * thay vì gọi lại API mỗi lần mở dialog.
+ */
 export default function FamilyPage() {
   const { user } = useAuth()
   const qc = useQueryClient()
   const [inviteOpen, setInviteOpen] = useState(false)
+  // Code mời được trả về từ API sau khi phụ huynh nhấn "Tạo link mời"
   const [inviteCode, setInviteCode] = useState('')
   const [inviteRole, setInviteRole] = useState<'PARENT' | 'CHILD'>('CHILD')
   const [upgradeOpen, setUpgradeOpen] = useState(false)
@@ -39,6 +49,10 @@ export default function FamilyPage() {
   const isParent = user?.role === 'PARENT' || user?.role === 'SUPER_ADMIN'
   const members = family?.members ?? []
 
+  /**
+   * Sao chép link mời vào clipboard.
+   * Link bao gồm invite code dạng query param để trang đăng ký tự nhận diện.
+   */
   const copyInviteLink = () => {
     const link = `${window.location.origin}/register?invite=${inviteCode}`
     navigator.clipboard.writeText(link)

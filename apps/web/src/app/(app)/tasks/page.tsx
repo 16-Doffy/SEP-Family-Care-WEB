@@ -1,3 +1,7 @@
+/**
+ * Trang quản lý nhiệm vụ gia đình theo dạng bảng Kanban.
+ * Phụ huynh có thể tạo, giao và duyệt nhiệm vụ; con cái có thể bắt đầu và nộp bằng chứng.
+ */
 'use client'
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -17,6 +21,10 @@ import { formatCurrency, formatDate, getInitials, getStatusColor, getStatusLabel
 import { Plus, Trophy, Calendar, Loader2, CheckCircle, XCircle, Play, Upload } from 'lucide-react'
 import toast from 'react-hot-toast'
 
+/**
+ * Định nghĩa các cột Kanban tương ứng với trạng thái nhiệm vụ.
+ * Thứ tự phản ánh vòng đời: PENDING → IN_PROGRESS → SUBMITTED → APPROVED.
+ */
 const COLUMNS = [
   { status: 'PENDING', label: 'Chờ làm', color: 'bg-yellow-50 border-yellow-200' },
   { status: 'IN_PROGRESS', label: 'Đang làm', color: 'bg-blue-50 border-blue-200' },
@@ -24,6 +32,7 @@ const COLUMNS = [
   { status: 'APPROVED', label: 'Hoàn thành', color: 'bg-green-50 border-green-200' },
 ]
 
+/** Kiểu dữ liệu nhiệm vụ trả về từ API */
 interface Task {
   id: string; title: string; description?: string; status: string; reward?: number; dueDate?: string
   createdBy: { id: string; user: { displayName: string } }
@@ -31,6 +40,11 @@ interface Task {
   proofs: { id: string; imageUrl?: string; note?: string }[]
 }
 
+/**
+ * Trang nhiệm vụ với bảng Kanban 4 cột.
+ * Quyền hành động phân biệt theo vai trò: PARENT/SUPER_ADMIN có quyền tạo và duyệt,
+ * còn CHILD chỉ có thể bắt đầu và nộp bằng chứng.
+ */
 export default function TasksPage() {
   const { user } = useAuth()
   const qc = useQueryClient()
@@ -77,8 +91,10 @@ export default function TasksPage() {
     onError: (e: unknown) => toast.error((e as { response?: { data?: { error?: string } } })?.response?.data?.error ?? 'Thất bại'),
   })
 
+  // SUPER_ADMIN được coi là phụ huynh để có đầy đủ quyền quản lý nhiệm vụ
   const isParent = user?.role === 'PARENT' || user?.role === 'SUPER_ADMIN'
   const members = family?.members ?? []
+  // Base URL API dùng để hiển thị ảnh bằng chứng
   const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000'
 
   return (

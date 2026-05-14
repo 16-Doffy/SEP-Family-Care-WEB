@@ -1,4 +1,17 @@
 'use client'
+/**
+ * @module TopupDialog
+ * @description Dialog nạp tiền vào ví gia đình thông qua cổng thanh toán.
+ *
+ * Cho phép người dùng:
+ * - Chọn ví gia đình (loại JOINT) muốn nạp tiền vào.
+ * - Nhập số tiền thủ công hoặc chọn nhanh từ các mệnh giá định sẵn.
+ * - Nút nạp tiền bị vô hiệu hoá nếu số tiền dưới 10.000 VND.
+ *
+ * Luồng thanh toán được xử lý bởi `startCheckout` (mock hoặc Stripe).
+ * Sau khi nạp thành công (mock mode), làm mới danh sách ví và đóng dialog.
+ */
+
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
@@ -10,10 +23,22 @@ import { Loader2, CreditCard } from 'lucide-react'
 import { startCheckout } from '@/lib/payments'
 import toast from 'react-hot-toast'
 
+/** Thông tin ví tối thiểu cần thiết để hiển thị trong dropdown */
 interface Wallet { id: string; name: string; type: string }
 
+/**
+ * Danh sách mệnh giá nạp tiền nhanh (đơn vị VND).
+ * Hiển thị dưới dạng các nút chip để chọn nhanh không cần gõ số.
+ */
 const QUICK_AMOUNTS = [100_000, 500_000, 1_000_000, 2_000_000]
 
+/**
+ * Dialog nạp tiền vào ví gia đình.
+ *
+ * @param open - Trạng thái mở/đóng dialog
+ * @param onOpenChange - Callback khi trạng thái dialog thay đổi
+ * @param wallets - Danh sách tất cả ví của người dùng (sẽ lọc ra các ví JOINT)
+ */
 export function TopupDialog({
   open,
   onOpenChange,
@@ -24,20 +49,26 @@ export function TopupDialog({
   wallets: Wallet[]
 }) {
   const qc = useQueryClient()
+  /** Chỉ hiển thị ví loại JOINT (ví gia đình chung) trong danh sách chọn */
   const jointWallets = wallets.filter((w) => w.type === 'JOINT')
+  /** ID ví được chọn, mặc định là ví JOINT đầu tiên (nếu có) */
   const [walletId, setWalletId] = useState<string>(jointWallets[0]?.id ?? '')
+  /** Số tiền nhập vào dạng chuỗi (để tương thích với input[type=number]) */
   const [amount, setAmount] = useState('')
 
+  /** Mutation thực hiện nạp tiền qua hàm `startCheckout` */
   const topupMut = useMutation({
     mutationFn: () => startCheckout({ type: 'WALLET_TOPUP', amount: Number(amount), walletId }),
     onSuccess: (instant) => {
       if (instant) {
+        // Mock mode: nạp tiền thành công, làm mới cache ví và đóng dialog
         toast.success(`💰 Đã nạp ${Number(amount).toLocaleString('vi-VN')} VND`)
         qc.invalidateQueries({ queryKey: ['wallets'] })
         qc.invalidateQueries({ queryKey: ['wallet-detail'] })
         onOpenChange(false)
-        setAmount('')
+        setAmount('') // Reset form để lần sau mở lại bắt đầu từ đầu
       }
+      // Stripe mode: trình duyệt đã redirect, không cần xử lý gì thêm
     },
     onError: (e: { response?: { data?: { error?: string } } }) => {
       toast.error(e.response?.data?.error ?? 'Nạp tiền thất bại')
@@ -57,6 +88,7 @@ export function TopupDialog({
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
+          {/* Chọn ví gia đình nhận tiền */}
           <div className="space-y-2">
             <Label>Ví nhận</Label>
             <Select value={walletId} onValueChange={setWalletId}>
@@ -69,6 +101,7 @@ export function TopupDialog({
             </Select>
           </div>
 
+          {/* Nhập số tiền với các nút chọn nhanh */}
           <div className="space-y-2">
             <Label>Số tiền (VND)</Label>
             <Input
@@ -78,6 +111,7 @@ export function TopupDialog({
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
             />
+            {/* Các nút chọn nhanh mệnh giá phổ biến */}
             <div className="flex gap-2 flex-wrap">
               {QUICK_AMOUNTS.map((a) => (
                 <button
@@ -94,6 +128,7 @@ export function TopupDialog({
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Huỷ</Button>
+          {/* Nút nạp tiền: vô hiệu hoá khi đang xử lý, chưa chọn ví, hoặc số tiền < 10.000 VND */}
           <Button onClick={() => topupMut.mutate()} disabled={topupMut.isPending || !walletId || !amount || Number(amount) < 10_000}>
             {topupMut.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <CreditCard className="w-4 h-4 mr-2" />}
             Nạp tiền

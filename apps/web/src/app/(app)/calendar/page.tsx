@@ -1,3 +1,7 @@
+/**
+ * Trang lịch gia đình — xem và quản lý sự kiện theo tháng.
+ * Hiển thị lưới lịch với sidebar danh sách sự kiện theo ngày được chọn.
+ */
 'use client'
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -11,6 +15,7 @@ import { ChevronLeft, ChevronRight, Plus, Trash2, CalendarDays, Loader2 } from '
 import { cn } from '@/lib/utils'
 import toast from 'react-hot-toast'
 
+/** Kiểu dữ liệu sự kiện gia đình trả về từ API */
 interface FamilyEvent {
   id: string
   title: string
@@ -22,6 +27,7 @@ interface FamilyEvent {
   createdBy: { user: { id: string; displayName: string } }
 }
 
+/** Danh sách màu sắc có thể chọn cho sự kiện */
 const EVENT_COLORS = [
   { label: 'Xanh dương', value: '#3b82f6' },
   { label: 'Xanh lá', value: '#22c55e' },
@@ -31,22 +37,45 @@ const EVENT_COLORS = [
   { label: 'Hồng', value: '#ec4899' },
 ]
 
+/**
+ * Trả về chuỗi tiêu đề tháng dạng "Tháng M, YYYY".
+ * @param date - Đối tượng Date đại diện tháng cần hiển thị
+ */
 function formatMonth(date: Date) {
   return `Tháng ${date.getMonth() + 1}, ${date.getFullYear()}`
 }
 
+/**
+ * Chuyển đổi Date thành chuỗi YYYY-MM-DD (ISO date only).
+ * @param date - Đối tượng Date cần chuyển đổi
+ */
 function toYMD(date: Date) {
   return date.toISOString().slice(0, 10)
 }
 
+/**
+ * Trả về số ngày trong tháng.
+ * @param year - Năm
+ * @param month - Tháng (0-indexed)
+ */
 function getDaysInMonth(year: number, month: number) {
   return new Date(year, month + 1, 0).getDate()
 }
 
+/**
+ * Trả về thứ của ngày đầu tiên trong tháng (0 = CN, 1 = T2, ...).
+ * Dùng để căn chỉnh lưới lịch đúng vị trí.
+ * @param year - Năm
+ * @param month - Tháng (0-indexed)
+ */
 function getFirstDayOfWeek(year: number, month: number) {
   return new Date(year, month, 1).getDay()
 }
 
+/**
+ * Trang lịch gia đình.
+ * Fetch sự kiện theo tháng (queryKey phụ thuộc vào year và month để refetch khi chuyển tháng).
+ */
 export default function CalendarPage() {
   const { user } = useAuth()
   const qc = useQueryClient()
@@ -58,6 +87,7 @@ export default function CalendarPage() {
   const year = currentDate.getFullYear()
   const month = currentDate.getMonth()
 
+  // queryKey bao gồm year và month để tự động refetch khi người dùng chuyển tháng
   const { data: events = [], isLoading } = useQuery<FamilyEvent[]>({
     queryKey: ['calendar', year, month],
     queryFn: () => api.get('/calendar', { params: { month: `${year}-${String(month + 1).padStart(2, '0')}-01` } }).then((r) => r.data),
@@ -84,22 +114,35 @@ export default function CalendarPage() {
     onError: () => toast.error('Xóa thất bại'),
   })
 
+  /** Chuyển sang tháng trước */
   const prevMonth = () => setCurrentDate(new Date(year, month - 1, 1))
+  /** Chuyển sang tháng tiếp theo */
   const nextMonth = () => setCurrentDate(new Date(year, month + 1, 1))
 
   const daysInMonth = getDaysInMonth(year, month)
   const firstDay = getFirstDayOfWeek(year, month)
+  // Tạo mảng ô lịch: firstDay ô null đầu tiên (ô trống) + các ngày trong tháng
   const cells: (number | null)[] = [...Array(firstDay).fill(null), ...Array.from({ length: daysInMonth }, (_, i) => i + 1)]
 
+  /**
+   * Lọc sự kiện xảy ra vào ngày cụ thể trong lịch.
+   * So sánh chỉ phần YYYY-MM-DD của startDate để tránh ảnh hưởng từ timezone.
+   * @param day - Ngày trong tháng (1-31)
+   */
   const getEventsForDay = (day: number) => {
     const ymd = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
     return events.filter((e) => e.startDate.slice(0, 10) === ymd)
   }
 
+  // Danh sách sự kiện của ngày đang được chọn để hiển thị trong sidebar
   const selectedDayEvents = selectedDate
     ? events.filter((e) => e.startDate.slice(0, 10) === selectedDate)
     : []
 
+  /**
+   * Mở dialog tạo sự kiện, tự điền ngày bắt đầu và kết thúc.
+   * @param date - Ngày được chọn (YYYY-MM-DD), mặc định là hôm nay
+   */
   const openCreate = (date?: string) => {
     const d = date ?? toYMD(new Date())
     setForm((f) => ({ ...f, startDate: d, endDate: d }))

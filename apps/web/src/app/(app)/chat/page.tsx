@@ -1,3 +1,7 @@
+/**
+ * Trang trò chuyện nhóm và riêng tư trong gia đình.
+ * Hỗ trợ gửi văn bản, ảnh, phân trang tin nhắn cũ và chỉ báo đang nhập.
+ */
 'use client'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -13,32 +17,55 @@ import { Send, ImageIcon, Users, MessageSquare, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import toast from 'react-hot-toast'
 
+/** Base URL API dùng để render ảnh trong tin nhắn */
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000'
 
+/** Người gửi tin nhắn */
 interface MessageSender { id: string; displayName: string; avatarUrl?: string | null }
+/** Tin nhắn trong cuộc trò chuyện */
 interface ChatMessage { id: string; conversationId: string; type: string; content: string; metadata?: Record<string, unknown>; createdAt: string; sender: MessageSender }
+/** Người tham gia cuộc trò chuyện */
 interface Participant { userId: string; user: { id: string; displayName: string; avatarUrl?: string | null } }
+/** Cuộc trò chuyện (nhóm GROUP hoặc riêng tư PRIVATE) */
 interface Conversation { id: string; type: string; name?: string | null; participants: Participant[]; messages: ChatMessage[]; updatedAt: string }
 
+/**
+ * Lấy tên hiển thị của cuộc trò chuyện.
+ * Với nhóm: dùng tên nhóm; với chat riêng: dùng tên người kia.
+ * @param convo - Cuộc trò chuyện cần lấy tên
+ * @param myId - ID của người dùng hiện tại
+ */
 function getConvoName(convo: Conversation, myId: string) {
   if (convo.type === 'GROUP') return convo.name ?? 'Nhóm gia đình'
   const other = convo.participants.find((p) => p.userId !== myId)
   return other?.user.displayName ?? 'Chat riêng'
 }
 
+/**
+ * Lấy chữ cái đầu (initial) để hiển thị avatar cuộc trò chuyện.
+ * Với nhóm: 'GĐ'; với chat riêng: initial của người kia.
+ * @param convo - Cuộc trò chuyện
+ * @param myId - ID của người dùng hiện tại
+ */
 function getConvoInitial(convo: Conversation, myId: string) {
   if (convo.type === 'GROUP') return 'GĐ'
   const other = convo.participants.find((p) => p.userId !== myId)
   return getInitials(other?.user.displayName ?? '?')
 }
 
+/** Phản hồi phân trang tin nhắn từ API */
 interface MessagesPage { messages: ChatMessage[]; nextCursor: string | null; hasMore: boolean }
 
+/**
+ * Trang chat — sidebar danh sách cuộc trò chuyện + khu vực tin nhắn chính.
+ * Sử dụng cursor-based pagination để tải tin nhắn cũ khi scroll lên đầu.
+ */
 export default function ChatPage() {
   const { user } = useAuth()
   const socket = useSocket()
   const qc = useQueryClient()
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  // Lưu tin nhắn trong local state (không dùng React Query) để dễ append realtime
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [nextCursor, setNextCursor] = useState<string | null>(null)
   const [hasMore, setHasMore] = useState(false)
@@ -49,8 +76,10 @@ export default function ChatPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const messagesScrollRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  // Ref cho typing timeout để debounce sự kiện "đang nhập"
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  /** Cuộn xuống tin nhắn mới nhất */
   const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
 
   const { data: conversations = [], isLoading: loadingConvos } = useQuery<Conversation[]>({
@@ -74,6 +103,10 @@ export default function ChatPage() {
     }
   }, [firstPage])
 
+  /**
+   * Tải thêm tin nhắn cũ hơn bằng cursor pagination.
+   * Lưu scrollHeight trước để giữ nguyên vị trí cuộn sau khi prepend tin nhắn mới vào đầu danh sách.
+   */
   const loadMore = useCallback(async () => {
     if (!selectedId || !nextCursor || loadingMore || !hasMore) return
     const scrollEl = messagesScrollRef.current
@@ -81,9 +114,11 @@ export default function ChatPage() {
     setLoadingMore(true)
     try {
       const { data } = await api.get<MessagesPage>(`/chat/conversations/${selectedId}/messages`, { params: { cursor: nextCursor } })
+      // Thêm tin cũ vào đầu mảng (tin cũ hơn ở trên cùng)
       setMessages((prev) => [...data.messages, ...prev])
       setNextCursor(data.nextCursor)
       setHasMore(data.hasMore)
+      // Giữ nguyên vị trí cuộn bằng cách bù lại độ chênh lệch scrollHeight
       requestAnimationFrame(() => {
         if (scrollEl) scrollEl.scrollTop = scrollEl.scrollHeight - prevHeight
       })
@@ -175,6 +210,11 @@ export default function ChatPage() {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() }
   }
 
+  /**
+   * Xử lý thay đổi ô nhập liệu.
+   * Phát sự kiện "đang nhập" qua Socket.IO và tự động dừng sau 1.5 giây
+   * không có thêm ký tự (debounce pattern).
+   */
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInputText(e.target.value)
     if (!socket || !selectedId) return
@@ -182,6 +222,7 @@ export default function ChatPage() {
       setIsTyping(true)
       socket.emit('chat:typing', { conversationId: selectedId, isTyping: true })
     }
+    // Reset timer mỗi khi user nhập thêm ký tự
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current)
     typingTimeoutRef.current = setTimeout(() => {
       setIsTyping(false)

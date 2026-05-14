@@ -1,3 +1,7 @@
+/**
+ * Trang thống kê doanh thu admin — xem MRR, ARR, doanh thu 30 ngày và biểu đồ theo tháng.
+ * Chỉ dành cho SUPER_ADMIN (được bảo vệ bởi AdminLayout).
+ */
 'use client'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/lib/api'
@@ -8,29 +12,45 @@ import { TrendingUp, DollarSign, CreditCard, Users, Download } from 'lucide-reac
 import { formatCurrency } from '@/lib/utils'
 import { useMemo } from 'react'
 
+/** Dữ liệu thống kê doanh thu từ API `/admin/revenue` */
 interface RevenueStats {
   totalRevenue: number
   last30dRevenue: number
   last30dCount: number
   last30dSubscriptionRevenue: number
   last30dTopupRevenue: number
+  /** Monthly Recurring Revenue */
   mrr: number
+  /** Annual Recurring Revenue */
   arr: number
   activeSubscriptions: number
+  /** Dữ liệu doanh thu theo từng tháng (12 tháng gần nhất) */
   monthlyBreakdown: Array<{ month: string; total: number; count: number }>
 }
 
+/**
+ * Trang doanh thu admin với biểu đồ cột tự vẽ bằng CSS.
+ * Chiều cao mỗi cột được tính theo tỷ lệ phần trăm so với tháng có doanh thu cao nhất.
+ */
 export default function RevenueAdminPage() {
   const { data, isLoading } = useQuery<RevenueStats>({
     queryKey: ['admin-revenue'],
     queryFn: () => api.get('/admin/revenue').then((r) => r.data),
   })
 
+  /**
+   * Giá trị doanh thu cao nhất trong 12 tháng, dùng để tính tỷ lệ chiều cao biểu đồ.
+   * Đặt giá trị mặc định là 1 để tránh chia cho 0 khi chưa có dữ liệu.
+   */
   const maxMonthly = useMemo(() => {
     if (!data?.monthlyBreakdown.length) return 1
     return Math.max(...data.monthlyBreakdown.map((m) => m.total), 1)
   }, [data])
 
+  /**
+   * Xuất dữ liệu doanh thu theo tháng ra file CSV.
+   * Thêm BOM (﻿) ở đầu để Excel/Google Sheets nhận diện đúng UTF-8.
+   */
   const exportCsv = () => {
     if (!data) return
     const rows = [
@@ -38,6 +58,7 @@ export default function RevenueAdminPage() {
       ...data.monthlyBreakdown.map((m) => [m.month, m.total, m.count]),
     ]
     const csv = rows.map((r) => r.join(',')).join('\n')
+    // BOM (Byte Order Mark) để Excel nhận diện mã hóa UTF-8 đúng cách
     const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -141,6 +162,13 @@ export default function RevenueAdminPage() {
   )
 }
 
+/**
+ * Card hiển thị một chỉ số thống kê với icon, giá trị chính và gợi ý phụ.
+ * @param icon - Icon React component
+ * @param label - Nhãn chỉ số
+ * @param value - Giá trị hiển thị lớn
+ * @param hint - Thông tin bổ sung nhỏ bên dưới (tùy chọn)
+ */
 function StatCard({ icon, label, value, hint }: { icon: React.ReactNode; label: string; value: string; hint?: string }) {
   return (
     <Card>
@@ -156,6 +184,13 @@ function StatCard({ icon, label, value, hint }: { icon: React.ReactNode; label: 
   )
 }
 
+/**
+ * Thanh tiến độ hiển thị tỷ lệ phần trăm của một loại doanh thu so với tổng.
+ * @param label - Nhãn loại doanh thu
+ * @param value - Giá trị doanh thu
+ * @param total - Tổng doanh thu để tính phần trăm
+ * @param color - Class màu Tailwind cho thanh tiến độ
+ */
 function Row({ label, value, total, color }: { label: string; value: number; total: number; color: string }) {
   const pct = total > 0 ? (value / total) * 100 : 0
   return (

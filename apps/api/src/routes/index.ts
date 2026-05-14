@@ -1,3 +1,32 @@
+/**
+ * @file routes/index.ts
+ * @module routes
+ *
+ * Điểm tập trung tất cả các router của API.
+ *
+ * File này mount toàn bộ sub-router vào router chính theo prefix tương ứng.
+ * Router chính này được import vào `app.ts` và mount dưới prefix `/api`.
+ *
+ * Ví dụ URL đầy đủ: /api/auth/login, /api/family, /api/ai/message, v.v.
+ *
+ * Danh sách các nhóm route:
+ * - /auth              → Đăng ký, đăng nhập, refresh token
+ * - /family            → Quản lý gia đình và thành viên
+ * - /wallets           → Quản lý ví tiền
+ * - /tasks             → Quản lý nhiệm vụ
+ * - /notifications     → Thông báo cho người dùng
+ * - /admin             → Các chức năng quản trị (yêu cầu quyền ADMIN)
+ * - /chat              → Chat nhóm gia đình (realtime qua Socket.IO)
+ * - /calendar          → Lịch và sự kiện gia đình
+ * - /sos               → Tính năng khẩn cấp SOS
+ * - /money-requests    → Yêu cầu chuyển tiền giữa thành viên
+ * - /album             → Album ảnh gia đình
+ * - /location          → Chia sẻ vị trí realtime
+ * - /ai                → AI Chat Assistant (Family Care Assistant)
+ * - /payments          → Thanh toán subscription và nạp ví
+ * - /subscription-plans → Danh sách gói đăng ký
+ */
+
 import { Router } from 'express'
 import authRoutes from './auth.routes'
 import familyRoutes from './family.routes'

@@ -1,7 +1,12 @@
+/**
+ * Trang landing (trang chủ công khai) của ứng dụng Family Care.
+ * Giới thiệu tính năng, bảng giá và kêu gọi đăng ký tài khoản.
+ */
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Wallet, CheckSquare, Bell, MapPin, Shield, Zap, Star, Check, ArrowRight, Users, Lock } from 'lucide-react'
 
+/** Danh sách tính năng nổi bật hiển thị trong phần "Features" */
 const features = [
   { icon: Wallet, title: 'Ví gia đình thông minh', desc: 'Quản lý tài chính gia đình, chuyển allowance cho con, theo dõi chi tiêu minh bạch.', color: 'bg-blue-100 text-blue-600' },
   { icon: CheckSquare, title: 'Nhiệm vụ & Phần thưởng', desc: 'Giao việc cho con, gắn phần thưởng bằng tiền thật. Khuyến khích thói quen tốt.', color: 'bg-green-100 text-green-600' },
@@ -11,6 +16,7 @@ const features = [
   { icon: Zap, title: 'AI Assistant', desc: 'Hỏi AI về chi tiêu, thống kê nhiệm vụ, nhắc lịch và gợi ý tiết kiệm thông minh.', color: 'bg-orange-100 text-orange-600' },
 ]
 
+/** Danh sách gói thuê bao được hiển thị trên trang giá */
 const plans = [
   {
     name: 'Free',
@@ -38,12 +44,17 @@ const plans = [
   },
 ]
 
+/** Số liệu thống kê nổi bật dùng để tạo độ tin cậy với người dùng mới */
 const stats = [
   { icon: Users, value: '10.000+', label: 'Gia đình tin dùng' },
   { icon: Star, value: '4.9/5', label: 'Đánh giá trung bình' },
   { icon: Lock, value: '100%', label: 'Bảo mật dữ liệu' },
 ]
 
+/**
+ * Component trang landing chính.
+ * Render toàn bộ nội dung: nav, hero, thống kê, tính năng, bảng giá và CTA.
+ */
 export default function LandingPage() {
   return (
     <div className="min-h-screen bg-white font-sans">

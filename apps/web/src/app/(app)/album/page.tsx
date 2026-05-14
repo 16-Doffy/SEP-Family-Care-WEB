@@ -1,3 +1,7 @@
+/**
+ * Trang album ảnh gia đình — tải lên, xem và xóa ảnh kỷ niệm.
+ * Ảnh được nhóm theo ngày tải lên để dễ dàng duyệt theo thời gian.
+ */
 'use client'
 import { useState, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -12,8 +16,10 @@ import { Camera, Upload, Loader2, X, Trash2, ImageIcon, Calendar } from 'lucide-
 import { cn } from '@/lib/utils'
 import toast from 'react-hot-toast'
 
+/** Base URL API để xây dựng URL ảnh đầy đủ */
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000'
 
+/** Kiểu dữ liệu một bức ảnh trong album */
 interface Photo {
   id: string
   imageUrl: string
@@ -22,6 +28,12 @@ interface Photo {
   uploader: { user: { id: string; displayName: string; avatarUrl?: string | null } }
 }
 
+/**
+ * Nhóm danh sách ảnh theo ngày tải lên.
+ * Sử dụng Map để giữ thứ tự chèn (ngày gần nhất được thêm trước).
+ * @param photos - Danh sách ảnh cần nhóm
+ * @returns Mảng tuple [nhãn ngày, danh sách ảnh]
+ */
 function groupByDate(photos: Photo[]) {
   const groups = new Map<string, Photo[]>()
   for (const p of photos) {
@@ -32,6 +44,11 @@ function groupByDate(photos: Photo[]) {
   return Array.from(groups.entries())
 }
 
+/**
+ * Trang album gia đình.
+ * Dùng axios thay vì api instance cho upload vì cần gắn Authorization header thủ công
+ * khi gửi multipart/form-data (interceptor của api instance có thể không xử lý đúng).
+ */
 export default function AlbumPage() {
   const { user } = useAuth()
   const qc = useQueryClient()
@@ -79,13 +96,25 @@ export default function AlbumPage() {
     onError: () => toast.error('Xóa thất bại'),
   })
 
+  /** Tập hợp các đuôi file ảnh được hỗ trợ (bao gồm các định dạng ít phổ biến) */
   const IMAGE_EXTS = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp', 'jfif', 'jpe', 'heic', 'heif', 'avif', 'bmp', 'tiff', 'tif'])
+
+  /**
+   * Kiểm tra xem file có phải ảnh không.
+   * Ưu tiên kiểm tra MIME type, nếu không có thì kiểm tra đuôi file.
+   * @param f - File cần kiểm tra
+   */
   const isImageFile = (f: File) => {
     if (f.type.startsWith('image/')) return true
     const ext = f.name.split('.').pop()?.toLowerCase() ?? ''
     return IMAGE_EXTS.has(ext)
   }
 
+  /**
+   * Xử lý khi người dùng chọn file.
+   * Lọc chỉ lấy file ảnh và giới hạn tối đa 10 file mỗi lần upload.
+   * @param files - Danh sách file được chọn từ input
+   */
   const handleFiles = (files: FileList | null) => {
     if (!files) return
     const arr = Array.from(files).filter(isImageFile).slice(0, 10)

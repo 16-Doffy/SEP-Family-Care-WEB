@@ -1,3 +1,7 @@
+/**
+ * Trang cài đặt tài khoản — hiển thị thông tin cá nhân và thông tin gia đình của người dùng.
+ * Hiện tại là trang chỉ đọc; có thể mở rộng để chỉnh sửa thông tin sau.
+ */
 'use client'
 import { useAuth } from '@/context/AuthContext'
 import { Topbar } from '@/components/layout/Topbar'
@@ -7,6 +11,10 @@ import { Badge } from '@/components/ui/badge'
 import { getInitials } from '@/lib/utils'
 import { formatDate } from '@/lib/utils'
 
+/**
+ * Trang cài đặt — xem thông tin tài khoản và gia đình.
+ * Phần thông tin gia đình chỉ hiển thị khi user đã tham gia một gia đình.
+ */
 export default function SettingsPage() {
   const { user } = useAuth()
 

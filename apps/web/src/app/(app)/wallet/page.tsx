@@ -1,3 +1,7 @@
+/**
+ * Trang quản lý ví tiền gia đình.
+ * Cho phép xem số dư, lịch sử giao dịch, chuyển tiền, nạp tiền và xử lý yêu cầu xin tiền.
+ */
 'use client'
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -16,8 +20,13 @@ import { cn } from '@/lib/utils'
 import toast from 'react-hot-toast'
 import { TopupDialog } from '@/components/payment/TopupDialog'
 
+/** Thông tin ví tiền (ví gia đình JOINT hoặc ví cá nhân PERSONAL) */
 interface WalletType { id: string; name: string; type: string; balance: number | string; currency: string; owner?: { user: { displayName: string } } | null }
+
+/** Thông tin một giao dịch trong lịch sử ví */
 interface Transaction { id: string; amount: number; type: string; description?: string; createdAt: string; fromWallet?: { name: string } | null; toWallet?: { name: string } | null }
+
+/** Yêu cầu xin tiền từ con cái gửi đến phụ huynh */
 interface MoneyRequest {
   id: string; amount: number; reason?: string | null; status: 'PENDING' | 'APPROVED' | 'REJECTED'; note?: string | null
   createdAt: string; resolvedAt?: string | null
@@ -25,12 +34,17 @@ interface MoneyRequest {
   resolvedBy?: { user: { displayName: string } } | null
 }
 
+/** Cấu hình hiển thị (nhãn, icon, màu sắc) theo trạng thái yêu cầu xin tiền */
 const MR_STATUS = {
   PENDING: { label: 'Chờ duyệt', icon: Clock, color: 'text-yellow-600 bg-yellow-50 border-yellow-200' },
   APPROVED: { label: 'Đã duyệt', icon: CheckCircle, color: 'text-green-600 bg-green-50 border-green-200' },
   REJECTED: { label: 'Từ chối', icon: XCircle, color: 'text-red-600 bg-red-50 border-red-200' },
 }
 
+/**
+ * Trang ví tiền — quản lý tài chính gia đình.
+ * Có 2 tab: "Ví tiền" (xem số dư & lịch sử) và "Xin tiền" (quản lý yêu cầu).
+ */
 export default function WalletPage() {
   const { user } = useAuth()
   const qc = useQueryClient()
@@ -48,6 +62,7 @@ export default function WalletPage() {
     enabled: !!user?.familyMember,
   })
 
+  // Lấy chi tiết ví (bao gồm lịch sử giao dịch) khi người dùng chọn một ví cụ thể
   const { data: walletDetail } = useQuery({
     queryKey: ['wallet-detail', selectedWallet?.id],
     queryFn: () => api.get(`/wallets/${selectedWallet!.id}`).then((r) => r.data),
@@ -60,6 +75,7 @@ export default function WalletPage() {
     enabled: !!user?.familyMember,
   })
   const moneyRequests = mrData?.requests ?? []
+  // Đếm yêu cầu đang chờ xử lý để hiển thị badge số đỏ trên tab "Xin tiền"
   const pendingCount = moneyRequests.filter((r) => r.status === 'PENDING').length
 
   const [transferForm, setTransferForm] = useState({ fromWalletId: '', toWalletId: '', amount: '', description: '' })
@@ -115,6 +131,7 @@ export default function WalletPage() {
     onError: (e: unknown) => toast.error((e as { response?: { data?: { error?: string } } })?.response?.data?.error ?? 'Thất bại'),
   })
 
+  // SUPER_ADMIN được coi là phụ huynh để có quyền nạp tiền, chuyển tiền và duyệt yêu cầu
   const isParent = user?.role === 'PARENT' || user?.role === 'SUPER_ADMIN'
   const transactions: Transaction[] = walletDetail?.transactions ?? []
 
@@ -207,6 +224,7 @@ export default function WalletPage() {
                   ) : (
                     <div className="space-y-2">
                       {transactions.map((tx) => {
+                        // Xác định chiều giao dịch: nhận vào (xanh) hay gửi đi (đỏ)
                         const isIncoming = tx.toWallet?.name === selectedWallet.name
                         return (
                           <div key={tx.id} className="flex items-center gap-3 py-3 border-b last:border-0">

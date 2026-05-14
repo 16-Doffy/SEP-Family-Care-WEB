@@ -1,3 +1,7 @@
+/**
+ * Trang quản lý gói thuê bao (subscription plans) trong admin.
+ * Admin có thể tạo, sửa, xóa các gói và xem số gia đình đang dùng từng gói.
+ */
 'use client'
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -13,6 +17,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Pencil, Trash2, Plus, Users, CheckSquare } from 'lucide-react'
 import toast from 'react-hot-toast'
 
+/** Kiểu dữ liệu gói thuê bao đầy đủ từ API */
 interface Plan {
   id: string
   code: string
@@ -26,9 +31,14 @@ interface Plan {
   features: string[]
   isActive: boolean
   sortOrder: number
+  /** Số gia đình đang sử dụng gói này (dùng để ngăn xóa khi còn đang dùng) */
   _count?: { families: number }
 }
 
+/**
+ * Dữ liệu form tạo/sửa gói.
+ * maxMembers và maxTasksPerMonth là string để hỗ trợ input trống (= không giới hạn).
+ */
 interface PlanFormData {
   code: string
   name: string
@@ -43,19 +53,29 @@ interface PlanFormData {
   sortOrder: number
 }
 
+/** Giá trị form rỗng dùng khi tạo gói mới */
 const EMPTY: PlanFormData = {
   code: '', name: '', description: '', price: 0, currency: 'VND', billingPeriod: 'MONTHLY',
   maxMembers: '', maxTasksPerMonth: '', features: '', isActive: true, sortOrder: 0,
 }
 
+/**
+ * Định dạng giá tiền của gói để hiển thị.
+ * @param p - Gói cần hiển thị giá
+ */
 function formatPrice(p: Plan) {
   const n = typeof p.price === 'string' ? Number(p.price) : p.price
   if (n === 0) return 'Miễn phí'
   return `${n.toLocaleString('vi-VN')} ${p.currency}`
 }
 
+/**
+ * Trang quản lý gói thuê bao.
+ * `editing` là null khi tạo mới, có giá trị khi đang sửa gói hiện tại.
+ */
 export default function PlansAdminPage() {
   const qc = useQueryClient()
+  // null = đang tạo mới; có giá trị = đang sửa gói này
   const [editing, setEditing] = useState<Plan | null>(null)
   const [open, setOpen] = useState(false)
   const [form, setForm] = useState<PlanFormData>(EMPTY)
@@ -74,12 +94,15 @@ export default function PlansAdminPage() {
         price: Number(data.price),
         currency: data.currency,
         billingPeriod: data.billingPeriod,
+        // Chuỗi trống được chuyển thành null để biểu thị "không giới hạn" phía backend
         maxMembers: data.maxMembers === '' ? null : Number(data.maxMembers),
         maxTasksPerMonth: data.maxTasksPerMonth === '' ? null : Number(data.maxTasksPerMonth),
+        // Mỗi dòng trong textarea là một tính năng riêng biệt
         features: data.features.split('\n').map((s) => s.trim()).filter(Boolean),
         isActive: data.isActive,
         sortOrder: Number(data.sortOrder) || 0,
       }
+      // Nếu đang sửa gói hiện có thì dùng PUT, nếu tạo mới thì dùng POST
       return editing
         ? api.put(`/admin/plans/${editing.id}`, payload)
         : api.post('/admin/plans', payload)
@@ -136,6 +159,11 @@ export default function PlansAdminPage() {
     setForm(EMPTY)
   }
 
+  /**
+   * Xử lý xóa gói thuê bao.
+   * Ngăn xóa nếu gói đang được ít nhất một gia đình sử dụng để tránh mất dữ liệu.
+   * @param p - Gói cần xóa
+   */
   const handleDelete = (p: Plan) => {
     if (p._count && p._count.families > 0) {
       toast.error(`Gói đang được ${p._count.families} gia đình sử dụng. Hãy gán gói khác trước.`)
