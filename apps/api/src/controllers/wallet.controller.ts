@@ -25,7 +25,10 @@ import { z } from 'zod'
  */
 export async function getWallets(req: Request, res: Response, next: NextFunction) {
   try {
-    const wallets = await walletService.getWallets(req.user.familyId!)
+    const wallets = await walletService.getWallets(req.user.familyId!, {
+      role: req.user.role,
+      familyMemberId: req.user.familyMemberId,
+    })
     res.json(wallets)
   } catch (e) {
     next(e)
@@ -42,7 +45,10 @@ export async function getWallets(req: Request, res: Response, next: NextFunction
  */
 export async function getWallet(req: Request, res: Response, next: NextFunction) {
   try {
-    const result = await walletService.getWalletWithTransactions(req.params.id, req.user.familyId!)
+    const result = await walletService.getWalletWithTransactions(req.params.id, req.user.familyId!, {
+      role: req.user.role,
+      familyMemberId: req.user.familyMemberId,
+    })
     res.json(result)
   } catch (e) {
     next(e)

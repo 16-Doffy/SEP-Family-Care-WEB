@@ -30,6 +30,9 @@ export async function getTasks(req: Request, res: Response, next: NextFunction) 
     const tasks = await taskService.getTasks(req.user.familyId!, {
       status: status as string | undefined,
       assignedToId: assignedToId as string | undefined,
+    }, {
+      role: req.user.role,
+      familyMemberId: req.user.familyMemberId,
     })
     res.json(tasks)
   } catch (e) { next(e) }
@@ -45,7 +48,10 @@ export async function getTasks(req: Request, res: Response, next: NextFunction) 
  */
 export async function getTask(req: Request, res: Response, next: NextFunction) {
   try {
-    const task = await taskService.getTask(req.params.id, req.user.familyId!)
+    const task = await taskService.getTask(req.params.id, req.user.familyId!, {
+      role: req.user.role,
+      familyMemberId: req.user.familyMemberId,
+    })
     res.json(task)
   } catch (e) { next(e) }
 }
@@ -87,7 +93,10 @@ export async function createTask(req: Request, res: Response, next: NextFunction
  */
 export async function startTask(req: Request, res: Response, next: NextFunction) {
   try {
-    const task = await taskService.transitionTask(req.params.id, req.user.familyId!, 'IN_PROGRESS', req.user.userId)
+    const task = await taskService.transitionTask(req.params.id, req.user.familyId!, 'IN_PROGRESS', req.user.userId, {
+      role: req.user.role,
+      familyMemberId: req.user.familyMemberId,
+    })
     res.json(task)
   } catch (e) { next(e) }
 }
@@ -107,7 +116,10 @@ export async function submitProof(req: Request, res: Response, next: NextFunctio
     const { note } = z.object({ note: z.string().optional() }).parse(req.body)
     // Nếu có file được upload, tạo đường dẫn tương đối để lưu vào database
     const imageUrl = req.file ? `/uploads/${req.file.filename}` : undefined
-    const task = await taskService.submitProof(req.params.id, req.user.familyId!, req.user.userId, { imageUrl, note })
+    const task = await taskService.submitProof(req.params.id, req.user.familyId!, req.user.userId, { imageUrl, note }, {
+      role: req.user.role,
+      familyMemberId: req.user.familyMemberId,
+    })
     res.json(task)
   } catch (e) { next(e) }
 }
@@ -124,7 +136,10 @@ export async function submitProof(req: Request, res: Response, next: NextFunctio
  */
 export async function approveTask(req: Request, res: Response, next: NextFunction) {
   try {
-    const task = await taskService.transitionTask(req.params.id, req.user.familyId!, 'APPROVED', req.user.userId)
+    const task = await taskService.transitionTask(req.params.id, req.user.familyId!, 'APPROVED', req.user.userId, {
+      role: req.user.role,
+      familyMemberId: req.user.familyMemberId,
+    })
     res.json(task)
   } catch (e) { next(e) }
 }
@@ -141,7 +156,10 @@ export async function approveTask(req: Request, res: Response, next: NextFunctio
  */
 export async function rejectTask(req: Request, res: Response, next: NextFunction) {
   try {
-    const task = await taskService.transitionTask(req.params.id, req.user.familyId!, 'REJECTED', req.user.userId)
+    const task = await taskService.transitionTask(req.params.id, req.user.familyId!, 'REJECTED', req.user.userId, {
+      role: req.user.role,
+      familyMemberId: req.user.familyMemberId,
+    })
     res.json(task)
   } catch (e) { next(e) }
 }

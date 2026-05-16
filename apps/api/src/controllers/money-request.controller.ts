@@ -87,7 +87,10 @@ export async function getMoneyRequests(req: Request, res: Response, next: NextFu
       res.status(400).json({ error: 'Not in a family' })
       return
     }
-    const requests = await mrService.getMoneyRequests(req.user.familyId)
+    const requests = await mrService.getMoneyRequests(req.user.familyId, {
+      role: req.user.role,
+      familyMemberId: req.user.familyMemberId,
+    })
     res.json({ requests })
   } catch (e) { next(e) }
 }
@@ -107,7 +110,10 @@ export async function getPendingRequests(req: Request, res: Response, next: Next
       res.status(400).json({ error: 'Not in a family' })
       return
     }
-    const requests = await mrService.getPendingRequests(req.user.familyId)
+    const requests = await mrService.getPendingRequests(req.user.familyId, {
+      role: req.user.role,
+      familyMemberId: req.user.familyMemberId,
+    })
     res.json({ requests })
   } catch (e) { next(e) }
 }

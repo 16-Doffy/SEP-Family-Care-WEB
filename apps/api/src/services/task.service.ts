@@ -22,6 +22,11 @@ import { transfer } from './wallet.service'
 import { createNotification } from './notification.service'
 import { assertCanCreateTask } from './plan-limits.service'
 
+type TaskAccess = {
+  role: string
+  familyMemberId?: string
+}
+
 /**
  * Cấu hình include dùng chung cho các truy vấn task.
  * Bao gồm: người tạo, người được giao, và danh sách bằng chứng (proofs).
@@ -53,13 +58,15 @@ const TASK_INCLUDE = {
  * @param filters.assignedToId - Lọc theo ID thành viên được giao việc.
  * @returns Danh sách nhiệm vụ sắp xếp theo ngày tạo mới nhất trước.
  */
-export async function getTasks(familyId: string, filters?: { status?: string; assignedToId?: string }) {
+export async function getTasks(familyId: string, filters?: { status?: string; assignedToId?: string }, access?: TaskAccess) {
   return prisma.task.findMany({
     where: {
       familyId,
       // Chỉ thêm điều kiện lọc nếu giá trị được cung cấp (tránh lọc sai khi undefined)
       ...(filters?.status && { status: filters.status as TaskStatus }),
-      ...(filters?.assignedToId && { assignedToId: filters.assignedToId }),
+      ...(access?.role === 'CHILD'
+        ? { assignedToId: access.familyMemberId }
+        : filters?.assignedToId && { assignedToId: filters.assignedToId }),
     },
     include: TASK_INCLUDE,
     orderBy: { createdAt: 'desc' },
@@ -74,9 +81,13 @@ export async function getTasks(familyId: string, filters?: { status?: string; as
  * @returns Thông tin đầy đủ của nhiệm vụ kèm người tạo, người được giao và bằng chứng.
  * @throws {NotFoundError} Nếu nhiệm vụ không tồn tại hoặc không thuộc gia đình.
  */
-export async function getTask(taskId: string, familyId: string) {
+export async function getTask(taskId: string, familyId: string, access?: TaskAccess) {
   const task = await prisma.task.findFirst({
-    where: { id: taskId, familyId },
+    where: {
+      id: taskId,
+      familyId,
+      ...(access?.role === 'CHILD' && { assignedToId: access.familyMemberId }),
+    },
     include: TASK_INCLUDE,
   })
   if (!task) throw Errors.NotFound('Task')
@@ -116,6 +127,13 @@ export async function createTask(
 ) {
   // Kiểm tra giới hạn gói dịch vụ trước khi tạo task
   await assertCanCreateTask(familyId)
+
+  if (data.assignedToId) {
+    const assignee = await prisma.familyMember.findFirst({
+      where: { id: data.assignedToId, familyId },
+    })
+    if (!assignee) throw Errors.NotFound('Assignee')
+  }
 
   const task = await prisma.task.create({
     data: {
@@ -171,6 +189,12 @@ export async function updateTask(
 ) {
   // Xác thực task tồn tại trước khi update
   await getTask(taskId, familyId)
+  if (data.assignedToId) {
+    const assignee = await prisma.familyMember.findFirst({
+      where: { id: data.assignedToId, familyId },
+    })
+    if (!assignee) throw Errors.NotFound('Assignee')
+  }
   return prisma.task.update({
     where: { id: taskId },
     data: {
@@ -206,9 +230,14 @@ export async function transitionTask(
   familyId: string,
   newStatus: TaskStatus,
   requesterId: string,
+  access?: TaskAccess,
 ) {
   const task = await getTask(taskId, familyId)
   const currentStatus = task.status as TaskStatus
+
+  if ((newStatus === 'IN_PROGRESS' || newStatus === 'SUBMITTED') && task.assignedToId !== access?.familyMemberId) {
+    throw Errors.Forbidden()
+  }
 
   // Lấy danh sách trạng thái được phép chuyển từ trạng thái hiện tại
   const allowed = TASK_TRANSITIONS[currentStatus]
@@ -318,8 +347,13 @@ export async function submitProof(
   familyId: string,
   userId: string,
   proof: { imageUrl?: string; note?: string },
+  access?: TaskAccess,
 ) {
   const task = await getTask(taskId, familyId)
+
+  if (task.assignedToId !== access?.familyMemberId) {
+    throw Errors.Forbidden()
+  }
 
   // Chỉ cho phép nộp bằng chứng khi task đang trong tiến trình
   if (task.status !== 'IN_PROGRESS') {
@@ -337,7 +371,7 @@ export async function submitProof(
   })
 
   // Sau đó chuyển trạng thái sang SUBMITTED (đồng thời gửi thông báo cho người tạo task)
-  return transitionTask(taskId, familyId, 'SUBMITTED', userId)
+  return transitionTask(taskId, familyId, 'SUBMITTED', userId, access)
 }
 
 /**

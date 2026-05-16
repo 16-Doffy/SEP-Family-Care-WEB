@@ -17,9 +17,16 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { getInitials } from '@/lib/utils'
-import { UserPlus, Copy, Loader2, Crown } from 'lucide-react'
+import { UserPlus, Copy, Loader2, Crown, Trash2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { UpgradePlanDialog } from '@/components/payment/UpgradePlanDialog'
+
+type FamilyMember = {
+  id: string
+  nickname?: string
+  isOwner?: boolean
+  user: { id: string; displayName: string; email: string; role: string }
+}
 
 /**
  * Trang gia đình — quản lý thành viên và gói đăng ký.
@@ -46,8 +53,27 @@ export default function FamilyPage() {
     onSuccess: (res) => setInviteCode(res.data.code),
   })
 
+  const roleMut = useMutation({
+    mutationFn: ({ userId, role }: { userId: string; role: 'PARENT' | 'CHILD' }) =>
+      api.patch(`/family/members/${userId}/role`, { role }),
+    onSuccess: () => {
+      toast.success('Đã cập nhật vai trò')
+      qc.invalidateQueries({ queryKey: ['family'] })
+    },
+    onError: (e: unknown) => toast.error((e as { response?: { data?: { error?: string } } })?.response?.data?.error ?? 'Không thể cập nhật vai trò'),
+  })
+
+  const removeMut = useMutation({
+    mutationFn: (userId: string) => api.delete(`/family/members/${userId}`),
+    onSuccess: () => {
+      toast.success('Đã xóa thành viên')
+      qc.invalidateQueries({ queryKey: ['family'] })
+    },
+    onError: (e: unknown) => toast.error((e as { response?: { data?: { error?: string } } })?.response?.data?.error ?? 'Không thể xóa thành viên'),
+  })
+
   const isParent = user?.role === 'PARENT' || user?.role === 'SUPER_ADMIN'
-  const members = family?.members ?? []
+  const members: FamilyMember[] = family?.members ?? []
 
   /**
    * Sao chép link mời vào clipboard.
@@ -98,23 +124,58 @@ export default function FamilyPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {members.map((member: { id: string; nickname?: string; user: { id: string; displayName: string; email: string; role: string } }) => (
-                <div key={member.id} className="flex items-center gap-3 p-3 rounded-lg border">
-                  <Avatar>
-                    <AvatarFallback className="bg-blue-100 text-blue-700">{getInitials(member.user.displayName)}</AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium truncate">{member.user.displayName}</p>
-                    <p className="text-sm text-muted-foreground truncate">{member.user.email}</p>
+              {members.map((member) => {
+                const canManageMember = isParent && member.user.id !== user?.id && !member.isOwner
+                return (
+                  <div key={member.id} className="flex items-center gap-3 p-3 rounded-lg border">
+                    <Avatar>
+                      <AvatarFallback className="bg-blue-100 text-blue-700">{getInitials(member.user.displayName)}</AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium truncate">{member.user.displayName}</p>
+                      <p className="text-sm text-muted-foreground truncate">{member.user.email}</p>
+                    </div>
+                    <Badge variant={member.user.role === 'PARENT' ? 'default' : 'secondary'}>
+                      {member.user.role === 'PARENT' ? 'Phụ huynh' : 'Con cái'}
+                    </Badge>
+                    {member.isOwner && (
+                      <Badge variant="outline" className="text-xs">Chủ hộ</Badge>
+                    )}
+                    {member.user.id === user?.id && (
+                      <Badge variant="outline" className="text-xs">Bạn</Badge>
+                    )}
+                    {canManageMember && (
+                      <div className="flex items-center gap-2">
+                        <Select
+                          value={member.user.role === 'PARENT' ? 'PARENT' : 'CHILD'}
+                          onValueChange={(role) => roleMut.mutate({ userId: member.user.id, role: role as 'PARENT' | 'CHILD' })}
+                          disabled={roleMut.isPending}
+                        >
+                          <SelectTrigger className="w-32 h-8">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="PARENT">Phụ huynh</SelectItem>
+                            <SelectItem value="CHILD">Con cái</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          disabled={removeMut.isPending}
+                          onClick={() => {
+                            if (window.confirm(`Xóa ${member.user.displayName} khỏi gia đình?`)) {
+                              removeMut.mutate(member.user.id)
+                            }
+                          }}
+                        >
+                          <Trash2 className="w-4 h-4 text-red-500" />
+                        </Button>
+                      </div>
+                    )}
                   </div>
-                  <Badge variant={member.user.role === 'PARENT' ? 'default' : 'secondary'}>
-                    {member.user.role === 'PARENT' ? 'Phụ huynh' : 'Con cái'}
-                  </Badge>
-                  {member.user.id === user?.id && (
-                    <Badge variant="outline" className="text-xs">Bạn</Badge>
-                  )}
-                </div>
-              ))}
+                )
+              })}
             </div>
           </CardContent>
         </Card>

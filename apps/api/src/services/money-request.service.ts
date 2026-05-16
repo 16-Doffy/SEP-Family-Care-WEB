@@ -12,6 +12,11 @@ import { prisma } from '../config/database'
 import { Errors } from '../utils/errors'
 import { transfer } from './wallet.service'
 
+type MoneyRequestAccess = {
+  role: string
+  familyMemberId?: string
+}
+
 /**
  * Tạo một yêu cầu xin tiền mới trong gia đình.
  *
@@ -52,9 +57,12 @@ export async function createMoneyRequest(input: {
  * @param familyId - ID của gia đình cần truy vấn
  * @returns Mảng `MoneyRequest` kèm thông tin người yêu cầu và người xử lý.
  */
-export async function getMoneyRequests(familyId: string) {
+export async function getMoneyRequests(familyId: string, access?: MoneyRequestAccess) {
   return prisma.moneyRequest.findMany({
-    where: { familyId },
+    where: {
+      familyId,
+      ...(access?.role === 'CHILD' && { requesterId: access.familyMemberId }),
+    },
     // status 'asc': APPROVED < PENDING < REJECTED theo alphabet → PENDING lên trước
     orderBy: [{ status: 'asc' }, { createdAt: 'desc' }],
     take: 100,
@@ -72,9 +80,13 @@ export async function getMoneyRequests(familyId: string) {
  * @param familyId - ID của gia đình cần truy vấn
  * @returns Mảng `MoneyRequest` có trạng thái PENDING, kèm thông tin người yêu cầu.
  */
-export async function getPendingRequests(familyId: string) {
+export async function getPendingRequests(familyId: string, access?: MoneyRequestAccess) {
   return prisma.moneyRequest.findMany({
-    where: { familyId, status: 'PENDING' },
+    where: {
+      familyId,
+      status: 'PENDING',
+      ...(access?.role === 'CHILD' && { requesterId: access.familyMemberId }),
+    },
     orderBy: { createdAt: 'desc' },
     include: {
       requester: { include: { user: { select: { id: true, displayName: true, avatarUrl: true } } } },

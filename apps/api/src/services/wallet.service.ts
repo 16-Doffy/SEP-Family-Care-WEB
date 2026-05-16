@@ -12,6 +12,11 @@ import { prisma } from '../config/database'
 import { Errors } from '../utils/errors'
 import type { Prisma } from '@prisma/client'
 
+type WalletAccess = {
+  role: string
+  familyMemberId?: string
+}
+
 /**
  * Lấy danh sách tất cả ví thuộc một gia đình.
  * Kết quả bao gồm thông tin chủ sở hữu (tên hiển thị, ảnh đại diện).
@@ -20,9 +25,12 @@ import type { Prisma } from '@prisma/client'
  * @param familyId - ID của gia đình cần truy vấn.
  * @returns Danh sách các ví kèm thông tin chủ sở hữu.
  */
-export async function getWallets(familyId: string) {
+export async function getWallets(familyId: string, access?: WalletAccess) {
   return prisma.wallet.findMany({
-    where: { familyId },
+    where: {
+      familyId,
+      ...(access?.role === 'CHILD' && { ownerId: access.familyMemberId }),
+    },
     include: {
       owner: {
         include: {
@@ -45,10 +53,14 @@ export async function getWallets(familyId: string) {
  * @returns Đối tượng chứa thông tin ví và danh sách giao dịch.
  * @throws {NotFoundError} Nếu ví không tồn tại hoặc không thuộc gia đình.
  */
-export async function getWalletWithTransactions(walletId: string, familyId: string) {
+export async function getWalletWithTransactions(walletId: string, familyId: string, access?: WalletAccess) {
   // Kiểm tra ví tồn tại và thuộc gia đình hiện tại
   const wallet = await prisma.wallet.findFirst({
-    where: { id: walletId, familyId },
+    where: {
+      id: walletId,
+      familyId,
+      ...(access?.role === 'CHILD' && { ownerId: access.familyMemberId }),
+    },
     include: {
       owner: {
         include: {
