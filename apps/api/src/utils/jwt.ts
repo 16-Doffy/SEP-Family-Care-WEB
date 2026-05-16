@@ -43,7 +43,7 @@ export function signAccessToken(payload: JwtPayload): string {
  * @param payload - Chỉ cần `userId` để tối thiểu hóa thông tin lưu trong refresh token
  * @returns Chuỗi JWT đã ký
  */
-export function signRefreshToken(payload: Pick<JwtPayload, 'userId'>): string {
+export function signRefreshToken(payload: Pick<JwtPayload, 'userId'> & { jti?: string }): string {
   return jwt.sign(payload, env.JWT_REFRESH_SECRET, {
     expiresIn: env.JWT_REFRESH_EXPIRES as jwt.SignOptions['expiresIn'],
   })
@@ -69,6 +69,6 @@ export function verifyAccessToken(token: string): JwtPayload {
  * @returns Payload chỉ chứa `userId`
  * @throws {JsonWebTokenError | TokenExpiredError} Nếu token không hợp lệ hoặc hết hạn
  */
-export function verifyRefreshToken(token: string): Pick<JwtPayload, 'userId'> {
-  return jwt.verify(token, env.JWT_REFRESH_SECRET) as Pick<JwtPayload, 'userId'>
+export function verifyRefreshToken(token: string): Pick<JwtPayload, 'userId'> & { jti?: string } {
+  return jwt.verify(token, env.JWT_REFRESH_SECRET) as Pick<JwtPayload, 'userId'> & { jti?: string }
 }

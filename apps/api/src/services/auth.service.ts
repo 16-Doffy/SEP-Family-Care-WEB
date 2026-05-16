@@ -8,6 +8,7 @@
  */
 
 import * as bcrypt from 'bcryptjs'
+import { randomBytes } from 'crypto'
 import { prisma } from '../config/database'
 import type { Prisma } from '@prisma/client'
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from '../utils/jwt'
@@ -284,7 +285,7 @@ function generateTokens(
   return {
     accessToken: signAccessToken(payload),
     // Refresh token chỉ mang userId để giảm thiểu rủi ro khi bị lộ
-    refreshToken: signRefreshToken({ userId }),
+    refreshToken: signRefreshToken({ userId, jti: randomBytes(16).toString('hex') }),
   }
 }
 
