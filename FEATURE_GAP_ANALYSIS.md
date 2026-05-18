@@ -81,6 +81,42 @@ Tài liệu so sánh **danh sách chức năng yêu cầu** với **trạng thá
 
 ---
 
+## 3.5. PROFILE / TÀI KHOẢN CÁ NHÂN (Parent + Child)
+
+Phần này **không có trong danh sách yêu cầu gốc** nhưng là chức năng cơ bản mà mọi app người dùng cần. Hiện project chỉ có trang [/settings](apps/web/src/app/(app)/settings/page.tsx) ở dạng **chỉ-đọc**, không cho phép sửa thông tin cá nhân.
+
+| Mã | Chức năng | Trạng thái | Ghi chú |
+|---|---|---|---|
+| PRF1 | Xem thông tin tài khoản | 🟡 | Đã có `/settings` (read-only) — chưa có `/profile` |
+| PRF2 | Sửa `displayName` | ❌ | Schema có `User.displayName`, thiếu endpoint `PATCH /auth/me` |
+| PRF3 | Upload / đổi avatar | ❌ | Schema có `User.avatarUrl`, thiếu endpoint upload |
+| PRF4 | Đổi mật khẩu (khi đang đăng nhập) | ❌ | Chỉ có `forgot-password` + `reset-password` qua token, **thiếu** `POST /auth/change-password` cho user đã đăng nhập |
+| PRF5 | Sửa nickname trong family | ❌ | Schema có `FamilyMember.nickname`, chưa expose UI/endpoint |
+| PRF6 | Xem thống kê cá nhân (task hoàn thành, tổng reward, số SOS đã gửi…) | ❌ | Data có sẵn trong DB, thiếu endpoint tổng hợp + UI |
+| PRF7 | Xem danh sách thiết bị đang đăng nhập / đăng xuất từ xa | ❌ | `RefreshToken` model có sẵn, có thể list theo `userId` |
+
+### Đề xuất bổ sung
+
+**API endpoints mới:**
+```
+PATCH /auth/me                    → body: { displayName?, avatarUrl? }
+POST  /auth/change-password       → body: { currentPassword, newPassword }
+POST  /auth/me/avatar             → upload file ảnh (multer), trả về URL
+GET   /auth/me/sessions           → liệt kê RefreshToken active
+DELETE /auth/me/sessions/:id      → revoke một refresh token
+GET   /auth/me/stats              → thống kê cá nhân (task, reward, sos…)
+PATCH /family/members/me/nickname → đổi nickname trong family
+```
+
+**Web pages mới:**
+- `apps/web/src/app/(app)/profile/page.tsx` với các tab:
+  - **Thông tin** — avatar + displayName + nickname + email (readonly)
+  - **Bảo mật** — đổi mật khẩu, danh sách phiên đăng nhập
+  - **Thống kê** — số task hoàn thành, tổng reward đã nhận, số SOS đã gửi, số lần xin tiền
+- Hoặc tích hợp các tab vào `/settings` hiện có để khỏi tạo route mới
+
+---
+
 ## 4. ALL MEMBERS (Chung)
 
 | Mã | Chức năng yêu cầu | Trạng thái | Nơi triển khai hiện tại | Ghi chú / Cần bổ sung |
@@ -214,6 +250,7 @@ enum MessageType { TEXT IMAGE LOCATION FILE }
 ## 6. Ưu tiên đề xuất
 
 ### Phase 1 — Hoàn thiện gap "nhỏ" (1–2 tuần)
+- **PRF2–PRF5 Profile (edit displayName, avatar, password, nickname)** — cơ bản, làm trước
 - A6 Family status (suspend/lock)
 - A7 Set subscription expiry trực tiếp
 - A9 Export revenue CSV
@@ -228,6 +265,7 @@ enum MessageType { TEXT IMAGE LOCATION FILE }
 - A12/A13 Per-family backup + restore
 - P18 Activity log
 - P21 Map UI for location
+- **PRF6–PRF7 Profile (thống kê cá nhân + session management)**
 
 ### Phase 3 — Tính năng mới lớn (3–4 tuần)
 - P16/C10 Wearable device pairing + SOS từ thiết bị
