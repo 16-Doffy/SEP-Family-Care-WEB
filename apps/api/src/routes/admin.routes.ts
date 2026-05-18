@@ -46,12 +46,21 @@ router.get('/stats', ctrl.getStats)
 
 /** Báo cáo sức khỏe hệ thống: trạng thái database, CPU, RAM, uptime, uploads */
 router.get('/system/health', ctrl.getSystemHealth)
+router.get('/system/docker', ctrl.getDockerStatus)
+router.get('/system/logs/:container', ctrl.getContainerLogs)
 
 /** Xuất backup toàn bộ dữ liệu dưới dạng file JSON đính kèm */
 router.get('/backup/export', ctrl.exportBackup)
 
 /** Danh sách tất cả gia đình trong hệ thống kèm thành viên và gói đăng ký */
 router.get('/families', ctrl.getFamilies)
+router.get('/families/:familyId/owner', ctrl.getFamilyOwner)
+router.put('/families/:familyId/owner', ctrl.updateFamilyOwner)
+router.patch('/families/:familyId/status', ctrl.updateFamilyStatus)
+router.patch('/families/:familyId/subscription', ctrl.updateFamilySubscription)
+router.get('/families/:familyId/backup', ctrl.exportFamilyBackup)
+router.post('/families/:familyId/restore', ctrl.restoreFamilyBackup)
+router.post('/families/:familyId/provision', ctrl.provisionFamily)
 
 /** Danh sách tất cả người dùng kèm vai trò và tên gia đình */
 router.get('/users', ctrl.getUsers)
@@ -79,9 +88,13 @@ router.delete('/plans/:id', planCtrl.deletePlan)
 /** Gán gói đăng ký cho một gia đình cụ thể */
 router.put('/families/:familyId/plan', planCtrl.assignToFamily)
 
+/** Gia hạn subscription thủ công cho gia đình (FE-33) */
+router.post('/families/:familyId/renew', ctrl.renewSubscription)
+
 // --- Thống kê doanh thu ---
 
 /** Xem báo cáo doanh thu từ các giao dịch thanh toán */
 router.get('/revenue', paymentCtrl.getRevenue)
+router.get('/revenue/export', ctrl.exportRevenue)
 
 export default router

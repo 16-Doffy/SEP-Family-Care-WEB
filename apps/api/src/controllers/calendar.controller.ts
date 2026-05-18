@@ -60,6 +60,7 @@ export async function createEvent(req: Request, res: Response, next: NextFunctio
  * Cập nhật một sự kiện lịch hiện có.
  * Hỗ trợ partial update: chỉ cần truyền các trường muốn thay đổi.
  * Lưu ý: nếu thay đổi `startDate`, hệ thống sẽ tự reset nhắc nhở.
+ * Chỉ người tạo sự kiện hoặc PARENT / SUPER_ADMIN mới được cập nhật.
  *
  * @route PUT /calendar/:id
  * @param req - `params.id` là ID sự kiện; body chứa các trường cần cập nhật (đều tùy chọn)
@@ -78,7 +79,13 @@ export async function updateEvent(req: Request, res: Response, next: NextFunctio
       color: z.string().optional(),
     }).parse(req.body)
 
-    const event = await calendarService.updateEvent(req.params.id, req.user.familyId!, data)
+    const event = await calendarService.updateEvent(
+      req.params.id,
+      req.user.familyId!,
+      data,
+      req.user.familyMemberId,
+      req.user.role,
+    )
     res.json(event)
   } catch (e) { next(e) }
 }

@@ -19,15 +19,18 @@
 
 import { Router } from 'express'
 import * as ctrl from '../controllers/payment.controller'
-import { authenticate, requireFamily } from '../middleware/auth'
+import { authenticate, requireFamily, requireRole } from '../middleware/auth'
 
 const router = Router()
 
 // Áp dụng xác thực và kiểm tra thành viên gia đình cho toàn bộ module
 router.use(authenticate, requireFamily)
 
-router.post('/checkout', ctrl.createCheckout)
-router.post('/:id/confirm-mock', ctrl.confirmMock)
+/** Tạo phiên thanh toán / nạp ví — chỉ PARENT / SUPER_ADMIN (FE-08) */
+router.post('/checkout', requireRole('PARENT', 'SUPER_ADMIN'), ctrl.createCheckout)
+router.post('/:id/confirm-mock', requireRole('PARENT', 'SUPER_ADMIN'), ctrl.confirmMock)
+
+/** Xem lịch sử thanh toán — mọi thành viên */
 router.get('/history', ctrl.listMyPayments)
 
 export default router

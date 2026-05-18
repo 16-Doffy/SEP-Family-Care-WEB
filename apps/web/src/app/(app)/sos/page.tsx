@@ -60,6 +60,8 @@ export default function SOSPage() {
   const { user } = useAuth()
   const qc = useQueryClient()
   const [filter, setFilter] = useState<'active' | 'all'>('active')
+  const isParent = user?.role === 'PARENT' || user?.role === 'SUPER_ADMIN'
+  const pageTitle = isParent ? 'Xử lý SOS gia đình' : 'Gửi SOS khẩn cấp'
 
   // Chuyển endpoint API dựa vào bộ lọc: chỉ khẩn cấp hoặc toàn bộ lịch sử
   const { data, isLoading } = useQuery<{ alerts: SosAlert[] }>({
@@ -82,7 +84,7 @@ export default function SOSPage() {
   if (!user?.familyMember) {
     return (
       <div className="flex h-screen flex-col">
-        <Topbar title="SOS Khẩn cấp" />
+        <Topbar title={pageTitle} />
         <div className="flex-1 flex items-center justify-center text-muted-foreground">
           <p>Bạn cần tham gia gia đình để dùng tính năng này</p>
         </div>
@@ -92,15 +94,17 @@ export default function SOSPage() {
 
   return (
     <div className="flex h-screen flex-col">
-      <Topbar title="SOS Khẩn cấp" />
+      <Topbar title={pageTitle} />
 
       <div className="flex-1 overflow-y-auto p-6 max-w-3xl mx-auto w-full">
         {/* Header info */}
         <div className="mb-6 p-4 rounded-xl bg-red-50 border border-red-200 flex items-start gap-3">
           <AlertTriangle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
           <div className="text-sm text-red-700">
-            <p className="font-semibold mb-0.5">Tính năng SOS khẩn cấp</p>
-            <p className="text-red-600">Bấm nút SOS đỏ ở góc màn hình khi cần giúp đỡ. Toàn bộ gia đình sẽ nhận cảnh báo ngay lập tức.</p>
+            <p className="font-semibold mb-0.5">{isParent ? 'Trung tâm xử lý SOS' : 'Nút cầu cứu khẩn cấp'}</p>
+            <p className="text-red-600">
+              {isParent ? 'Phụ huynh theo dõi, xác nhận đang xử lý và đánh dấu an toàn cho các cảnh báo trong gia đình.' : 'Con bấm nút SOS đỏ ở góc màn hình khi cần giúp đỡ. Gia đình sẽ nhận cảnh báo ngay lập tức.'}
+            </p>
           </div>
         </div>
 
@@ -187,7 +191,7 @@ export default function SOSPage() {
                 {/* Actions */}
                 {(alert.status === 'ACTIVE' || alert.status === 'ACKNOWLEDGED') && (
                   <div className="flex flex-wrap gap-2 pt-1">
-                    {alert.status === 'ACTIVE' && (
+                    {isParent && alert.status === 'ACTIVE' && (
                       <Button
                         size="sm"
                         variant="outline"
@@ -198,15 +202,17 @@ export default function SOSPage() {
                         Tôi đang đến
                       </Button>
                     )}
-                    <Button
-                      size="sm"
-                      className="bg-green-600 hover:bg-green-700 text-white"
-                      onClick={() => updateMut.mutate({ id: alert.id, status: 'RESOLVED' })}
-                      disabled={updateMut.isPending}
-                    >
-                      <CheckCircle className="w-3.5 h-3.5 mr-1" />
-                      Đã an toàn
-                    </Button>
+                    {isParent && (
+                      <Button
+                        size="sm"
+                        className="bg-green-600 hover:bg-green-700 text-white"
+                        onClick={() => updateMut.mutate({ id: alert.id, status: 'RESOLVED' })}
+                        disabled={updateMut.isPending}
+                      >
+                        <CheckCircle className="w-3.5 h-3.5 mr-1" />
+                        Đã an toàn
+                      </Button>
+                    )}
                     {alert.senderId === user.id && (
                       <Button
                         size="sm"

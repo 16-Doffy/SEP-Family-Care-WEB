@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1440">
+<title>Revenue – Family Care Admin</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  * { font-family: 'Inter', sans-serif; box-sizing: border-box; }
+  body { margin: 0; background: #F8FAFC; }
+  .sidebar { width: 220px; min-height: 100vh; background: #fff; border-right: 1px solid #E2E8F0; position: fixed; top: 0; left: 0; display: flex; flex-direction: column; }
+  .main { margin-left: 220px; }
+  .topbar { height: 64px; background: #fff; border-bottom: 1px solid #E2E8F0; display: flex; align-items: center; padding: 0 24px; justify-content: space-between; position: sticky; top: 0; z-index: 10; }
+  .content { padding: 24px; display: flex; flex-direction: column; gap: 24px; }
+  .card { background: #fff; border-radius: 12px; border: 1px solid #E2E8F0; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-radius: 8px; margin: 2px 8px; font-size: 14px; color: #64748B; cursor: pointer; text-decoration: none; }
+  .nav-item.active { background: #EFF6FF; color: #2563EB; font-weight: 600; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 16px; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; border: none; }
+  .btn-outline { background: #fff; border: 1px solid #E2E8F0; color: #374151; }
+</style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<div class="sidebar">
+  <div style="padding: 20px 16px 8px;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:24px;">
+      <div style="width:36px;height:36px;background:#2563EB;border-radius:8px;display:flex;align-items:center;justify-content:center;">
+        <span style="color:#fff;font-weight:700;font-size:15px;">FC</span>
+      </div>
+      <div>
+        <div style="font-weight:700;font-size:14px;color:#0F172A;">Family Care</div>
+        <div style="font-size:11px;color:#94A3B8;">Admin Panel</div>
+      </div>
+    </div>
+    <div style="font-size:11px;color:#94A3B8;font-weight:600;letter-spacing:0.05em;padding:0 8px;margin-bottom:6px;">MENU</div>
+    <a class="nav-item" href="admin-dashboard-mockup.html">
+      <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+      Dashboard
+    </a>
+    <a class="nav-item" href="admin-plans-mockup.html">
+      <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+      Gói thuê bao
+    </a>
+    <a class="nav-item active" href="admin-revenue-mockup.html">
+      <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
+      Doanh thu
+    </a>
+  </div>
+  <div style="margin-top:auto;padding:16px;border-top:1px solid #E2E8F0;">
+    <a class="nav-item" href="#" style="font-size:13px;">
+      <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+      Về ứng dụng
+    </a>
+  </div>
+</div>
+
+<!-- Main -->
+<div class="main">
+  <div class="topbar">
+    <div style="display:flex;align-items:center;gap:12px;">
+      <button style="background:none;border:none;cursor:pointer;padding:4px;">
+        <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="#64748B"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+      </button>
+      <div style="font-size:18px;font-weight:700;color:#0F172A;">Thống kê doanh thu</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:16px;">
+      <div style="position:relative;cursor:pointer;">
+        <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="#64748B"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+        <div style="width:34px;height:34px;border-radius:50%;background:#2563EB;display:flex;align-items:center;justify-content:center;">
+          <span style="color:#fff;font-weight:700;font-size:13px;">SA</span>
+        </div>
+        <span style="font-size:13px;font-weight:600;color:#0F172A;">System Admin</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- Header -->
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <p style="font-size:13px;color:#64748B;margin:0;">Tổng quan doanh thu, MRR, ARR và biểu đồ 12 tháng gần nhất</p>
+      <button class="btn btn-outline">
+        <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+        Xuất CSV
+      </button>
+    </div>
+
+    <!-- KPI Cards -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;">
+      <div class="card" style="padding:20px;display:flex;align-items:center;gap:14px;">
+        <div style="width:48px;height:48px;background:#F0FDF4;border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+          <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="#16A34A"><line x1="12" y1="1" x2="12" y2="23" stroke-width="2"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" stroke-width="2"/></svg>
+        </div>
+        <div style="min-width:0;">
+          <div style="font-size:20px;font-weight:700;color:#0F172A;white-space:nowrap;">1.980.000đ</div>
+          <div style="font-size:13px;font-weight:600;color:#374151;">MRR</div>
+          <div style="font-size:11px;color:#94A3B8;">Monthly Recurring Revenue</div>
+        </div>
+      </div>
+      <div class="card" style="padding:20px;display:flex;align-items:center;gap:14px;">
+        <div style="width:48px;height:48px;background:#EFF6FF;border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+          <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="#2563EB"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
+        </div>
+        <div style="min-width:0;">
+          <div style="font-size:20px;font-weight:700;color:#0F172A;white-space:nowrap;">23.760.000đ</div>
+          <div style="font-size:13px;font-weight:600;color:#374151;">ARR</div>
+          <div style="font-size:11px;color:#94A3B8;">Annual Recurring Revenue</div>
+        </div>
+      </div>
+      <div class="card" style="padding:20px;display:flex;align-items:center;gap:14px;">
+        <div style="width:48px;height:48px;background:#F5F3FF;border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+          <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="#7C3AED"><rect x="1" y="4" width="22" height="16" rx="2" ry="2" stroke-width="2"/><line x1="1" y1="10" x2="23" y2="10" stroke-width="2"/></svg>
+        </div>
+        <div style="min-width:0;">
+          <div style="font-size:20px;font-weight:700;color:#0F172A;white-space:nowrap;">990.000đ</div>
+          <div style="font-size:13px;font-weight:600;color:#374151;">Doanh thu 30 ngày</div>
+          <div style="font-size:11px;color:#94A3B8;">5 giao dịch</div>
+        </div>
+      </div>
+      <div class="card" style="padding:20px;display:flex;align-items:center;gap:14px;">
+        <div style="width:48px;height:48px;background:#FFFBEB;border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+          <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="#D97706"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+        </div>
+        <div style="min-width:0;">
+          <div style="font-size:20px;font-weight:700;color:#0F172A;">20</div>
+          <div style="font-size:13px;font-weight:600;color:#374151;">Subscription HĐ</div>
+          <div style="font-size:11px;color:#94A3B8;">Gia đình trả phí</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mid row -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+      <!-- Breakdown -->
+      <div class="card" style="padding:20px;">
+        <div style="font-size:14px;font-weight:600;color:#0F172A;margin-bottom:16px;">Doanh thu 30 ngày theo loại</div>
+        <div style="display:flex;flex-direction:column;gap:14px;">
+          <div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+              <span style="font-size:13px;color:#374151;">Đăng ký gói</span>
+              <span style="font-size:13px;font-weight:600;color:#374151;">594.000đ <span style="color:#94A3B8;font-weight:400;">(60%)</span></span>
+            </div>
+            <div style="height:8px;background:#F1F5F9;border-radius:999px;overflow:hidden;">
+              <div style="width:60%;height:100%;background:#2563EB;border-radius:999px;"></div>
+            </div>
+          </div>
+          <div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+              <span style="font-size:13px;color:#374151;">Nạp ví</span>
+              <span style="font-size:13px;font-weight:600;color:#374151;">396.000đ <span style="color:#94A3B8;font-weight:400;">(40%)</span></span>
+            </div>
+            <div style="height:8px;background:#F1F5F9;border-radius:999px;overflow:hidden;">
+              <div style="width:40%;height:100%;background:#10B981;border-radius:999px;"></div>
+            </div>
+          </div>
+          <div style="margin-top:8px;padding:12px;background:#F8FAFC;border-radius:8px;">
+            <div style="display:flex;justify-content:space-between;font-size:13px;">
+              <span style="color:#64748B;">Tổng 30 ngày</span>
+              <span style="font-weight:700;color:#0F172A;">990.000đ</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Total revenue -->
+      <div class="card" style="padding:20px;display:flex;flex-direction:column;">
+        <div style="font-size:14px;font-weight:600;color:#0F172A;margin-bottom:8px;">Tổng doanh thu từ subscription</div>
+        <div style="font-size:11px;color:#94A3B8;margin-bottom:auto;">Kể từ khi ra mắt ứng dụng</div>
+        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;padding:24px 0;">
+          <div style="font-size:42px;font-weight:700;color:#2563EB;letter-spacing:-1px;">12.870.000đ</div>
+          <div style="font-size:13px;color:#64748B;margin-top:8px;">≈ 507 USD</div>
+          <div style="display:flex;align-items:center;gap:6px;margin-top:12px;background:#F0FDF4;padding:6px 14px;border-radius:999px;">
+            <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#16A34A"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
+            <span style="font-size:12px;font-weight:600;color:#16A34A;">+12.5% so với tháng trước</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bar Chart -->
+    <div class="card" style="padding:20px;margin-bottom:32px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+        <div style="font-size:14px;font-weight:600;color:#0F172A;">Doanh thu theo tháng (12 tháng gần nhất)</div>
+        <div style="display:flex;gap:16px;font-size:12px;color:#64748B;">
+          <div style="display:flex;align-items:center;gap:6px;"><div style="width:12px;height:12px;background:#2563EB;border-radius:3px;"></div>Subscription</div>
+          <div style="display:flex;align-items:center;gap:6px;"><div style="width:12px;height:12px;background:#10B981;border-radius:3px;"></div>Nạp ví</div>
+        </div>
+      </div>
+
+      <!-- Chart -->
+      <div style="position:relative;">
+        <!-- Y axis labels -->
+        <div style="position:absolute;left:0;top:0;bottom:28px;display:flex;flex-direction:column;justify-content:space-between;width:60px;">
+          <span style="font-size:10px;color:#94A3B8;">2tr</span>
+          <span style="font-size:10px;color:#94A3B8;">1.5tr</span>
+          <span style="font-size:10px;color:#94A3B8;">1tr</span>
+          <span style="font-size:10px;color:#94A3B8;">500k</span>
+          <span style="font-size:10px;color:#94A3B8;">0</span>
+        </div>
+        <!-- Grid lines -->
+        <div style="margin-left:60px;position:relative;">
+          <div style="position:absolute;inset:0;bottom:28px;display:flex;flex-direction:column;justify-content:space-between;pointer-events:none;">
+            <div style="border-top:1px dashed #F1F5F9;width:100%;"></div>
+            <div style="border-top:1px dashed #F1F5F9;width:100%;"></div>
+            <div style="border-top:1px dashed #F1F5F9;width:100%;"></div>
+            <div style="border-top:1px dashed #F1F5F9;width:100%;"></div>
+            <div style="border-top:1px solid #E2E8F0;width:100%;"></div>
+          </div>
+          <!-- Bars -->
+          <div style="display:flex;align-items:flex-end;gap:6px;height:200px;padding-bottom:28px;">
+            <!-- Month data: heights as % of 2000000 max -->
+            <!-- Jun: 200k=10%, Jul: 150k=7.5%, Aug: 300k=15%, Sep: 250k=12.5%, Oct: 400k=20%, Nov: 350k=17.5%, Dec: 600k=30%, Jan: 800k=40%, Feb: 700k=35%, Mar: 1200k=60%, Apr: 1800k=90%, May: 1980k=99% -->
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;height:100%;justify-content:flex-end;">
+              <div style="width:100%;background:#BFDBFE;border-radius:4px 4px 0 0;height:10%;min-height:3px;position:relative;cursor:pointer;" title="594.000đ"></div>
+              <span style="font-size:10px;color:#94A3B8;white-space:nowrap;">T6</span>
+            </div>
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;height:100%;justify-content:flex-end;">
+              <div style="width:100%;background:#BFDBFE;border-radius:4px 4px 0 0;height:7%;min-height:3px;" title="300.000đ"></div>
+              <span style="font-size:10px;color:#94A3B8;white-space:nowrap;">T7</span>
+            </div>
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;height:100%;justify-content:flex-end;">
+              <div style="width:100%;background:#93C5FD;border-radius:4px 4px 0 0;height:15%;" title="594.000đ"></div>
+              <span style="font-size:10px;color:#94A3B8;white-space:nowrap;">T8</span>
+            </div>
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;height:100%;justify-content:flex-end;">
+              <div style="width:100%;background:#93C5FD;border-radius:4px 4px 0 0;height:12%;"></div>
+              <span style="font-size:10px;color:#94A3B8;white-space:nowrap;">T9</span>
+            </div>
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;height:100%;justify-content:flex-end;">
+              <div style="width:100%;background:#60A5FA;border-radius:4px 4px 0 0;height:20%;"></div>
+              <span style="font-size:10px;color:#94A3B8;white-space:nowrap;">T10</span>
+            </div>
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;height:100%;justify-content:flex-end;">
+              <div style="width:100%;background:#60A5FA;border-radius:4px 4px 0 0;height:17%;"></div>
+              <span style="font-size:10px;color:#94A3B8;white-space:nowrap;">T11</span>
+            </div>
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;height:100%;justify-content:flex-end;">
+              <div style="width:100%;background:#3B82F6;border-radius:4px 4px 0 0;height:30%;"></div>
+              <span style="font-size:10px;color:#94A3B8;white-space:nowrap;">T12</span>
+            </div>
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;height:100%;justify-content:flex-end;">
+              <div style="width:100%;background:#3B82F6;border-radius:4px 4px 0 0;height:40%;"></div>
+              <span style="font-size:10px;color:#94A3B8;white-space:nowrap;">T1</span>
+            </div>
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;height:100%;justify-content:flex-end;">
+              <div style="width:100%;background:#2563EB;border-radius:4px 4px 0 0;height:35%;"></div>
+              <span style="font-size:10px;color:#94A3B8;white-space:nowrap;">T2</span>
+            </div>
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;height:100%;justify-content:flex-end;">
+              <div style="width:100%;background:#2563EB;border-radius:4px 4px 0 0;height:60%;"></div>
+              <span style="font-size:10px;color:#94A3B8;white-space:nowrap;">T3</span>
+            </div>
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;height:100%;justify-content:flex-end;">
+              <div style="width:100%;background:#1D4ED8;border-radius:4px 4px 0 0;height:90%;position:relative;">
+                <!-- Tooltip -->
+                <div style="position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);background:#0F172A;color:#fff;font-size:10px;padding:4px 8px;border-radius:6px;white-space:nowrap;pointer-events:none;">
+                  T4/2026: 1.800.000đ
+                  <div style="position:absolute;top:100%;left:50%;transform:translateX(-50%);width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:4px solid #0F172A;"></div>
+                </div>
+              </div>
+              <span style="font-size:10px;color:#94A3B8;white-space:nowrap;">T4</span>
+            </div>
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;height:100%;justify-content:flex-end;">
+              <div style="width:100%;background:#1E40AF;border-radius:4px 4px 0 0;height:99%;"></div>
+              <span style="font-size:10px;color:#2563EB;font-weight:600;white-space:nowrap;">T5 ✦</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Summary row -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0;border-top:1px solid #F1F5F9;margin-top:8px;padding-top:16px;">
+        <div style="text-align:center;padding:0 12px;">
+          <div style="font-size:11px;color:#94A3B8;margin-bottom:2px;">Tháng tốt nhất</div>
+          <div style="font-size:14px;font-weight:700;color:#0F172A;">T5/2026</div>
+          <div style="font-size:12px;color:#2563EB;">1.980.000đ</div>
+        </div>
+        <div style="text-align:center;padding:0 12px;border-left:1px solid #F1F5F9;">
+          <div style="font-size:11px;color:#94A3B8;margin-bottom:2px;">Trung bình/tháng</div>
+          <div style="font-size:14px;font-weight:700;color:#0F172A;">825.000đ</div>
+          <div style="font-size:12px;color:#64748B;">12 tháng</div>
+        </div>
+        <div style="text-align:center;padding:0 12px;border-left:1px solid #F1F5F9;">
+          <div style="font-size:11px;color:#94A3B8;margin-bottom:2px;">Tổng giao dịch</div>
+          <div style="font-size:14px;font-weight:700;color:#0F172A;">47</div>
+          <div style="font-size:12px;color:#64748B;">12 tháng</div>
+        </div>
+        <div style="text-align:center;padding:0 12px;border-left:1px solid #F1F5F9;">
+          <div style="font-size:11px;color:#94A3B8;margin-bottom:2px;">Tăng trưởng</div>
+          <div style="font-size:14px;font-weight:700;color:#16A34A;">+12.5%</div>
+          <div style="font-size:12px;color:#64748B;">so với T4</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+</body>
+</html>

@@ -74,6 +74,7 @@ export default function FamilyPage() {
 
   const isParent = user?.role === 'PARENT' || user?.role === 'SUPER_ADMIN'
   const members: FamilyMember[] = family?.members ?? []
+  const pageTitle = isParent ? 'Quản lý gia đình' : 'Thành viên gia đình'
 
   /**
    * Sao chép link mời vào clipboard.
@@ -87,13 +88,15 @@ export default function FamilyPage() {
 
   return (
     <div>
-      <Topbar title="Gia đình" />
+      <Topbar title={pageTitle} />
       <div className="p-6 space-y-6">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-xl font-semibold">{family?.name ?? 'Gia đình của bạn'}</h2>
             <div className="flex items-center gap-2 mt-1">
-              <p className="text-sm text-muted-foreground">Gói: {family?.subscriptionPlan?.name ?? family?.plan ?? 'FREE'}</p>
+              <p className="text-sm text-muted-foreground">
+                {isParent ? 'Quản lý thành viên, lời mời và gói sử dụng' : 'Xem thông tin các thành viên trong gia đình'} · Gói: {family?.subscriptionPlan?.name ?? family?.plan ?? 'FREE'}
+              </p>
               {family?.subscriptionExpiresAt && (
                 <span className="text-xs text-muted-foreground">
                   · Hết hạn: {new Date(family.subscriptionExpiresAt).toLocaleDateString('vi-VN')}

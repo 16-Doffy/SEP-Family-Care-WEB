@@ -84,6 +84,9 @@ export default function CalendarPage() {
   const [showCreate, setShowCreate] = useState(false)
   const [form, setForm] = useState({ title: '', description: '', startDate: '', endDate: '', allDay: true, color: '#3b82f6' })
 
+  const isParent = user?.role === 'PARENT' || user?.role === 'SUPER_ADMIN'
+  const pageTitle = isParent ? 'Quản lý lịch gia đình' : 'Lịch gia đình'
+
   const year = currentDate.getFullYear()
   const month = currentDate.getMonth()
 
@@ -144,6 +147,7 @@ export default function CalendarPage() {
    * @param date - Ngày được chọn (YYYY-MM-DD), mặc định là hôm nay
    */
   const openCreate = (date?: string) => {
+    if (!isParent) return
     const d = date ?? toYMD(new Date())
     setForm((f) => ({ ...f, startDate: d, endDate: d }))
     setShowCreate(true)
@@ -152,7 +156,7 @@ export default function CalendarPage() {
   if (!user?.familyMember) {
     return (
       <div className="flex h-screen flex-col">
-        <Topbar title="Lịch gia đình" />
+        <Topbar title={pageTitle} />
         <div className="flex-1 flex items-center justify-center text-muted-foreground">
           <p>Bạn cần tham gia gia đình để xem lịch</p>
         </div>
@@ -162,7 +166,7 @@ export default function CalendarPage() {
 
   return (
     <div className="flex h-screen flex-col">
-      <Topbar title="Lịch gia đình" />
+      <Topbar title={pageTitle} />
       <div className="flex flex-1 overflow-hidden">
         {/* Calendar grid */}
         <div className="flex-1 flex flex-col p-6 overflow-auto">
@@ -170,14 +174,19 @@ export default function CalendarPage() {
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-3">
               <Button variant="outline" size="icon" onClick={prevMonth}><ChevronLeft className="w-4 h-4" /></Button>
-              <h2 className="text-xl font-semibold min-w-48 text-center">{formatMonth(currentDate)}</h2>
+              <div>
+                <h2 className="text-xl font-semibold min-w-48 text-center">{formatMonth(currentDate)}</h2>
+                <p className="text-xs text-muted-foreground text-center">{isParent ? 'Phụ huynh tạo và xóa sự kiện' : 'Con chỉ xem lịch và nhắc nhở'}</p>
+              </div>
               <Button variant="outline" size="icon" onClick={nextMonth}><ChevronRight className="w-4 h-4" /></Button>
               <Button variant="ghost" size="sm" onClick={() => setCurrentDate(new Date())} className="text-blue-600">Hôm nay</Button>
             </div>
-            <Button onClick={() => openCreate()} className="gap-2">
-              <Plus className="w-4 h-4" />
-              Thêm sự kiện
-            </Button>
+            {isParent && (
+              <Button onClick={() => openCreate()} className="gap-2">
+                <Plus className="w-4 h-4" />
+                Thêm sự kiện
+              </Button>
+            )}
           </div>
 
           {isLoading ? (
@@ -269,9 +278,11 @@ export default function CalendarPage() {
               <div className="flex flex-col items-center justify-center py-8 gap-2 text-muted-foreground">
                 <CalendarDays className="w-8 h-8 opacity-30" />
                 <p className="text-sm">Không có sự kiện</p>
-                <Button size="sm" variant="outline" onClick={() => openCreate(selectedDate)} className="gap-1 mt-1">
-                  <Plus className="w-3 h-3" />Thêm
-                </Button>
+                {isParent && (
+                  <Button size="sm" variant="outline" onClick={() => openCreate(selectedDate)} className="gap-1 mt-1">
+                    <Plus className="w-3 h-3" />Thêm
+                  </Button>
+                )}
               </div>
             ) : (
               <>
@@ -282,12 +293,14 @@ export default function CalendarPage() {
                         <div className="w-2.5 h-2.5 rounded-full shrink-0 mt-0.5" style={{ backgroundColor: e.color }} />
                         <p className="text-sm font-medium truncate">{e.title}</p>
                       </div>
-                      <button
-                        onClick={() => { if (confirm('Xóa sự kiện này?')) deleteMut.mutate(e.id) }}
-                        className="text-muted-foreground hover:text-red-500 shrink-0"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      {isParent && (
+                        <button
+                          onClick={() => { if (confirm('Xóa sự kiện này?')) deleteMut.mutate(e.id) }}
+                          className="text-muted-foreground hover:text-red-500 shrink-0"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                     {e.description && <p className="text-xs text-muted-foreground pl-4">{e.description}</p>}
                     <p className="text-xs text-muted-foreground pl-4">
@@ -296,9 +309,11 @@ export default function CalendarPage() {
                     <p className="text-xs text-muted-foreground pl-4">Bởi {e.createdBy.user.displayName}</p>
                   </div>
                 ))}
-                <Button size="sm" variant="outline" className="w-full gap-1" onClick={() => openCreate(selectedDate)}>
-                  <Plus className="w-3 h-3" />Thêm sự kiện
-                </Button>
+                {isParent && (
+                  <Button size="sm" variant="outline" className="w-full gap-1" onClick={() => openCreate(selectedDate)}>
+                    <Plus className="w-3 h-3" />Thêm sự kiện
+                  </Button>
+                )}
               </>
             )}
           </div>

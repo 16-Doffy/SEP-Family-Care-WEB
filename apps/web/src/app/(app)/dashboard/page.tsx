@@ -20,6 +20,7 @@ import { Wallet, CheckSquare, Users, TrendingUp } from 'lucide-react'
  */
 export default function DashboardPage() {
   const { user } = useAuth()
+  const isParent = user?.role === 'PARENT' || user?.role === 'SUPER_ADMIN'
 
   // Lấy thông tin gia đình bao gồm ví và danh sách thành viên
   const { data: family } = useQuery({
@@ -35,8 +36,16 @@ export default function DashboardPage() {
     enabled: !!user?.familyMember,
   })
 
+  const { data: wallets = [] } = useQuery({
+    queryKey: ['wallets-summary'],
+    queryFn: () => api.get('/wallets').then((r) => r.data),
+    enabled: !!user?.familyMember,
+  })
+
   // Ví chung của gia đình thường là ví đầu tiên trong danh sách
-  const jointWallet = family?.wallets?.[0]
+  const jointWallet = wallets.find((w: { type: string }) => w.type === 'JOINT') ?? family?.wallets?.find?.((w: { type: string }) => w.type === 'JOINT') ?? family?.wallets?.[0]
+  const personalWallet = wallets.find((w: { type: string }) => w.type === 'PERSONAL') ?? wallets[0]
+  const walletSummary = isParent ? jointWallet : personalWallet
   const members = family?.members ?? []
   const tasks = tasksData ?? []
   // Đếm nhiệm vụ đang chờ phụ huynh duyệt
@@ -46,14 +55,16 @@ export default function DashboardPage() {
 
   return (
     <div>
-      <Topbar title="Tổng quan" />
+      <Topbar title={isParent ? 'Tổng quan phụ huynh' : 'Tổng quan của con'} />
       <div className="p-6 space-y-6">
         {/* Welcome */}
         <div>
           <h2 className="text-2xl font-bold text-gray-900">
             Xin chào, {user?.displayName} 👋
           </h2>
-          <p className="text-muted-foreground">{family?.name ?? 'Đang tải...'}</p>
+          <p className="text-muted-foreground">
+            {isParent ? 'Quản lý hoạt động gia đình' : 'Theo dõi ví cá nhân, nhiệm vụ và thông báo của con'} · {family?.name ?? 'Đang tải...'}
+          </p>
         </div>
 
         {/* Stats cards */}
@@ -62,9 +73,9 @@ export default function DashboardPage() {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Ví gia đình</p>
+                  <p className="text-sm text-muted-foreground">{isParent ? 'Ví gia đình' : 'Ví cá nhân'}</p>
                   <p className="text-2xl font-bold text-blue-600">
-                    {jointWallet ? formatCurrency(Number(jointWallet.balance)) : '---'}
+                    {walletSummary ? formatCurrency(Number(walletSummary.balance)) : '---'}
                   </p>
                 </div>
                 <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
@@ -78,7 +89,7 @@ export default function DashboardPage() {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Task đang làm</p>
+                  <p className="text-sm text-muted-foreground">{isParent ? 'Task đang làm' : 'Việc cần làm'}</p>
                   <p className="text-2xl font-bold text-orange-600">{activeTasks}</p>
                 </div>
                 <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center">
@@ -92,7 +103,7 @@ export default function DashboardPage() {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Chờ duyệt</p>
+                  <p className="text-sm text-muted-foreground">{isParent ? 'Chờ duyệt' : 'Đã nộp chờ duyệt'}</p>
                   <p className="text-2xl font-bold text-purple-600">{pendingApprovals}</p>
                 </div>
                 <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
@@ -106,7 +117,7 @@ export default function DashboardPage() {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Thành viên</p>
+                  <p className="text-sm text-muted-foreground">{isParent ? 'Thành viên' : 'Người trong nhà'}</p>
                   <p className="text-2xl font-bold text-green-600">{members.length}</p>
                 </div>
                 <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
@@ -120,7 +131,7 @@ export default function DashboardPage() {
         {/* Members */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Thành viên gia đình</CardTitle>
+            <CardTitle className="text-lg">{isParent ? 'Thành viên gia đình' : 'Gia đình của con'}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -147,7 +158,7 @@ export default function DashboardPage() {
         {/* Recent tasks */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Nhiệm vụ gần đây</CardTitle>
+            <CardTitle className="text-lg">{isParent ? 'Nhiệm vụ gần đây trong gia đình' : 'Nhiệm vụ của con gần đây'}</CardTitle>
           </CardHeader>
           <CardContent>
             {tasks.slice(0, 5).length === 0 ? (

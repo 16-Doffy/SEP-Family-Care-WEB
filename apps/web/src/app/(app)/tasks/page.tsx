@@ -93,16 +93,22 @@ export default function TasksPage() {
 
   // SUPER_ADMIN được coi là phụ huynh để có đầy đủ quyền quản lý nhiệm vụ
   const isParent = user?.role === 'PARENT' || user?.role === 'SUPER_ADMIN'
+  const pageTitle = isParent ? 'Quản lý nhiệm vụ' : 'Nhiệm vụ của con'
   const members = family?.members ?? []
   // Base URL API dùng để hiển thị ảnh bằng chứng
   const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000'
 
   return (
     <div>
-      <Topbar title="Nhiệm vụ" />
+      <Topbar title={pageTitle} />
       <div className="p-6 space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold">Bảng nhiệm vụ</h2>
+          <div>
+            <h2 className="text-xl font-semibold">{isParent ? 'Bảng nhiệm vụ gia đình' : 'Việc được giao cho con'}</h2>
+            <p className="text-sm text-muted-foreground">
+              {isParent ? 'Tạo việc, giao cho thành viên, duyệt bằng chứng và thưởng tiền.' : 'Bắt đầu việc được giao, nộp bằng chứng và theo dõi tiền thưởng.'}
+            </p>
+          </div>
           {isParent && (
             <Button onClick={() => setCreateOpen(true)}>
               <Plus className="w-4 h-4 mr-2" />Tạo nhiệm vụ
@@ -119,7 +125,7 @@ export default function TasksPage() {
               return (
                 <div key={status} className={`rounded-xl border-2 p-3 min-h-[200px] ${color}`}>
                   <div className="flex items-center justify-between mb-3">
-                    <h3 className="font-semibold text-sm">{label}</h3>
+                    <h3 className="font-semibold text-sm">{isParent ? label : status === 'PENDING' ? 'Việc mới' : status === 'SUBMITTED' ? 'Đã nộp chờ duyệt' : label}</h3>
                     <span className="text-xs bg-white rounded-full px-2 py-0.5 font-medium">{colTasks.length}</span>
                   </div>
                   <div className="space-y-2">
@@ -163,7 +169,7 @@ export default function TasksPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Tạo nhiệm vụ mới</DialogTitle>
-            <DialogDescription>Điền thông tin nhiệm vụ và giao cho thành viên</DialogDescription>
+            <DialogDescription>Phụ huynh tạo việc nhà, đặt thưởng và giao cho thành viên</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
@@ -189,7 +195,7 @@ export default function TasksPage() {
               <Select value={form.assignedToId} onValueChange={(v) => setForm({ ...form, assignedToId: v })}>
                 <SelectTrigger><SelectValue placeholder="Chọn thành viên" /></SelectTrigger>
                 <SelectContent>
-                  {members.map((m: { id: string; user: { displayName: string; role: string } }) => (
+                  {members.filter((m: { user: { role: string } }) => m.user.role === 'CHILD').map((m: { id: string; user: { displayName: string; role: string } }) => (
                     <SelectItem key={m.id} value={m.id}>{m.user.displayName} ({m.user.role === 'CHILD' ? 'Con' : 'Phụ huynh'})</SelectItem>
                   ))}
                 </SelectContent>
@@ -258,6 +264,9 @@ export default function TasksPage() {
                         <XCircle className="w-4 h-4 mr-2" />Từ chối
                       </Button>
                     </>
+                  )}
+                  {!isParent && !['PENDING', 'IN_PROGRESS'].includes(detailTask.status) && (
+                    <p className="text-sm text-muted-foreground">Con chỉ cần theo dõi trạng thái nhiệm vụ này.</p>
                   )}
                 </div>
               </div>

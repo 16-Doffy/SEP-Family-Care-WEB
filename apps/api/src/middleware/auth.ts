@@ -5,6 +5,7 @@
 import type { Request, Response, NextFunction } from 'express'
 import { verifyAccessToken } from '../utils/jwt'
 import { Errors } from '../utils/errors'
+import { prisma } from '../config/database'
 
 /**
  * Mở rộng interface `Request` của Express để thêm thuộc tính `user`.
@@ -84,10 +85,21 @@ export function requireRole(...roles: string[]) {
  * @param _res - Đối tượng response (không dùng trong middleware này)
  * @param next - Hàm chuyển tiếp sang middleware hoặc handler tiếp theo
  */
-export function requireFamily(req: Request, _res: Response, next: NextFunction) {
+export async function requireFamily(req: Request, _res: Response, next: NextFunction) {
   if (!req.user?.familyId) {
     return next(Errors.BadRequest('You are not part of a family'))
   }
-  next()
+  try {
+    const family = await prisma.family.findUnique({
+      where: { id: req.user.familyId },
+      select: { status: true },
+    })
+    if (!family) return next(Errors.BadRequest('You are not part of a family'))
+    if (req.user.role !== 'SUPER_ADMIN' && family.status !== 'ACTIVE') {
+      return next(Errors.Forbidden())
+    }
+    next()
+  } catch (e) {
+    next(e)
+  }
 }
-

@@ -19,19 +19,21 @@
 
 import { Router } from 'express'
 import * as ctrl from '../controllers/sos.controller'
-import { authenticate } from '../middleware/auth'
+import { authenticate, requireRole } from '../middleware/auth'
 
 const router = Router()
 
 // Áp dụng middleware xác thực cho tất cả route trong module này
 router.use(authenticate)
 
+/** Kích hoạt SOS — mọi thành viên đã xác thực (FE-23) */
 router.post('/', ctrl.createSOSAlert)
 router.get('/', ctrl.getSOSAlerts)
 
 // Route tĩnh /active phải đứng trước route động /:id để tránh xung đột
 router.get('/active', ctrl.getActiveSOSAlerts)
 
-router.patch('/:id', ctrl.updateSOSStatus)
+/** Acknowledge / resolve SOS — chỉ PARENT / SUPER_ADMIN */
+router.patch('/:id', requireRole('PARENT', 'SUPER_ADMIN'), ctrl.updateSOSStatus)
 
 export default router

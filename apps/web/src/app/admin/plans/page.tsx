@@ -24,6 +24,8 @@ interface Plan {
   name: string
   description: string | null
   price: number | string
+  priceMonthly: number | string | null
+  priceYearly: number | string | null
   currency: string
   billingPeriod: string
   maxMembers: number | null
@@ -44,6 +46,8 @@ interface PlanFormData {
   name: string
   description: string
   price: number
+  priceMonthly: string
+  priceYearly: string
   currency: string
   billingPeriod: string
   maxMembers: string
@@ -55,7 +59,7 @@ interface PlanFormData {
 
 /** Giá trị form rỗng dùng khi tạo gói mới */
 const EMPTY: PlanFormData = {
-  code: '', name: '', description: '', price: 0, currency: 'VND', billingPeriod: 'MONTHLY',
+  code: '', name: '', description: '', price: 0, priceMonthly: '', priceYearly: '', currency: 'VND', billingPeriod: 'MONTHLY',
   maxMembers: '', maxTasksPerMonth: '', features: '', isActive: true, sortOrder: 0,
 }
 
@@ -92,6 +96,8 @@ export default function PlansAdminPage() {
         name: data.name.trim(),
         description: data.description.trim() || null,
         price: Number(data.price),
+        priceMonthly: data.priceMonthly === '' ? null : Number(data.priceMonthly),
+        priceYearly: data.priceYearly === '' ? null : Number(data.priceYearly),
         currency: data.currency,
         billingPeriod: data.billingPeriod,
         // Chuỗi trống được chuyển thành null để biểu thị "không giới hạn" phía backend
@@ -142,6 +148,8 @@ export default function PlansAdminPage() {
       name: p.name,
       description: p.description ?? '',
       price: Number(p.price),
+      priceMonthly: p.priceMonthly == null ? '' : String(p.priceMonthly),
+      priceYearly: p.priceYearly == null ? '' : String(p.priceYearly),
       currency: p.currency,
       billingPeriod: p.billingPeriod,
       maxMembers: p.maxMembers == null ? '' : String(p.maxMembers),
@@ -212,6 +220,10 @@ export default function PlansAdminPage() {
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <p className="text-2xl font-bold text-blue-600">{formatPrice(p)}</p>
+                  <p className="text-xs text-muted-foreground">
+                    Tháng: {p.priceMonthly == null ? '-' : Number(p.priceMonthly).toLocaleString('vi-VN')} ·
+                    Năm: {p.priceYearly == null ? '-' : Number(p.priceYearly).toLocaleString('vi-VN')}
+                  </p>
                   {p.description && <p className="text-sm text-muted-foreground">{p.description}</p>}
 
                   <div className="flex gap-4 text-sm">
@@ -298,6 +310,27 @@ export default function PlansAdminPage() {
                   <option value="YEARLY">YEARLY</option>
                   <option value="LIFETIME">LIFETIME</option>
                 </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Giá theo tháng</Label>
+                <Input
+                  type="number"
+                  value={form.priceMonthly}
+                  onChange={(e) => setForm({ ...form, priceMonthly: e.target.value })}
+                  placeholder="VD: 49000"
+                />
+              </div>
+              <div>
+                <Label>Giá theo năm</Label>
+                <Input
+                  type="number"
+                  value={form.priceYearly}
+                  onChange={(e) => setForm({ ...form, priceYearly: e.target.value })}
+                  placeholder="VD: 490000"
+                />
               </div>
             </div>
 

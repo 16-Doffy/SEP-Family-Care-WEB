@@ -133,33 +133,40 @@ export default function WalletPage() {
 
   // SUPER_ADMIN được coi là phụ huynh để có quyền nạp tiền, chuyển tiền và duyệt yêu cầu
   const isParent = user?.role === 'PARENT' || user?.role === 'SUPER_ADMIN'
+  const pageTitle = isParent ? 'Ví gia đình' : 'Ví cá nhân'
+  const requestTabLabel = isParent ? 'Yêu cầu xin tiền' : 'Yêu cầu của con'
   const transactions: Transaction[] = walletDetail?.transactions ?? []
 
   return (
     <div className="flex h-screen flex-col">
-      <Topbar title="Ví tiền" />
+      <Topbar title={pageTitle} />
       <div className="flex-1 overflow-y-auto p-6 space-y-6">
 
         {/* Header actions */}
         <div className="flex items-center justify-between">
-          <div className="flex gap-1 p-1 bg-gray-100 rounded-lg">
-            <button
-              onClick={() => setActiveTab('wallets')}
-              className={cn('px-4 py-1.5 rounded-md text-sm font-medium transition-colors', activeTab === 'wallets' ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700')}
-            >
-              Ví tiền
-            </button>
-            <button
-              onClick={() => setActiveTab('requests')}
-              className={cn('px-4 py-1.5 rounded-md text-sm font-medium transition-colors relative', activeTab === 'requests' ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700')}
-            >
-              Xin tiền
-              {pendingCount > 0 && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white text-[10px] flex items-center justify-center font-bold">
-                  {pendingCount}
-                </span>
-              )}
-            </button>
+          <div>
+            <div className="flex gap-1 p-1 bg-gray-100 rounded-lg">
+              <button
+                onClick={() => setActiveTab('wallets')}
+                className={cn('px-4 py-1.5 rounded-md text-sm font-medium transition-colors', activeTab === 'wallets' ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700')}
+              >
+                {isParent ? 'Các ví trong nhà' : 'Ví của con'}
+              </button>
+              <button
+                onClick={() => setActiveTab('requests')}
+                className={cn('px-4 py-1.5 rounded-md text-sm font-medium transition-colors relative', activeTab === 'requests' ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700')}
+              >
+                {requestTabLabel}
+                {pendingCount > 0 && (
+                  <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white text-[10px] flex items-center justify-center font-bold">
+                    {pendingCount}
+                  </span>
+                )}
+              </button>
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">
+              {isParent ? 'Phụ huynh quản lý ví chung, nạp tiền, chuyển tiền và duyệt yêu cầu của con.' : 'Con chỉ xem ví cá nhân, lịch sử giao dịch và gửi yêu cầu xin tiền.'}
+            </p>
           </div>
 
           <div className="flex gap-2">
@@ -216,7 +223,7 @@ export default function WalletPage() {
             {selectedWallet && (
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-lg">Lịch sử giao dịch – {selectedWallet.name}</CardTitle>
+                  <CardTitle className="text-lg">{isParent ? 'Lịch sử giao dịch' : 'Lịch sử tiền của con'} – {selectedWallet.name}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   {transactions.length === 0 ? (
@@ -258,7 +265,7 @@ export default function WalletPage() {
             {moneyRequests.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 gap-2 text-muted-foreground">
                 <HandCoins className="w-10 h-10 opacity-30" />
-                <p className="text-sm">Chưa có yêu cầu xin tiền nào</p>
+                <p className="text-sm">{isParent ? 'Chưa có yêu cầu xin tiền nào từ thành viên' : 'Con chưa gửi yêu cầu xin tiền nào'}</p>
               </div>
             ) : (
               moneyRequests.map((mr) => {
@@ -338,45 +345,69 @@ export default function WalletPage() {
             <DialogTitle>Chuyển tiền</DialogTitle>
             <DialogDescription>Chuyển tiền giữa các ví trong gia đình</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Từ ví</Label>
-              <Select value={transferForm.fromWalletId} onValueChange={(v) => setTransferForm({ ...transferForm, fromWalletId: v })}>
-                <SelectTrigger><SelectValue placeholder="Chọn ví nguồn" /></SelectTrigger>
-                <SelectContent>
-                  {wallets.map((w) => (
-                    <SelectItem key={w.id} value={w.id}>{w.name} – {formatCurrency(Number(w.balance))}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Đến ví</Label>
-              <Select value={transferForm.toWalletId} onValueChange={(v) => setTransferForm({ ...transferForm, toWalletId: v })}>
-                <SelectTrigger><SelectValue placeholder="Chọn ví đích" /></SelectTrigger>
-                <SelectContent>
-                  {wallets.filter((w) => w.id !== transferForm.fromWalletId).map((w) => (
-                    <SelectItem key={w.id} value={w.id}>{w.name} – {formatCurrency(Number(w.balance))}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Số tiền (VND)</Label>
-              <Input type="number" min="1000" placeholder="100000" value={transferForm.amount} onChange={(e) => setTransferForm({ ...transferForm, amount: e.target.value })} />
-            </div>
-            <div className="space-y-2">
-              <Label>Ghi chú</Label>
-              <Input placeholder="Tiền tiêu vặt tuần này..." value={transferForm.description} onChange={(e) => setTransferForm({ ...transferForm, description: e.target.value })} />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setTransferOpen(false)}>Hủy</Button>
-            <Button onClick={() => transferMut.mutate(transferForm)} disabled={transferMut.isPending || !transferForm.fromWalletId || !transferForm.toWalletId || !transferForm.amount}>
-              {transferMut.isPending && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
-              Chuyển tiền
-            </Button>
-          </DialogFooter>
+          {(() => {
+            const fromWallet = wallets.find((w) => w.id === transferForm.fromWalletId)
+            const fromBalance = fromWallet ? Number(fromWallet.balance) : 0
+            const transferAmount = Number(transferForm.amount) || 0
+            const insufficient = !!transferForm.fromWalletId && transferAmount > 0 && transferAmount > fromBalance
+            return (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Từ ví</Label>
+                  <Select value={transferForm.fromWalletId} onValueChange={(v) => setTransferForm({ ...transferForm, fromWalletId: v })}>
+                    <SelectTrigger><SelectValue placeholder="Chọn ví nguồn" /></SelectTrigger>
+                    <SelectContent>
+                      {wallets.map((w) => (
+                        <SelectItem key={w.id} value={w.id}>{w.name} – {formatCurrency(Number(w.balance))}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {fromWallet && (
+                    <p className="text-xs text-muted-foreground">Số dư hiện tại: <span className="font-medium text-gray-700">{formatCurrency(fromBalance)}</span></p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label>Đến ví</Label>
+                  <Select value={transferForm.toWalletId} onValueChange={(v) => setTransferForm({ ...transferForm, toWalletId: v })}>
+                    <SelectTrigger><SelectValue placeholder="Chọn ví đích" /></SelectTrigger>
+                    <SelectContent>
+                      {wallets.filter((w) => w.id !== transferForm.fromWalletId).map((w) => (
+                        <SelectItem key={w.id} value={w.id}>{w.name} – {formatCurrency(Number(w.balance))}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Số tiền (VND)</Label>
+                  <Input
+                    type="number" min="1000" placeholder="100000"
+                    value={transferForm.amount}
+                    onChange={(e) => setTransferForm({ ...transferForm, amount: e.target.value })}
+                    className={insufficient ? 'border-red-400 focus-visible:ring-red-400' : ''}
+                  />
+                  {insufficient && (
+                    <p className="text-xs text-red-500 flex items-center gap-1">
+                      ⚠ Số dư không đủ. Ví chỉ còn {formatCurrency(fromBalance)}.
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label>Ghi chú</Label>
+                  <Input placeholder="Tiền tiêu vặt tuần này..." value={transferForm.description} onChange={(e) => setTransferForm({ ...transferForm, description: e.target.value })} />
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setTransferOpen(false)}>Hủy</Button>
+                  <Button
+                    onClick={() => transferMut.mutate(transferForm)}
+                    disabled={transferMut.isPending || !transferForm.fromWalletId || !transferForm.toWalletId || !transferForm.amount || insufficient}
+                  >
+                    {transferMut.isPending && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+                    Chuyển tiền
+                  </Button>
+                </DialogFooter>
+              </div>
+            )
+          })()}
         </DialogContent>
       </Dialog>
 

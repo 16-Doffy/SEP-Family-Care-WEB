@@ -125,3 +125,18 @@ export async function removeMember(req: Request, res: Response, next: NextFuncti
     next(e)
   }
 }
+
+export async function changeMemberRole(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { role } = z.object({ role: z.enum(['PARENT', 'CHILD']) }).parse(req.body)
+    const result = await familyService.changeMemberRole(
+      req.user.familyId!,
+      req.params.userId,
+      role,
+      req.user.userId,
+    )
+    res.json(result)
+  } catch (e) {
+    next(e)
+  }
+}

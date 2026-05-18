@@ -15,16 +15,21 @@
 
 import { Router } from 'express'
 import * as ctrl from '../controllers/calendar.controller'
-import { authenticate, requireFamily } from '../middleware/auth'
+import { authenticate, requireFamily, requireRole } from '../middleware/auth'
 
 const router = Router()
 
 // Áp dụng middleware xác thực và kiểm tra gia đình cho tất cả route trong module này
 router.use(authenticate, requireFamily)
 
+/** Xem lịch — mọi thành viên đều được (FE-26) */
 router.get('/', ctrl.getEvents)
+
+/** Tạo / sửa sự kiện — mọi thành viên gia đình đều được phép */
 router.post('/', ctrl.createEvent)
 router.put('/:id', ctrl.updateEvent)
-router.delete('/:id', ctrl.deleteEvent)
+
+/** Xóa sự kiện — chỉ PARENT / SUPER_ADMIN (hành động không thể hoàn tác) */
+router.delete('/:id', requireRole('PARENT', 'SUPER_ADMIN'), ctrl.deleteEvent)
 
 export default router

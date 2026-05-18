@@ -26,6 +26,10 @@ export interface PlanInput {
   description?: string | null
   /** Giá gói (đơn vị: VND) */
   price?: number
+  /** Giá theo tháng khi một gói có nhiều chu kỳ thanh toán */
+  priceMonthly?: number | null
+  /** Giá theo năm khi một gói có nhiều chu kỳ thanh toán */
+  priceYearly?: number | null
   /** Đơn vị tiền tệ (mặc định: VND) */
   currency?: string
   /** Chu kỳ thanh toán: FREE | MONTHLY | YEARLY | LIFETIME */
@@ -105,6 +109,8 @@ export async function createPlan(data: PlanInput) {
       name: data.name,
       description: data.description ?? null,
       price: data.price ?? 0,
+      priceMonthly: data.priceMonthly ?? (data.billingPeriod === 'MONTHLY' ? data.price ?? 0 : null),
+      priceYearly: data.priceYearly ?? (data.billingPeriod === 'YEARLY' ? data.price ?? 0 : null),
       currency: data.currency ?? 'VND',
       billingPeriod: data.billingPeriod ?? 'MONTHLY',
       maxMembers: data.maxMembers ?? null,
@@ -139,6 +145,8 @@ export async function updatePlan(id: string, data: Partial<PlanInput>) {
       ...(data.name !== undefined && { name: data.name }),
       ...(data.description !== undefined && { description: data.description }),
       ...(data.price !== undefined && { price: data.price }),
+      ...(data.priceMonthly !== undefined && { priceMonthly: data.priceMonthly }),
+      ...(data.priceYearly !== undefined && { priceYearly: data.priceYearly }),
       ...(data.currency !== undefined && { currency: data.currency }),
       ...(data.billingPeriod !== undefined && { billingPeriod: data.billingPeriod }),
       ...(data.maxMembers !== undefined && { maxMembers: data.maxMembers }),
@@ -212,6 +220,8 @@ export async function ensureDefaultPlans() {
       name: 'Miễn phí',
       description: 'Dùng thử dành cho gia đình nhỏ',
       price: 0,
+      priceMonthly: 0,
+      priceYearly: 0,
       billingPeriod: 'FREE',
       maxMembers: 4,
       maxTasksPerMonth: 20,
@@ -223,6 +233,8 @@ export async function ensureDefaultPlans() {
       name: 'Cơ bản',
       description: 'Gói tiêu chuẩn cho gia đình',
       price: 49000,
+      priceMonthly: 49000,
+      priceYearly: 490000,
       billingPeriod: 'MONTHLY',
       maxMembers: 8,
       maxTasksPerMonth: 100,
@@ -234,6 +246,8 @@ export async function ensureDefaultPlans() {
       name: 'Cao cấp',
       description: 'Đầy đủ tính năng, không giới hạn',
       price: 99000,
+      priceMonthly: 99000,
+      priceYearly: 990000,
       billingPeriod: 'MONTHLY',
       maxMembers: null,       // null = không giới hạn số thành viên
       maxTasksPerMonth: null, // null = không giới hạn số task

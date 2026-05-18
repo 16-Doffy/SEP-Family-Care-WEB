@@ -146,3 +146,26 @@ export async function me(req: Request, res: Response, next: NextFunction) {
     next(e)
   }
 }
+
+export async function forgotPassword(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { email } = z.object({ email: z.string().email() }).parse(req.body)
+    const result = await authService.forgotPassword(email)
+    res.json(result)
+  } catch (e) {
+    next(e)
+  }
+}
+
+export async function resetPassword(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { token, newPassword } = z.object({
+      token: z.string(),
+      newPassword: z.string().min(6),
+    }).parse(req.body)
+    await authService.resetPassword(token, newPassword)
+    res.json({ message: 'Password reset successfully' })
+  } catch (e) {
+    next(e)
+  }
+}

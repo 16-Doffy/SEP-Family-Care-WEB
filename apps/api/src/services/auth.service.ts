@@ -113,7 +113,7 @@ export async function register(input: RegisterInput) {
     })
 
     const member = await tx.familyMember.create({
-      data: { userId: user.id, familyId: family.id },
+      data: { userId: user.id, familyId: family.id, isOwner: true },
     })
 
     // Tạo ví chung cho cả gia đình
@@ -312,5 +312,69 @@ async function saveRefreshToken(userId: string, token: string) {
         expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       },
     }),
+  ])
+}
+
+/**
+ * Khởi tạo luồng quên mật khẩu: tạo token reset và trả về token đó.
+ * Trong production, token này được gửi qua email. Ở MVP, trả về trực tiếp
+ * trong response để dễ test (không cần email service).
+ *
+ * @param email - Email của người dùng yêu cầu reset
+ * @returns Object chứa resetToken (dùng để gọi resetPassword)
+ * @throws {NotFoundError} Khi email không tồn tại
+ */
+export async function forgotPassword(email: string) {
+  const user = await prisma.user.findUnique({ where: { email } })
+  // Dùng thông báo lỗi chung để không tiết lộ email nào tồn tại trong hệ thống
+  if (!user) throw Errors.NotFound('User')
+
+  // Xóa các token cũ chưa dùng của user này trước khi tạo mới
+  await prisma.passwordResetToken.deleteMany({
+    where: { userId: user.id, usedAt: null },
+  })
+
+  const token = randomBytes(32).toString('hex')
+  await prisma.passwordResetToken.create({
+    data: {
+      token,
+      userId: user.id,
+      // Token reset có hiệu lực 1 giờ
+      expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+    },
+  })
+
+  // TODO: Gửi email chứa link reset. Ở MVP trả về token trực tiếp để test.
+  return { resetToken: token, expiresIn: '1 hour' }
+}
+
+/**
+ * Đặt lại mật khẩu bằng token reset.
+ *
+ * @param token - Token reset nhận được từ forgotPassword
+ * @param newPassword - Mật khẩu mới (plain-text, tối thiểu 6 ký tự)
+ * @throws {NotFoundError} Khi token không tồn tại
+ * @throws {BadRequestError} Khi token đã dùng hoặc đã hết hạn
+ */
+export async function resetPassword(token: string, newPassword: string) {
+  const record = await prisma.passwordResetToken.findUnique({ where: { token } })
+  if (!record) throw Errors.NotFound('Reset token')
+  if (record.usedAt) throw Errors.BadRequest('Reset token already used')
+  if (record.expiresAt < new Date()) throw Errors.BadRequest('Reset token expired')
+
+  const passwordHash = await bcrypt.hash(newPassword, 10)
+
+  await prisma.$transaction([
+    prisma.user.update({
+      where: { id: record.userId },
+      data: { passwordHash },
+    }),
+    // Đánh dấu token đã dùng thay vì xóa để có audit trail
+    prisma.passwordResetToken.update({
+      where: { id: record.id },
+      data: { usedAt: new Date() },
+    }),
+    // Thu hồi toàn bộ refresh token — buộc user đăng nhập lại trên mọi thiết bị
+    prisma.refreshToken.deleteMany({ where: { userId: record.userId } }),
   ])
 }

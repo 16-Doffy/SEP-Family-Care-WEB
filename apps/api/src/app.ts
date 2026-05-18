@@ -48,8 +48,8 @@ export function createApp() {
   }))
 
   // Parse body dạng JSON và URL-encoded (form submit truyền thống)
-  app.use(express.json())
-  app.use(express.urlencoded({ extended: true }))
+  app.use(express.json({ limit: '10mb' }))
+  app.use(express.urlencoded({ extended: true, limit: '10mb' }))
 
   // Rate limiting chặt cho route xác thực — giảm thiểu tấn công brute-force
   app.use('/api/auth', rateLimit({

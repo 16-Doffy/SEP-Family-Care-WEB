@@ -43,6 +43,7 @@ import locationRoutes from './location.routes'
 import aiRoutes from './ai.routes'
 import paymentRoutes from './payment.routes'
 import subscriptionPlanRoutes from './subscription-plan.routes'
+import announcementRoutes from './announcement.routes'
 
 const router = Router()
 
@@ -61,5 +62,6 @@ router.use('/location', locationRoutes)
 router.use('/ai', aiRoutes)
 router.use('/payments', paymentRoutes)
 router.use('/subscription-plans', subscriptionPlanRoutes)
+router.use('/announcements', announcementRoutes)
 
 export { router as apiRouter }

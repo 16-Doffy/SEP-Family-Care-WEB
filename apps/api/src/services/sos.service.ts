@@ -15,6 +15,7 @@
  */
 
 import { prisma } from '../config/database'
+import { Errors } from '../utils/errors'
 
 /**
  * Dữ liệu đầu vào để tạo một SOS alert mới.
@@ -114,6 +115,7 @@ export async function getActiveSOSAlerts(familyId: string) {
  * @param status - Trạng thái mới: ACKNOWLEDGED | RESOLVED | FALSE_ALARM
  * @param resolvedById - ID của người xử lý (bắt buộc khi RESOLVED/FALSE_ALARM)
  * @returns SOS alert sau khi cập nhật kèm thông tin người gửi và người xử lý
+ * @throws {NotFoundError} Nếu alert không tồn tại hoặc không thuộc gia đình
  */
 export async function updateSOSStatus(
   id: string,
@@ -121,8 +123,14 @@ export async function updateSOSStatus(
   status: 'ACKNOWLEDGED' | 'RESOLVED' | 'FALSE_ALARM',
   resolvedById?: string,
 ) {
+  // Kiểm tra alert tồn tại và thuộc đúng gia đình trước khi cập nhật.
+  // Prisma update chỉ chấp nhận unique field (id) trong where — không thể kết hợp
+  // non-unique field (familyId) trực tiếp trong where của update.
+  const existing = await prisma.sosAlert.findFirst({ where: { id, familyId } })
+  if (!existing) throw Errors.NotFound('SOS Alert')
+
   return prisma.sosAlert.update({
-    where: { id, familyId },
+    where: { id },
     data: {
       status,
       // Chỉ ghi nhận người giải quyết và thời điểm khi alert thực sự kết thúc

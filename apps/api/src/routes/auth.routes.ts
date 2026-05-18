@@ -39,4 +39,10 @@ router.post('/logout', ctrl.logout)
  */
 router.get('/me', authenticate, ctrl.me)
 
+/** Yêu cầu reset mật khẩu — trả về resetToken (MVP: trực tiếp, production: gửi email) */
+router.post('/forgot-password', ctrl.forgotPassword)
+
+/** Đặt lại mật khẩu bằng resetToken nhận từ forgot-password */
+router.post('/reset-password', ctrl.resetPassword)
+
 export default router

@@ -52,20 +52,14 @@ export default function RevenueAdminPage() {
    * Thêm BOM (﻿) ở đầu để Excel/Google Sheets nhận diện đúng UTF-8.
    */
   const exportCsv = () => {
-    if (!data) return
-    const rows = [
-      ['Month', 'Total Revenue (VND)', 'Payment Count'],
-      ...data.monthlyBreakdown.map((m) => [m.month, m.total, m.count]),
-    ]
-    const csv = rows.map((r) => r.join(',')).join('\n')
-    // BOM (Byte Order Mark) để Excel nhận diện mã hóa UTF-8 đúng cách
-    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `revenue-${new Date().toISOString().slice(0, 10)}.csv`
-    a.click()
-    URL.revokeObjectURL(url)
+    api.get('/admin/revenue/export', { responseType: 'blob' }).then((res) => {
+      const url = URL.createObjectURL(res.data)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `revenue-${new Date().toISOString().slice(0, 10)}.csv`
+      a.click()
+      URL.revokeObjectURL(url)
+    })
   }
 
   return (

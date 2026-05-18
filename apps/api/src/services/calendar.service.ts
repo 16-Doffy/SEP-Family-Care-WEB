@@ -99,20 +99,33 @@ export async function createEvent(
  * Quan trọng: Nếu `startDate` bị thay đổi, cờ `reminderSent` sẽ được reset về `false`
  * để scheduler nhắc nhở tự động gửi lại thông báo theo thời gian mới.
  *
+ * Phân quyền: Chỉ người tạo sự kiện (createdById) hoặc PARENT / SUPER_ADMIN mới được
+ * cập nhật. CHILD chỉ được cập nhật sự kiện do chính họ tạo ra.
+ *
  * @param eventId - ID của sự kiện cần cập nhật
  * @param familyId - ID của gia đình (để kiểm tra quyền sở hữu)
  * @param data - Các trường cần cập nhật (tất cả đều tùy chọn)
+ * @param requesterId - FamilyMember.id của người thực hiện cập nhật (tùy chọn)
+ * @param requesterRole - Role của người thực hiện cập nhật (tùy chọn)
  * @returns Sự kiện sau khi đã cập nhật kèm thông tin người tạo
  * @throws {NotFoundError} Nếu không tìm thấy sự kiện với eventId và familyId tương ứng
+ * @throws {ForbiddenError} Nếu người dùng không có quyền cập nhật sự kiện này
  */
 export async function updateEvent(
   eventId: string,
   familyId: string,
   data: { title?: string; description?: string; startDate?: string; endDate?: string; allDay?: boolean; color?: string },
+  requesterId?: string,
+  requesterRole?: string,
 ) {
   // Kiểm tra sự kiện tồn tại và thuộc về đúng gia đình trước khi cập nhật
   const event = await prisma.familyEvent.findFirst({ where: { id: eventId, familyId } })
   if (!event) throw Errors.NotFound('Event')
+
+  // Kiểm tra quyền: CHILD chỉ được sửa sự kiện do chính họ tạo
+  const isPrivileged = requesterRole === 'PARENT' || requesterRole === 'SUPER_ADMIN'
+  const isOwner = requesterId && event.createdById === requesterId
+  if (!isPrivileged && !isOwner) throw Errors.Forbidden()
 
   return prisma.familyEvent.update({
     where: { id: eventId },

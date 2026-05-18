@@ -55,7 +55,13 @@ enum NotificationType {
   MONEY_REQUEST
   MONEY_RESOLVED
   CALENDAR_REMINDER
+  ANNOUNCEMENT
   SYSTEM
+}
+
+enum AnnouncementType {
+  ANNOUNCEMENT
+  SUPPORT_REQUEST
 }
 
 enum ConversationType {
@@ -89,6 +95,19 @@ enum SubscriptionStatus {
   PAST_DUE
 }
 
+enum FamilyStatus {
+  ACTIVE
+  SUSPENDED
+  LOCKED
+}
+
+enum FamilyProvisionStatus {
+  PENDING
+  PROVISIONING
+  READY
+  FAILED
+}
+
 enum PaymentStatus {
   PENDING
   SUCCEEDED
@@ -116,6 +135,7 @@ model User {
 
   familyMember             FamilyMember?
   refreshTokens            RefreshToken[]
+  passwordResetTokens      PasswordResetToken[]
   notifications            Notification[]
   taskProofs               TaskProof[]
   conversationParticipants ConversationParticipant[]
@@ -141,11 +161,28 @@ model RefreshToken {
   @@index([userId])
 }
 
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([userId])
+}
+
 model Family {
   id                    String              @id @default(cuid())
   name                  String
   plan                  Plan                @default(FREE)
   planId                String?
+  status                FamilyStatus        @default(ACTIVE)
+  statusReason          String?
+  lockedAt              DateTime?
   subscriptionStatus    SubscriptionStatus  @default(ACTIVE)
   subscriptionExpiresAt DateTime?
   stripeCustomerId      String?
@@ -164,9 +201,30 @@ model Family {
   locationShares   LocationShare[]
   payments         Payment[]
   invites          FamilyInvite[]
+  announcements    Announcement[]
+  provision         FamilyProvision?
 
   @@index([planId])
+  @@index([status])
   @@index([subscriptionStatus, subscriptionExpiresAt])
+}
+
+model FamilyProvision {
+  id            String                @id @default(cuid())
+  familyId      String                @unique
+  status        FamilyProvisionStatus @default(PENDING)
+  containerName String?
+  databaseName  String?
+  imageTag      String?
+  metadata      Json?
+  lastError     String?
+  provisionedAt DateTime?
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+
+  family Family @relation(fields: [familyId], references: [id], onDelete: Cascade)
+
+  @@index([status])
 }
 
 model FamilyInvite {
@@ -190,6 +248,8 @@ model SubscriptionPlan {
   name          String
   description   String?
   price         Decimal  @default(0) @db.Decimal(12, 2)
+  priceMonthly  Decimal? @db.Decimal(12, 2)
+  priceYearly   Decimal? @db.Decimal(12, 2)
   currency      String   @default("VND")
   billingPeriod String   @default("MONTHLY")
   maxMembers    Int?
@@ -210,6 +270,7 @@ model FamilyMember {
   userId   String   @unique
   familyId String
   nickname String?
+  isOwner  Boolean  @default(false)
   joinedAt DateTime @default(now())
 
   user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -221,6 +282,7 @@ model FamilyMember {
   moneyRequests         MoneyRequest[] @relation("RequestedMoney")
   resolvedMoneyRequests MoneyRequest[] @relation("ResolvedMoneyRequest")
   uploadedAlbumPhotos   AlbumPhoto[]
+  announcements         Announcement[]
 
   @@index([familyId])
 }
@@ -503,4 +565,19 @@ model AlbumPhoto {
 
   @@index([familyId, createdAt])
   @@index([uploaderId])
+}
+
+model Announcement {
+  id         String           @id @default(cuid())
+  familyId   String
+  senderId   String
+  type       AnnouncementType @default(ANNOUNCEMENT)
+  content    String
+  createdAt  DateTime         @default(now())
+
+  family Family       @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  sender FamilyMember @relation(fields: [senderId], references: [id])
+
+  @@index([familyId, createdAt])
+  @@index([senderId])
 }

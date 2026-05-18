@@ -98,8 +98,15 @@ export async function createCheckoutSession(input: {
     if (!input.planId) throw Errors.BadRequest('planId is required for subscription')
     const plan = await prisma.subscriptionPlan.findUnique({ where: { id: input.planId } })
     if (!plan || !plan.isActive) throw Errors.NotFound('Plan')
-    // Lấy giá từ database, không tin vào giá client gửi lên (bảo mật)
-    amount = Number(plan.price)
+    // Lấy giá từ database, không tin vào giá client gửi lên (bảo mật).
+    // Nếu admin cấu hình riêng giá tháng/năm thì ưu tiên giá theo chu kỳ đó.
+    amount = Number(
+      plan.billingPeriod === 'YEARLY'
+        ? plan.priceYearly ?? plan.price
+        : plan.billingPeriod === 'MONTHLY'
+          ? plan.priceMonthly ?? plan.price
+          : plan.price,
+    )
     description = `Đăng ký gói ${plan.name}`
   } else if (input.type === 'WALLET_TOPUP') {
     if (!input.amount || input.amount <= 0) throw Errors.BadRequest('amount must be positive')
@@ -206,6 +213,41 @@ export async function finalizePayment(paymentId: string) {
           planId: plan.id,
           subscriptionStatus: 'ACTIVE',
           subscriptionExpiresAt: expiresAt,
+        },
+      })
+
+      const containerName = `family-${payment.familyId.slice(0, 8)}`
+      const databaseName = `family_${payment.familyId.replace(/[^a-zA-Z0-9]/g, '_').slice(0, 24)}`
+      await tx.familyProvision.upsert({
+        where: { familyId: payment.familyId },
+        create: {
+          familyId: payment.familyId,
+          status: 'READY',
+          containerName,
+          databaseName,
+          imageTag: 'shared-runtime',
+          metadata: {
+            mode: 'shared-db',
+            note: 'Provisioned automatically after successful subscription payment',
+            paymentId,
+            planId: plan.id,
+          },
+          provisionedAt: new Date(),
+          lastError: null,
+        },
+        update: {
+          status: 'READY',
+          containerName,
+          databaseName,
+          imageTag: 'shared-runtime',
+          metadata: {
+            mode: 'shared-db',
+            note: 'Provisioned automatically after successful subscription payment',
+            paymentId,
+            planId: plan.id,
+          },
+          provisionedAt: new Date(),
+          lastError: null,
         },
       })
 
@@ -405,7 +447,7 @@ export async function getRevenueStats() {
     }),
     prisma.family.findMany({
       where: { subscriptionStatus: 'ACTIVE', planId: { not: null } },
-      select: { subscriptionPlan: { select: { price: true, billingPeriod: true } } },
+      select: { subscriptionPlan: { select: { price: true, priceMonthly: true, priceYearly: true, billingPeriod: true } } },
     }),
   ])
 
@@ -413,11 +455,12 @@ export async function getRevenueStats() {
   let mrr = new Prisma.Decimal(0)
   for (const f of activeSubs) {
     if (!f.subscriptionPlan) continue
-    const price = new Prisma.Decimal(f.subscriptionPlan.price)
     if (f.subscriptionPlan.billingPeriod === 'YEARLY') {
       // Chuẩn hóa gói năm về tháng: chia 12
+      const price = new Prisma.Decimal(f.subscriptionPlan.priceYearly ?? f.subscriptionPlan.price)
       mrr = mrr.plus(price.div(12))
     } else if (f.subscriptionPlan.billingPeriod === 'MONTHLY') {
+      const price = new Prisma.Decimal(f.subscriptionPlan.priceMonthly ?? f.subscriptionPlan.price)
       mrr = mrr.plus(price)
     }
     // LIFETIME / FREE — not recurring revenue

@@ -32,6 +32,8 @@ const planSchema = z.object({
   name: z.string().min(1).max(120),
   description: z.string().max(500).nullable().optional(),
   price: z.number().nonnegative().optional(),
+  priceMonthly: z.number().nonnegative().nullable().optional(),
+  priceYearly: z.number().nonnegative().nullable().optional(),
   currency: z.string().length(3).optional(),
   billingPeriod: z.enum(['FREE', 'MONTHLY', 'YEARLY', 'LIFETIME']).optional(),
   maxMembers: z.number().int().positive().nullable().optional(),

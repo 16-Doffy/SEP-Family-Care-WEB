@@ -45,4 +45,7 @@ router.post('/join', ctrl.joinFamily)
 /** Xóa (vô hiệu hóa) thành viên khỏi gia đình — chỉ PARENT hoặc SUPER_ADMIN */
 router.delete('/members/:userId', requireFamily, requireRole('PARENT', 'SUPER_ADMIN'), ctrl.removeMember)
 
+/** Thay đổi role thành viên (PARENT ↔ CHILD) — chỉ PARENT hoặc SUPER_ADMIN (FE-06) */
+router.patch('/members/:userId/role', requireFamily, requireRole('PARENT', 'SUPER_ADMIN'), ctrl.changeMemberRole)
+
 export default router

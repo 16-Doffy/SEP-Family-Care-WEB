@@ -9,9 +9,14 @@
 
 import type { Request, Response, NextFunction } from 'express'
 import { prisma } from '../config/database'
+import { z } from 'zod'
 import os from 'os'
 import path from 'path'
 import fs from 'fs/promises'
+import { execFile } from 'child_process'
+import { promisify } from 'util'
+
+const execFileAsync = promisify(execFile)
 
 /**
  * Lấy thống kê tổng quan của hệ thống: tổng số gia đình, người dùng, và người dùng đang hoạt động.
@@ -52,11 +57,11 @@ export async function getFamilies(_req: Request, res: Response, next: NextFuncti
         // Đếm tổng số thành viên mà không load toàn bộ dữ liệu
         _count: { select: { members: true } },
         subscriptionPlan: true,
-        // Chỉ lấy thành viên đầu tiên (người tạo gia đình) để hiển thị trên bảng quản lý
+        provision: true,
+        // Ưu tiên chủ hộ, sau đó đến thành viên đầu tiên để hiển thị trên bảng quản lý
         members: {
-          include: { user: { select: { email: true, role: true } } },
-          take: 1,
-          orderBy: { joinedAt: 'asc' },
+          include: { user: { select: { id: true, email: true, displayName: true, role: true, isActive: true } } },
+          orderBy: [{ isOwner: 'desc' }, { joinedAt: 'asc' }],
         },
       },
       orderBy: { createdAt: 'desc' },
@@ -272,5 +277,396 @@ export async function exportBackup(_req: Request, res: Response, next: NextFunct
         albumPhotos,
       },
     })
+  } catch (e) { next(e) }
+}
+
+/**
+ * Gia hạn subscription cho một gia đình (FE-33).
+ * Admin có thể gia hạn thêm N tháng cho gia đình, kể cả khi subscription đã EXPIRED.
+ *
+ * @route POST /admin/families/:familyId/renew
+ * @param req - body: `{ months: number }` (mặc định 1)
+ */
+export async function renewSubscription(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { months } = z.object({ months: z.number().int().min(1).max(24).default(1) }).parse(req.body)
+    const { familyId } = req.params
+
+    const family = await prisma.family.findUnique({ where: { id: familyId } })
+    if (!family) {
+      res.status(404).json({ error: 'Family not found' })
+      return
+    }
+
+    // Nếu subscription đã hết hạn, tính từ hiện tại; nếu còn hiệu lực thì cộng thêm
+    const base = family.subscriptionExpiresAt && family.subscriptionExpiresAt > new Date()
+      ? family.subscriptionExpiresAt
+      : new Date()
+
+    const newExpiresAt = new Date(base)
+    newExpiresAt.setMonth(newExpiresAt.getMonth() + months)
+
+    const updated = await prisma.family.update({
+      where: { id: familyId },
+      data: {
+        subscriptionStatus: 'ACTIVE',
+        subscriptionExpiresAt: newExpiresAt,
+      },
+      select: { id: true, name: true, subscriptionStatus: true, subscriptionExpiresAt: true },
+    })
+
+    res.json(updated)
+  } catch (e) { next(e) }
+}
+
+const familyStatusSchema = z.object({
+  status: z.enum(['ACTIVE', 'SUSPENDED', 'LOCKED']),
+  reason: z.string().max(500).optional().nullable(),
+})
+
+export async function updateFamilyStatus(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { status, reason } = familyStatusSchema.parse(req.body)
+    const family = await prisma.family.update({
+      where: { id: req.params.familyId },
+      data: {
+        status,
+        statusReason: reason ?? null,
+        lockedAt: status === 'ACTIVE' ? null : new Date(),
+      },
+      select: { id: true, name: true, status: true, statusReason: true, lockedAt: true },
+    })
+    res.json(family)
+  } catch (e) { next(e) }
+}
+
+export async function getFamilyOwner(req: Request, res: Response, next: NextFunction) {
+  try {
+    const owner = await prisma.familyMember.findFirst({
+      where: { familyId: req.params.familyId, isOwner: true },
+      include: { user: { select: { id: true, email: true, displayName: true, role: true, isActive: true } } },
+      orderBy: { joinedAt: 'asc' },
+    }) ?? await prisma.familyMember.findFirst({
+      where: { familyId: req.params.familyId },
+      include: { user: { select: { id: true, email: true, displayName: true, role: true, isActive: true } } },
+      orderBy: { joinedAt: 'asc' },
+    })
+    if (!owner) {
+      res.status(404).json({ error: 'Owner not found' })
+      return
+    }
+    res.json({ owner })
+  } catch (e) { next(e) }
+}
+
+const ownerSchema = z.object({ userId: z.string().min(1) })
+
+export async function updateFamilyOwner(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { userId } = ownerSchema.parse(req.body)
+    const member = await prisma.familyMember.findFirst({
+      where: { familyId: req.params.familyId, userId },
+      include: { user: true },
+    })
+    if (!member) {
+      res.status(404).json({ error: 'Family member not found' })
+      return
+    }
+
+    const owner = await prisma.$transaction(async (tx) => {
+      await tx.familyMember.updateMany({
+        where: { familyId: req.params.familyId },
+        data: { isOwner: false },
+      })
+      await tx.user.update({ where: { id: userId }, data: { role: 'PARENT' } })
+      return tx.familyMember.update({
+        where: { id: member.id },
+        data: { isOwner: true },
+        include: { user: { select: { id: true, email: true, displayName: true, role: true, isActive: true } } },
+      })
+    })
+
+    res.json({ owner })
+  } catch (e) { next(e) }
+}
+
+const subscriptionSchema = z.object({
+  planId: z.string().nullable().optional(),
+  subscriptionStatus: z.enum(['ACTIVE', 'EXPIRED', 'CANCELLED', 'PAST_DUE']).optional(),
+  subscriptionExpiresAt: z.string().datetime().nullable().optional(),
+})
+
+export async function updateFamilySubscription(req: Request, res: Response, next: NextFunction) {
+  try {
+    const data = subscriptionSchema.parse(req.body)
+    if (data.planId) {
+      const plan = await prisma.subscriptionPlan.findUnique({ where: { id: data.planId } })
+      if (!plan) {
+        res.status(404).json({ error: 'Plan not found' })
+        return
+      }
+    }
+
+    const family = await prisma.family.update({
+      where: { id: req.params.familyId },
+      data: {
+        ...(data.planId !== undefined && { planId: data.planId }),
+        ...(data.subscriptionStatus !== undefined && { subscriptionStatus: data.subscriptionStatus }),
+        ...(data.subscriptionExpiresAt !== undefined && {
+          subscriptionExpiresAt: data.subscriptionExpiresAt ? new Date(data.subscriptionExpiresAt) : null,
+        }),
+      },
+      include: { subscriptionPlan: true },
+    })
+    res.json({ family })
+  } catch (e) { next(e) }
+}
+
+function csvCell(value: unknown) {
+  const text = value == null ? '' : String(value)
+  return `"${text.replace(/"/g, '""')}"`
+}
+
+export async function exportRevenue(req: Request, res: Response, next: NextFunction) {
+  try {
+    const from = typeof req.query.from === 'string' ? new Date(req.query.from) : undefined
+    const to = typeof req.query.to === 'string' ? new Date(req.query.to) : undefined
+    const payments = await prisma.payment.findMany({
+      where: {
+        status: 'SUCCEEDED',
+        ...(from || to ? { createdAt: { ...(from && { gte: from }), ...(to && { lte: to }) } } : {}),
+      },
+      include: { family: { select: { id: true, name: true } } },
+      orderBy: { createdAt: 'desc' },
+    })
+
+    const rows = [
+      ['paymentId', 'createdAt', 'familyId', 'familyName', 'type', 'amount', 'currency', 'provider', 'planId', 'description'],
+      ...payments.map((p) => [
+        p.id,
+        p.createdAt.toISOString(),
+        p.familyId,
+        p.family.name,
+        p.type,
+        p.amount,
+        p.currency,
+        p.provider,
+        p.planId ?? '',
+        p.description ?? '',
+      ]),
+    ]
+    const csv = rows.map((r) => r.map(csvCell).join(',')).join('\n')
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8')
+    res.setHeader('Content-Disposition', `attachment; filename="revenue-${new Date().toISOString().slice(0, 10)}.csv"`)
+    res.send(`\uFEFF${csv}`)
+  } catch (e) { next(e) }
+}
+
+async function runDocker(args: string[], timeout = 8000) {
+  try {
+    const { stdout, stderr } = await execFileAsync('docker', args, { timeout, maxBuffer: 1024 * 1024 * 4 })
+    return { ok: true, stdout, stderr }
+  } catch (err) {
+    const e = err as { message?: string; stdout?: string; stderr?: string }
+    return { ok: false, stdout: e.stdout ?? '', stderr: e.stderr ?? e.message ?? 'Docker command failed' }
+  }
+}
+
+function parseJsonLines(text: string) {
+  return text.split(/\r?\n/).filter(Boolean).map((line) => {
+    try { return JSON.parse(line) } catch { return { raw: line } }
+  })
+}
+
+export async function getDockerStatus(_req: Request, res: Response, next: NextFunction) {
+  try {
+    const [ps, stats, df] = await Promise.all([
+      runDocker(['ps', '-a', '--format', '{{json .}}']),
+      runDocker(['stats', '--no-stream', '--format', '{{json .}}']),
+      runDocker(['system', 'df', '--format', '{{json .}}']),
+    ])
+
+    res.json({
+      available: ps.ok,
+      containers: ps.ok ? parseJsonLines(ps.stdout) : [],
+      stats: stats.ok ? parseJsonLines(stats.stdout) : [],
+      disk: df.ok ? parseJsonLines(df.stdout) : [],
+      error: ps.ok ? null : ps.stderr,
+      timestamp: new Date().toISOString(),
+    })
+  } catch (e) { next(e) }
+}
+
+export async function getContainerLogs(req: Request, res: Response, next: NextFunction) {
+  try {
+    const container = req.params.container
+    if (!/^[a-zA-Z0-9_.-]+$/.test(container)) {
+      res.status(400).json({ error: 'Invalid container name' })
+      return
+    }
+    const tail = Math.min(Math.max(Number(req.query.tail ?? 200), 1), 1000)
+    const result = await runDocker(['logs', '--tail', String(tail), container], 10000)
+    res.json({
+      container,
+      ok: result.ok,
+      logs: `${result.stdout}${result.stderr ? `\n${result.stderr}` : ''}`,
+      timestamp: new Date().toISOString(),
+    })
+  } catch (e) { next(e) }
+}
+
+export async function exportFamilyBackup(req: Request, res: Response, next: NextFunction) {
+  try {
+    const familyId = req.params.familyId
+    const family = await prisma.family.findUnique({
+      where: { id: familyId },
+      include: {
+        members: { include: { user: { select: { id: true, email: true, displayName: true, role: true, isActive: true } } } },
+        subscriptionPlan: true,
+        provision: true,
+      },
+    })
+    if (!family) {
+      res.status(404).json({ error: 'Family not found' })
+      return
+    }
+
+    const wallets = await prisma.wallet.findMany({ where: { familyId } })
+    const walletIds = wallets.map((w) => w.id)
+    const tasks = await prisma.task.findMany({ where: { familyId }, include: { proofs: true } })
+    const taskIds = tasks.map((t) => t.id)
+    const [transactions, events, sosAlerts, moneyRequests, albumPhotos, payments, invites, announcements, locationShares] = await Promise.all([
+      prisma.transaction.findMany({
+        where: {
+          OR: [
+            { fromWalletId: { in: walletIds } },
+            { toWalletId: { in: walletIds } },
+            { taskId: { in: taskIds } },
+          ],
+        },
+      }),
+      prisma.familyEvent.findMany({ where: { familyId } }),
+      prisma.sosAlert.findMany({ where: { familyId } }),
+      prisma.moneyRequest.findMany({ where: { familyId } }),
+      prisma.albumPhoto.findMany({ where: { familyId } }),
+      prisma.payment.findMany({ where: { familyId } }),
+      prisma.familyInvite.findMany({ where: { familyId } }),
+      prisma.announcement.findMany({ where: { familyId } }),
+      prisma.locationShare.findMany({ where: { familyId } }),
+    ])
+
+    const filename = `family-${familyId}-backup-${new Date().toISOString().slice(0, 10)}.json`
+    res.setHeader('Content-Type', 'application/json; charset=utf-8')
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`)
+    res.json({
+      exportedAt: new Date().toISOString(),
+      version: 1,
+      scope: 'family',
+      data: { family, wallets, transactions, tasks, events, sosAlerts, moneyRequests, albumPhotos, payments, invites, announcements, locationShares },
+    })
+  } catch (e) { next(e) }
+}
+
+function strip<T extends Record<string, unknown>>(row: T, keys: string[]) {
+  const copy: Record<string, unknown> = { ...row }
+  keys.forEach((key) => delete copy[key])
+  return copy
+}
+
+export async function restoreFamilyBackup(req: Request, res: Response, next: NextFunction) {
+  try {
+    const familyId = req.params.familyId
+    const payload = (req.body?.data ?? req.body) as Record<string, any>
+    if (!payload?.family) {
+      res.status(400).json({ error: 'Invalid family backup payload' })
+      return
+    }
+
+    await prisma.$transaction(async (tx) => {
+      const existing = await tx.family.findUnique({ where: { id: familyId } })
+      if (!existing) throw new Error('Family not found')
+
+      const walletIds = (await tx.wallet.findMany({ where: { familyId }, select: { id: true } })).map((w) => w.id)
+      const taskIds = (await tx.task.findMany({ where: { familyId }, select: { id: true } })).map((t) => t.id)
+
+      await tx.taskProof.deleteMany({ where: { taskId: { in: taskIds } } })
+      await tx.transaction.deleteMany({
+        where: { OR: [{ fromWalletId: { in: walletIds } }, { toWalletId: { in: walletIds } }, { taskId: { in: taskIds } }] },
+      })
+      await tx.announcement.deleteMany({ where: { familyId } })
+      await tx.familyInvite.deleteMany({ where: { familyId } })
+      await tx.albumPhoto.deleteMany({ where: { familyId } })
+      await tx.payment.deleteMany({ where: { familyId } })
+      await tx.locationShare.deleteMany({ where: { familyId } })
+      await tx.moneyRequest.deleteMany({ where: { familyId } })
+      await tx.sosAlert.deleteMany({ where: { familyId } })
+      await tx.familyEvent.deleteMany({ where: { familyId } })
+      await tx.task.deleteMany({ where: { familyId } })
+      await tx.wallet.deleteMany({ where: { familyId } })
+
+      await tx.family.update({
+        where: { id: familyId },
+        data: {
+          name: payload.family.name,
+          planId: payload.family.planId ?? null,
+          status: payload.family.status ?? 'ACTIVE',
+          statusReason: payload.family.statusReason ?? null,
+          lockedAt: payload.family.lockedAt ? new Date(payload.family.lockedAt) : null,
+          subscriptionStatus: payload.family.subscriptionStatus ?? 'ACTIVE',
+          subscriptionExpiresAt: payload.family.subscriptionExpiresAt ? new Date(payload.family.subscriptionExpiresAt) : null,
+        },
+      })
+
+      if (payload.wallets?.length) await tx.wallet.createMany({ data: payload.wallets.map((w: any) => ({ ...strip(w, ['family', 'owner', 'sentTransactions', 'receivedTransactions']), familyId })) })
+      if (payload.transactions?.length) await tx.transaction.createMany({ data: payload.transactions.map((t: any) => strip(t, ['fromWallet', 'toWallet', 'task'])) })
+      if (payload.tasks?.length) await tx.task.createMany({ data: payload.tasks.map((t: any) => ({ ...strip(t, ['family', 'createdBy', 'assignedTo', 'proofs', 'transactions']), familyId })) })
+      const proofs = (payload.tasks ?? []).flatMap((t: any) => (t.proofs ?? []).map((p: any) => strip(p, ['task', 'submitter'])))
+      if (proofs.length) await tx.taskProof.createMany({ data: proofs })
+      if (payload.events?.length) await tx.familyEvent.createMany({ data: payload.events.map((e: any) => ({ ...strip(e, ['family', 'createdBy']), familyId })) })
+      if (payload.sosAlerts?.length) await tx.sosAlert.createMany({ data: payload.sosAlerts.map((s: any) => ({ ...strip(s, ['family', 'sender', 'resolvedBy']), familyId })) })
+      if (payload.moneyRequests?.length) await tx.moneyRequest.createMany({ data: payload.moneyRequests.map((m: any) => ({ ...strip(m, ['family', 'requester', 'resolvedBy']), familyId })) })
+      if (payload.albumPhotos?.length) await tx.albumPhoto.createMany({ data: payload.albumPhotos.map((a: any) => ({ ...strip(a, ['family', 'uploader']), familyId })) })
+      if (payload.payments?.length) await tx.payment.createMany({ data: payload.payments.map((p: any) => ({ ...strip(p, ['family']), familyId })) })
+      if (payload.invites?.length) await tx.familyInvite.createMany({ data: payload.invites.map((i: any) => ({ ...strip(i, ['family']), familyId })) })
+      if (payload.announcements?.length) await tx.announcement.createMany({ data: payload.announcements.map((a: any) => ({ ...strip(a, ['family', 'sender']), familyId })) })
+      if (payload.locationShares?.length) await tx.locationShare.createMany({ data: payload.locationShares.map((l: any) => ({ ...strip(l, ['family', 'user']), familyId })) })
+    })
+
+    res.json({ ok: true })
+  } catch (e) { next(e) }
+}
+
+export async function provisionFamily(req: Request, res: Response, next: NextFunction) {
+  try {
+    const family = await prisma.family.findUnique({ where: { id: req.params.familyId } })
+    if (!family) {
+      res.status(404).json({ error: 'Family not found' })
+      return
+    }
+    const containerName = `family-${family.id.slice(0, 8)}`
+    const databaseName = `family_${family.id.replace(/[^a-zA-Z0-9]/g, '_').slice(0, 24)}`
+    const provision = await prisma.familyProvision.upsert({
+      where: { familyId: family.id },
+      create: {
+        familyId: family.id,
+        status: 'READY',
+        containerName,
+        databaseName,
+        imageTag: 'shared-runtime',
+        metadata: { mode: 'shared-db', note: 'Provisioned manually by admin' },
+        provisionedAt: new Date(),
+        lastError: null,
+      },
+      update: {
+        status: 'READY',
+        containerName,
+        databaseName,
+        imageTag: 'shared-runtime',
+        metadata: { mode: 'shared-db', note: 'Provisioned manually by admin' },
+        provisionedAt: new Date(),
+        lastError: null,
+      },
+    })
+    res.json({ provision })
   } catch (e) { next(e) }
 }

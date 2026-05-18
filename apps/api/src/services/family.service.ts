@@ -220,3 +220,35 @@ export async function removeMember(familyId: string, targetUserId: string, reque
     data: { isActive: false },
   })
 }
+
+/**
+ * Thay đổi role của một thành viên trong gia đình (FE-06).
+ * Chỉ PARENT / SUPER_ADMIN mới có thể gọi hàm này (đã được guard ở route).
+ * Không cho phép thay đổi role của owner gia đình.
+ *
+ * @param familyId - ID gia đình chứa thành viên cần đổi role
+ * @param targetUserId - ID người dùng cần đổi role
+ * @param newRole - Role mới ('PARENT' | 'CHILD')
+ * @param requesterId - ID người thực hiện yêu cầu
+ */
+export async function changeMemberRole(
+  familyId: string,
+  targetUserId: string,
+  newRole: 'PARENT' | 'CHILD',
+  requesterId: string,
+) {
+  if (targetUserId === requesterId) throw Errors.BadRequest('Cannot change your own role')
+
+  const member = await prisma.familyMember.findFirst({
+    where: { userId: targetUserId, familyId },
+  })
+  if (!member) throw Errors.NotFound('Family member')
+  if (member.isOwner) throw Errors.BadRequest('Cannot change the role of the family owner')
+
+  await prisma.user.update({
+    where: { id: targetUserId },
+    data: { role: newRole },
+  })
+
+  return { userId: targetUserId, newRole }
+}
