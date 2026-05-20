@@ -19,7 +19,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Loader2, CreditCard } from 'lucide-react'
+import { Loader2, CreditCard, Wallet as WalletIcon, Landmark } from 'lucide-react'
 import { startCheckout } from '@/lib/payments'
 import toast from 'react-hot-toast'
 
@@ -31,6 +31,19 @@ interface Wallet { id: string; name: string; type: string }
  * Hiển thị dưới dạng các nút chip để chọn nhanh không cần gõ số.
  */
 const QUICK_AMOUNTS = [100_000, 500_000, 1_000_000, 2_000_000]
+
+/**
+ * Phương thức thanh toán hỗ trợ.
+ * Hiện tại chỉ Stripe (ví gia đình) hoạt động;
+ * MoMo và ngân hàng là tuỳ chọn dự kiến — chưa khả dụng.
+ */
+type PaymentMethod = 'STRIPE' | 'MOMO' | 'BANK'
+
+const PAYMENT_METHODS: { value: PaymentMethod; label: string; description: string; available: boolean }[] = [
+  { value: 'STRIPE', label: 'Ví gia đình (Stripe)', description: 'Nạp ngay qua thẻ thanh toán', available: true },
+  { value: 'MOMO', label: 'Ví MoMo', description: 'Sắp ra mắt', available: false },
+  { value: 'BANK', label: 'Chuyển khoản ngân hàng', description: 'Sắp ra mắt', available: false },
+]
 
 /**
  * Dialog nạp tiền vào ví gia đình.
@@ -55,6 +68,8 @@ export function TopupDialog({
   const [walletId, setWalletId] = useState<string>(jointWallets[0]?.id ?? '')
   /** Số tiền nhập vào dạng chuỗi (để tương thích với input[type=number]) */
   const [amount, setAmount] = useState('')
+  /** Phương thức thanh toán đang chọn — mặc định Stripe (ví gia đình) */
+  const [method, setMethod] = useState<PaymentMethod>('STRIPE')
 
   /** Mutation thực hiện nạp tiền qua hàm `startCheckout` */
   const topupMut = useMutation({
@@ -88,6 +103,43 @@ export function TopupDialog({
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
+          {/* Chọn phương thức thanh toán (chỉ Stripe khả dụng) */}
+          <div className="space-y-2">
+            <Label>Phương thức thanh toán</Label>
+            <Select
+              value={method}
+              onValueChange={(v) => {
+                const next = v as PaymentMethod
+                const cfg = PAYMENT_METHODS.find((m) => m.value === next)
+                if (cfg && !cfg.available) {
+                  toast(`${cfg.label} sắp ra mắt — vui lòng dùng ví gia đình`, { icon: '🚧' })
+                  return
+                }
+                setMethod(next)
+              }}
+            >
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {PAYMENT_METHODS.map((m) => {
+                  const Icon = m.value === 'BANK' ? Landmark : m.value === 'MOMO' ? WalletIcon : CreditCard
+                  return (
+                    <SelectItem key={m.value} value={m.value} disabled={!m.available}>
+                      <span className="flex items-center gap-2">
+                        <Icon className="w-4 h-4" />
+                        <span>{m.label}</span>
+                        {!m.available && (
+                          <span className="text-[10px] uppercase tracking-wide text-amber-600 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5">
+                            Sắp ra mắt
+                          </span>
+                        )}
+                      </span>
+                    </SelectItem>
+                  )
+                })}
+              </SelectContent>
+            </Select>
+          </div>
+
           {/* Chọn ví gia đình nhận tiền */}
           <div className="space-y-2">
             <Label>Ví nhận</Label>

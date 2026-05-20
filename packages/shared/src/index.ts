@@ -8,7 +8,7 @@
  */
 
 // ─── Hằng số ────────────────────────────────────────────────────────────────
-/** Vai trò người dùng: SUPER_ADMIN, PARENT, CHILD */
+/** Vai trò người dùng: SUPER_ADMIN, PARENT, FAMILY_MEMBER */
 export * from './constants/roles'
 /** Trạng thái nhiệm vụ và bảng chuyển đổi trạng thái hợp lệ */
 export * from './constants/taskStatus'

@@ -53,7 +53,10 @@ services:
         condition: service_healthy
       redis:
         condition: service_started
-    command: sh -c "pnpm db:generate && pnpm db:push && pnpm dev"
+    # Dùng `migrate deploy` thay cho `db push`: `db push` không xử lý được các
+    # thay đổi cần migration thật (vd: rename enum value CHILD → FAMILY_MEMBER),
+    # còn `migrate deploy` chạy tuần tự các file SQL trong prisma/migrations.
+    command: sh -c "pnpm db:generate && pnpm prisma migrate deploy && pnpm dev"
 
   web:
     build:

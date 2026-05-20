@@ -67,13 +67,13 @@ export async function updateFamily(req: Request, res: Response, next: NextFuncti
  * Chỉ PARENT hoặc SUPER_ADMIN mới được phép thực hiện (requireRole ở routes).
  * Mã mời có hiệu lực 7 ngày và chỉ dùng được một lần.
  *
- * @param req - Express Request với body `{ role: 'PARENT' | 'CHILD' }`
+ * @param req - Express Request với body `{ role: 'PARENT' | 'FAMILY_MEMBER' }`
  * @param res - Express Response, trả về `{ code, expiresIn }` để client chia sẻ
  * @param next - Chuyển lỗi sang error middleware
  */
 export async function generateInvite(req: Request, res: Response, next: NextFunction) {
   try {
-    const { role } = z.object({ role: z.enum(['PARENT', 'CHILD']) }).parse(req.body)
+    const { role } = z.object({ role: z.enum(['PARENT', 'FAMILY_MEMBER']) }).parse(req.body)
     const code = await familyService.generateInviteCode(req.user.familyId!, role)
     // Trả về expiresIn dạng chuỗi mô tả để client hiển thị mà không cần tính toán
     res.json({ code, expiresIn: '7 days' })
@@ -126,9 +126,46 @@ export async function removeMember(req: Request, res: Response, next: NextFuncti
   }
 }
 
+/**
+ * Lấy trạng thái onboarding của family workspace hiện tại.
+ *
+ * GET /families/onboarding
+ *
+ * Trả về step, isActive flag và thông tin gói (nếu đã chọn) để UI
+ * hiển thị wizard onboarding (chọn gói → thanh toán → kích hoạt).
+ */
+export async function onboardingStatus(req: Request, res: Response, next: NextFunction) {
+  try {
+    const status = await familyService.getOnboardingStatus(req.user.familyId!)
+    res.json(status)
+  } catch (e) {
+    next(e)
+  }
+}
+
+/**
+ * Cập nhật onboarding step (UI gọi sau khi user thao tác xong từng bước).
+ *
+ * PATCH /families/onboarding
+ * Body: { step: 'WORKSPACE_CREATED' | 'PLAN_SELECTED' | 'PAYMENT_VERIFIED' | 'ACTIVE' }
+ */
+export async function setOnboardingStep(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { step } = z
+      .object({
+        step: z.enum(['WORKSPACE_CREATED', 'PLAN_SELECTED', 'PAYMENT_VERIFIED', 'ACTIVE']),
+      })
+      .parse(req.body)
+    const result = await familyService.setOnboardingStep(req.user.familyId!, step)
+    res.json(result)
+  } catch (e) {
+    next(e)
+  }
+}
+
 export async function changeMemberRole(req: Request, res: Response, next: NextFunction) {
   try {
-    const { role } = z.object({ role: z.enum(['PARENT', 'CHILD']) }).parse(req.body)
+    const { role } = z.object({ role: z.enum(['PARENT', 'FAMILY_MEMBER']) }).parse(req.body)
     const result = await familyService.changeMemberRole(
       req.user.familyId!,
       req.params.userId,

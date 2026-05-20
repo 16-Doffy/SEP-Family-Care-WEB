@@ -77,8 +77,9 @@ function RegisterForm() {
         role: 'PARENT',
       })
       setAuth({ ...res.user, familyMember: res.user.familyMember }, res.accessToken, res.refreshToken)
-      toast.success('Chào mừng đến với Family Care! 🎉')
-      router.push('/dashboard')
+      toast.success('Đã tạo gia đình! Bước tiếp theo: chọn gói sử dụng 🎉')
+      // Onboarding bước 2 → chuyển qua chọn gói trước khi vào app chính
+      router.push('/onboarding')
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? 'Đăng ký thất bại'
       toast.error(msg)

@@ -39,7 +39,7 @@ export default function FamilyPage() {
   const [inviteOpen, setInviteOpen] = useState(false)
   // Code mời được trả về từ API sau khi phụ huynh nhấn "Tạo link mời"
   const [inviteCode, setInviteCode] = useState('')
-  const [inviteRole, setInviteRole] = useState<'PARENT' | 'CHILD'>('CHILD')
+  const [inviteRole, setInviteRole] = useState<'PARENT' | 'FAMILY_MEMBER'>('FAMILY_MEMBER')
   const [upgradeOpen, setUpgradeOpen] = useState(false)
 
   const { data: family } = useQuery({
@@ -54,7 +54,7 @@ export default function FamilyPage() {
   })
 
   const roleMut = useMutation({
-    mutationFn: ({ userId, role }: { userId: string; role: 'PARENT' | 'CHILD' }) =>
+    mutationFn: ({ userId, role }: { userId: string; role: 'PARENT' | 'FAMILY_MEMBER' }) =>
       api.patch(`/family/members/${userId}/role`, { role }),
     onSuccess: () => {
       toast.success('Đã cập nhật vai trò')
@@ -139,7 +139,7 @@ export default function FamilyPage() {
                       <p className="text-sm text-muted-foreground truncate">{member.user.email}</p>
                     </div>
                     <Badge variant={member.user.role === 'PARENT' ? 'default' : 'secondary'}>
-                      {member.user.role === 'PARENT' ? 'Phụ huynh' : 'Con cái'}
+                      {member.user.role === 'PARENT' ? 'Chủ hộ / Phụ huynh' : 'Thành viên'}
                     </Badge>
                     {member.isOwner && (
                       <Badge variant="outline" className="text-xs">Chủ hộ</Badge>
@@ -150,16 +150,16 @@ export default function FamilyPage() {
                     {canManageMember && (
                       <div className="flex items-center gap-2">
                         <Select
-                          value={member.user.role === 'PARENT' ? 'PARENT' : 'CHILD'}
-                          onValueChange={(role) => roleMut.mutate({ userId: member.user.id, role: role as 'PARENT' | 'CHILD' })}
+                          value={member.user.role === 'PARENT' ? 'PARENT' : 'FAMILY_MEMBER'}
+                          onValueChange={(role) => roleMut.mutate({ userId: member.user.id, role: role as 'PARENT' | 'FAMILY_MEMBER' })}
                           disabled={roleMut.isPending}
                         >
-                          <SelectTrigger className="w-32 h-8">
+                          <SelectTrigger className="w-44 h-8">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="PARENT">Phụ huynh</SelectItem>
-                            <SelectItem value="CHILD">Con cái</SelectItem>
+                            <SelectItem value="PARENT">Chủ hộ / Phụ huynh</SelectItem>
+                            <SelectItem value="FAMILY_MEMBER">Thành viên</SelectItem>
                           </SelectContent>
                         </Select>
                         <Button
@@ -193,11 +193,11 @@ export default function FamilyPage() {
           <div className="space-y-4">
             <div className="space-y-2">
               <Label>Vai trò</Label>
-              <Select value={inviteRole} onValueChange={(v) => setInviteRole(v as 'PARENT' | 'CHILD')}>
+              <Select value={inviteRole} onValueChange={(v) => setInviteRole(v as 'PARENT' | 'FAMILY_MEMBER')}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="PARENT">Phụ huynh</SelectItem>
-                  <SelectItem value="CHILD">Con cái</SelectItem>
+                  <SelectItem value="PARENT">Chủ hộ / Phụ huynh</SelectItem>
+                  <SelectItem value="FAMILY_MEMBER">Thành viên gia đình</SelectItem>
                 </SelectContent>
               </Select>
             </div>

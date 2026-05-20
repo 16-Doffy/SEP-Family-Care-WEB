@@ -29,7 +29,7 @@ interface RegisterInput {
    */
   familyName?: string
   /** Vai trò người dùng trong gia đình; mặc định là PARENT khi tạo gia đình mới */
-  role?: 'PARENT' | 'CHILD'
+  role?: 'PARENT' | 'FAMILY_MEMBER'
   /**
    * Mã mời (invite code) để tham gia gia đình đã tồn tại.
    * Nếu có, hệ thống bỏ qua familyName và dùng Flow 1.
@@ -42,7 +42,8 @@ interface RegisterInput {
  *
  * Hệ thống hỗ trợ hai luồng đăng ký:
  * - **Flow 1 — Tham gia gia đình qua invite code**: người dùng cung cấp `inviteCode`,
- *   tài khoản sẽ được tạo với vai trò CHILD và được ghép vào gia đình tương ứng.
+ *   tài khoản sẽ được tạo với vai trò FAMILY_MEMBER (hoặc theo role gắn trong invite)
+ *   và được ghép vào gia đình tương ứng.
  * - **Flow 2 — Tạo gia đình mới**: người dùng cung cấp `familyName`, tài khoản được
  *   tạo cùng một gia đình mới, ví chung (JOINT) và ví cá nhân (PERSONAL) trong một
  *   transaction duy nhất.
@@ -63,11 +64,12 @@ export async function register(input: RegisterInput) {
   // --- Flow 1: Đăng ký bằng invite code (tham gia gia đình có sẵn) ---
   if (input.inviteCode) {
     // Xác thực invite code TRƯỚC khi tạo user để fail-fast và tránh tạo user "mồ côi"
-    await validateInviteCode(input.inviteCode)
+    const invite = await validateInviteCode(input.inviteCode)
 
-    // Tạo user với role CHILD — invite flow luôn tạo thành viên phụ
+    // Role được set theo invite (mặc định FAMILY_MEMBER, có thể là PARENT nếu invite chỉ định).
+    const inviteRole = invite.role as 'PARENT' | 'FAMILY_MEMBER'
     const user = await prisma.user.create({
-      data: { email: input.email, passwordHash, displayName: input.displayName, role: 'CHILD' },
+      data: { email: input.email, passwordHash, displayName: input.displayName, role: inviteRole },
     })
 
     let member
@@ -95,21 +97,29 @@ export async function register(input: RegisterInput) {
     return { ...tokens, user: { ...safeUser, familyMember: updatedUser.familyMember } }
   }
 
-  // --- Flow 2: Đăng ký thông thường (tạo gia đình mới) ---
+  // --- Flow 2: Đăng ký + tạo family workspace mới (onboarding bước 1-2) ---
   if (!input.familyName) throw Errors.BadRequest('Family name is required')
 
-  // Mặc định người tạo gia đình sẽ có vai trò PARENT
+  // Người đăng ký tạo workspace luôn là PARENT (head of household / chủ hộ).
   const role = input.role ?? 'PARENT'
 
-  // Dùng transaction để đảm bảo user, family, member và các ví được tạo nguyên tử —
-  // nếu bất kỳ bước nào thất bại, toàn bộ sẽ được rollback
+  // Family được tạo với trạng thái PENDING_ACTIVATION:
+  //   - subscriptionStatus = PAST_DUE đến khi mua gói thành công
+  //   - activatedAt = null đến khi payment verify
+  //   - onboardingStep = WORKSPACE_CREATED
+  // Workspace vẫn cho phép đăng nhập để chọn gói, nhưng các tính năng chính
+  // (task, wallet, AI...) sẽ bị block qua middleware `requireActiveFamily`.
   const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     const user = await tx.user.create({
       data: { email: input.email, passwordHash, displayName: input.displayName, role },
     })
 
     const family = await tx.family.create({
-      data: { name: input.familyName! },
+      data: {
+        name: input.familyName!,
+        subscriptionStatus: 'PAST_DUE',
+        onboardingStep: 'WORKSPACE_CREATED',
+      },
     })
 
     const member = await tx.familyMember.create({
@@ -269,7 +279,7 @@ export async function getMe(userId: string) {
  *
  * @param userId - ID người dùng
  * @param email - Email người dùng
- * @param role - Vai trò hệ thống (PARENT / CHILD / SUPER_ADMIN)
+ * @param role - Vai trò hệ thống (PARENT / FAMILY_MEMBER / SUPER_ADMIN)
  * @param familyId - ID gia đình (có thể undefined nếu chưa thuộc gia đình nào)
  * @param familyMemberId - ID bản ghi FamilyMember (có thể undefined)
  * @returns Object chứa accessToken và refreshToken dạng JWT string

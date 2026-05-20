@@ -3,7 +3,7 @@
 import React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, Wallet, CheckSquare, Settings, Users, Shield, LogOut, MessageSquare, CalendarDays, Siren, Image, MapPin, Sparkles, Crown, Baby, BarChart3 } from 'lucide-react'
+import { Home, Wallet, CheckSquare, Settings, Users, Shield, LogOut, MessageSquare, CalendarDays, Siren, Image, MapPin, Sparkles, Crown, UserRound, BarChart3, UserCircle, Server } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/context/AuthContext'
 import { useRouter } from 'next/navigation'
@@ -30,10 +30,11 @@ const parentItems: NavItem[] = [
   { href: '/settings', label: 'Cài đặt', icon: Settings },
 ]
 
-const childItems: NavItem[] = [
-  { href: '/dashboard', label: 'Tổng quan của con', icon: Home },
+// Family Member: thành viên trong gia đình (con, ông bà, anh chị em, người thân).
+const familyMemberItems: NavItem[] = [
+  { href: '/dashboard', label: 'Tổng quan', icon: Home },
   { href: '/wallet', label: 'Ví cá nhân', icon: Wallet },
-  { href: '/tasks', label: 'Nhiệm vụ của con', icon: CheckSquare },
+  { href: '/tasks', label: 'Nhiệm vụ của tôi', icon: CheckSquare },
   { href: '/chat', label: 'Trò chuyện', icon: MessageSquare },
   { href: '/ai-chat', label: 'Trợ lý AI', icon: Sparkles },
   { href: '/calendar', label: 'Lịch gia đình', icon: CalendarDays },
@@ -46,13 +47,16 @@ const childItems: NavItem[] = [
 
 const adminItems: NavItem[] = [
   { href: '/admin', label: 'Tổng quan hệ thống', icon: Shield },
+  { href: '/admin/families', label: 'Gia đình', icon: Users },
+  { href: '/admin/users', label: 'Người dùng', icon: UserCircle },
   { href: '/admin/plans', label: 'Gói thuê bao', icon: Crown },
   { href: '/admin/revenue', label: 'Doanh thu', icon: BarChart3 },
+  { href: '/admin/system', label: 'Hệ thống & Docker', icon: Server },
 ]
 
 const roleNavItems = {
   PARENT: parentItems,
-  CHILD: childItems,
+  FAMILY_MEMBER: familyMemberItems,
   SUPER_ADMIN: adminItems,
 }
 
@@ -70,7 +74,7 @@ const roleTheme = {
     BadgeIcon: Crown,
     sidebarBorder: 'border-blue-100',
   },
-  CHILD: {
+  FAMILY_MEMBER: {
     headerBg: 'bg-emerald-600',
     headerBorder: 'border-emerald-700',
     logoBg: 'bg-white/20',
@@ -78,8 +82,8 @@ const roleTheme = {
     activeHover: 'hover:bg-emerald-50 hover:text-emerald-700',
     avatarBg: 'bg-emerald-100 text-emerald-700',
     badgeBg: 'bg-emerald-100 text-emerald-700',
-    badgeLabel: 'Con cái',
-    BadgeIcon: Baby,
+    badgeLabel: 'Thành viên',
+    BadgeIcon: UserRound,
     sidebarBorder: 'border-emerald-100',
   },
   SUPER_ADMIN: {
@@ -110,11 +114,11 @@ export function Sidebar() {
     router.push('/login')
   }
 
-  const role = (user?.role ?? 'CHILD') as keyof typeof roleTheme
-  const theme = roleTheme[role] ?? roleTheme.CHILD
+  const role = (user?.role ?? 'FAMILY_MEMBER') as keyof typeof roleTheme
+  const theme = roleTheme[role] ?? roleTheme.FAMILY_MEMBER
   const { BadgeIcon } = theme
 
-  const items = roleNavItems[role] ?? roleNavItems.CHILD
+  const items = roleNavItems[role] ?? roleNavItems.FAMILY_MEMBER
   const homeHref = role === 'SUPER_ADMIN' ? '/admin' : '/dashboard'
 
   return (

@@ -61,7 +61,7 @@ export async function getMoneyRequests(familyId: string, access?: MoneyRequestAc
   return prisma.moneyRequest.findMany({
     where: {
       familyId,
-      ...(access?.role === 'CHILD' && { requesterId: access.familyMemberId }),
+      ...(access?.role === 'FAMILY_MEMBER' && { requesterId: access.familyMemberId }),
     },
     // status 'asc': APPROVED < PENDING < REJECTED theo alphabet → PENDING lên trước
     orderBy: [{ status: 'asc' }, { createdAt: 'desc' }],
@@ -85,7 +85,7 @@ export async function getPendingRequests(familyId: string, access?: MoneyRequest
     where: {
       familyId,
       status: 'PENDING',
-      ...(access?.role === 'CHILD' && { requesterId: access.familyMemberId }),
+      ...(access?.role === 'FAMILY_MEMBER' && { requesterId: access.familyMemberId }),
     },
     orderBy: { createdAt: 'desc' },
     include: {

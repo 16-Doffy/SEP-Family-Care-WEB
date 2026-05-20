@@ -64,7 +64,7 @@ export async function getTasks(familyId: string, filters?: { status?: string; as
       familyId,
       // Chỉ thêm điều kiện lọc nếu giá trị được cung cấp (tránh lọc sai khi undefined)
       ...(filters?.status && { status: filters.status as TaskStatus }),
-      ...(access?.role === 'CHILD'
+      ...(access?.role === 'FAMILY_MEMBER'
         ? { assignedToId: access.familyMemberId }
         : filters?.assignedToId && { assignedToId: filters.assignedToId }),
     },
@@ -86,7 +86,7 @@ export async function getTask(taskId: string, familyId: string, access?: TaskAcc
     where: {
       id: taskId,
       familyId,
-      ...(access?.role === 'CHILD' && { assignedToId: access.familyMemberId }),
+      ...(access?.role === 'FAMILY_MEMBER' && { assignedToId: access.familyMemberId }),
     },
     include: TASK_INCLUDE,
   })

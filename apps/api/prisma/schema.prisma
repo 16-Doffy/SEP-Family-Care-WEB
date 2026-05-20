@@ -13,7 +13,7 @@ datasource db {
 enum Role {
   SUPER_ADMIN
   PARENT
-  CHILD
+  FAMILY_MEMBER
 }
 
 enum Plan {
@@ -128,7 +128,7 @@ model User {
   passwordHash String
   displayName  String
   avatarUrl    String?
-  role         Role     @default(CHILD)
+  role         Role     @default(FAMILY_MEMBER)
   isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -184,7 +184,12 @@ model Family {
   statusReason          String?
   lockedAt              DateTime?
   subscriptionStatus    SubscriptionStatus  @default(ACTIVE)
+  subscriptionStartedAt DateTime?
   subscriptionExpiresAt DateTime?
+  // Onboarding state: chưa active cho đến khi mua gói thành công.
+  activatedAt           DateTime?
+  // Bước onboarding hiện tại: WORKSPACE_CREATED | PLAN_SELECTED | PAYMENT_VERIFIED | ACTIVE
+  onboardingStep        String              @default("WORKSPACE_CREATED")
   stripeCustomerId      String?
   createdAt             DateTime            @default(now())
   updatedAt             DateTime            @updatedAt
@@ -243,22 +248,36 @@ model FamilyInvite {
 }
 
 model SubscriptionPlan {
-  id            String   @id @default(cuid())
-  code          String   @unique
-  name          String
-  description   String?
-  price         Decimal  @default(0) @db.Decimal(12, 2)
-  priceMonthly  Decimal? @db.Decimal(12, 2)
-  priceYearly   Decimal? @db.Decimal(12, 2)
-  currency      String   @default("VND")
-  billingPeriod String   @default("MONTHLY")
-  maxMembers    Int?
-  maxTasksPerMonth Int?
-  features      Json     @default("[]")
-  isActive      Boolean  @default(true)
-  sortOrder     Int      @default(0)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id                String   @id @default(cuid())
+  code              String   @unique
+  name              String
+  description       String?
+  price             Decimal  @default(0) @db.Decimal(12, 2)
+  priceMonthly      Decimal? @db.Decimal(12, 2)
+  priceYearly       Decimal? @db.Decimal(12, 2)
+  currency          String   @default("VND")
+  billingPeriod     String   @default("MONTHLY")
+  // Thời hạn sử dụng tính theo ngày (vd: 30, 90, 365). null = vô thời hạn (LIFETIME).
+  durationDays      Int?
+  // Giới hạn tài nguyên
+  maxMembers        Int?
+  maxTasksPerMonth  Int?
+  // Dung lượng (MB). null = không giới hạn.
+  albumStorageMb    Int?
+  systemStorageMb   Int?
+  // Quyền sử dụng AI: tổng quát + AI tài chính (gói cao mới có)
+  aiEnabled         Boolean  @default(false)
+  aiFinanceEnabled  Boolean  @default(false)
+  // Trợ lý lập kế hoạch tài chính nâng cao
+  advancedReports   Boolean  @default(false)
+  prioritySupport   Boolean  @default(false)
+  // Bậc gói: 0 = free, 1 = basic, 2 = standard, 3 = premium...
+  tier              Int      @default(0)
+  features          Json     @default("[]")
+  isActive          Boolean  @default(true)
+  sortOrder         Int      @default(0)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   families Family[]
 

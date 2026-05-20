@@ -29,7 +29,7 @@ export async function getWallets(familyId: string, access?: WalletAccess) {
   return prisma.wallet.findMany({
     where: {
       familyId,
-      ...(access?.role === 'CHILD' && { ownerId: access.familyMemberId }),
+      ...(access?.role === 'FAMILY_MEMBER' && { ownerId: access.familyMemberId }),
     },
     include: {
       owner: {
@@ -59,7 +59,7 @@ export async function getWalletWithTransactions(walletId: string, familyId: stri
     where: {
       id: walletId,
       familyId,
-      ...(access?.role === 'CHILD' && { ownerId: access.familyMemberId }),
+      ...(access?.role === 'FAMILY_MEMBER' && { ownerId: access.familyMemberId }),
     },
     include: {
       owner: {

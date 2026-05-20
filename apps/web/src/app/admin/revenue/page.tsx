@@ -64,7 +64,7 @@ export default function RevenueAdminPage() {
 
   return (
     <div>
-      <Topbar title="Thống kê doanh thu" />
+      <Topbar title="Thống kê doanh thu" backHref="/admin" />
       <div className="p-6 space-y-6">
         <div className="flex justify-between items-center">
           <p className="text-sm text-muted-foreground">

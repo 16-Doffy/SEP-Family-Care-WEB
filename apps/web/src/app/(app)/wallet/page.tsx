@@ -15,7 +15,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
 import { formatCurrency, formatDateTime } from '@/lib/utils'
-import { Wallet, ArrowUpRight, ArrowDownLeft, Plus, ArrowLeftRight, Loader2, HandCoins, CheckCircle, XCircle, Clock, CreditCard } from 'lucide-react'
+import { Wallet, ArrowUpRight, ArrowDownLeft, ArrowLeftRight, Loader2, HandCoins, CheckCircle, XCircle, Clock, CreditCard } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import toast from 'react-hot-toast'
 import { TopupDialog } from '@/components/payment/TopupDialog'
@@ -49,7 +49,6 @@ export default function WalletPage() {
   const { user } = useAuth()
   const qc = useQueryClient()
   const [transferOpen, setTransferOpen] = useState(false)
-  const [depositOpen, setDepositOpen] = useState(false)
   const [topupOpen, setTopupOpen] = useState(false)
   const [requestOpen, setRequestOpen] = useState(false)
   const [rejectOpen, setRejectOpen] = useState<MoneyRequest | null>(null)
@@ -79,7 +78,6 @@ export default function WalletPage() {
   const pendingCount = moneyRequests.filter((r) => r.status === 'PENDING').length
 
   const [transferForm, setTransferForm] = useState({ fromWalletId: '', toWalletId: '', amount: '', description: '' })
-  const [depositForm, setDepositForm] = useState({ walletId: '', amount: '', description: 'Nạp tiền' })
   const [requestForm, setRequestForm] = useState({ amount: '', reason: '' })
   const [rejectNote, setRejectNote] = useState('')
 
@@ -91,17 +89,6 @@ export default function WalletPage() {
       qc.invalidateQueries({ queryKey: ['wallet-detail'] })
       setTransferOpen(false)
       setTransferForm({ fromWalletId: '', toWalletId: '', amount: '', description: '' })
-    },
-    onError: (e: unknown) => toast.error((e as { response?: { data?: { error?: string } } })?.response?.data?.error ?? 'Thất bại'),
-  })
-
-  const depositMut = useMutation({
-    mutationFn: (data: typeof depositForm) => api.post('/wallets/deposit', { ...data, amount: Number(data.amount) }),
-    onSuccess: () => {
-      toast.success('Nạp tiền thành công!')
-      qc.invalidateQueries({ queryKey: ['wallets'] })
-      setDepositOpen(false)
-      setDepositForm({ walletId: '', amount: '', description: 'Nạp tiền' })
     },
     onError: (e: unknown) => toast.error((e as { response?: { data?: { error?: string } } })?.response?.data?.error ?? 'Thất bại'),
   })
@@ -179,9 +166,6 @@ export default function WalletPage() {
               <>
                 <Button variant="outline" onClick={() => setTopupOpen(true)} className="gap-2 border-blue-300 text-blue-700 hover:bg-blue-50">
                   <CreditCard className="w-4 h-4" />Nạp qua cổng
-                </Button>
-                <Button variant="outline" onClick={() => setDepositOpen(true)}>
-                  <Plus className="w-4 h-4 mr-2" />Nạp thủ công
                 </Button>
                 <Button onClick={() => setTransferOpen(true)}>
                   <ArrowLeftRight className="w-4 h-4 mr-2" />Chuyển tiền
@@ -408,44 +392,6 @@ export default function WalletPage() {
               </div>
             )
           })()}
-        </DialogContent>
-      </Dialog>
-
-      {/* Deposit Modal */}
-      <Dialog open={depositOpen} onOpenChange={setDepositOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Nạp tiền</DialogTitle>
-            <DialogDescription>Nạp tiền vào ví gia đình</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Ví nhận</Label>
-              <Select value={depositForm.walletId} onValueChange={(v) => setDepositForm({ ...depositForm, walletId: v })}>
-                <SelectTrigger><SelectValue placeholder="Chọn ví" /></SelectTrigger>
-                <SelectContent>
-                  {wallets.filter(w => w.type === 'JOINT').map((w) => (
-                    <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Số tiền (VND)</Label>
-              <Input type="number" min="1000" placeholder="1000000" value={depositForm.amount} onChange={(e) => setDepositForm({ ...depositForm, amount: e.target.value })} />
-            </div>
-            <div className="space-y-2">
-              <Label>Ghi chú</Label>
-              <Input value={depositForm.description} onChange={(e) => setDepositForm({ ...depositForm, description: e.target.value })} />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDepositOpen(false)}>Hủy</Button>
-            <Button onClick={() => depositMut.mutate(depositForm)} disabled={depositMut.isPending || !depositForm.walletId || !depositForm.amount}>
-              {depositMut.isPending && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
-              Nạp tiền
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
 

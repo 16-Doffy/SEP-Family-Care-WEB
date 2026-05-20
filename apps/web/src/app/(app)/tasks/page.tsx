@@ -43,7 +43,7 @@ interface Task {
 /**
  * Trang nhiệm vụ với bảng Kanban 4 cột.
  * Quyền hành động phân biệt theo vai trò: PARENT/SUPER_ADMIN có quyền tạo và duyệt,
- * còn CHILD chỉ có thể bắt đầu và nộp bằng chứng.
+ * còn FAMILY_MEMBER chỉ có thể bắt đầu và nộp bằng chứng.
  */
 export default function TasksPage() {
   const { user } = useAuth()
@@ -195,9 +195,13 @@ export default function TasksPage() {
               <Select value={form.assignedToId} onValueChange={(v) => setForm({ ...form, assignedToId: v })}>
                 <SelectTrigger><SelectValue placeholder="Chọn thành viên" /></SelectTrigger>
                 <SelectContent>
-                  {members.filter((m: { user: { role: string } }) => m.user.role === 'CHILD').map((m: { id: string; user: { displayName: string; role: string } }) => (
-                    <SelectItem key={m.id} value={m.id}>{m.user.displayName} ({m.user.role === 'CHILD' ? 'Con' : 'Phụ huynh'})</SelectItem>
-                  ))}
+                  {members
+                    .filter((m: { user: { role: string } }) => m.user.role !== 'SUPER_ADMIN')
+                    .map((m: { id: string; user: { displayName: string; role: string } }) => (
+                      <SelectItem key={m.id} value={m.id}>
+                        {m.user.displayName} ({m.user.role === 'PARENT' ? 'Chủ hộ' : 'Thành viên'})
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>

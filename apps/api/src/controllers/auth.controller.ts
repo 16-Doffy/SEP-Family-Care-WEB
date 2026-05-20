@@ -20,7 +20,7 @@ import { z } from 'zod'
  * - password: tối thiểu 6 ký tự
  * - displayName: 1–100 ký tự
  * - familyName: tuỳ chọn, 1–200 ký tự (bắt buộc ở Flow 2 trong service)
- * - role: PARENT hoặc CHILD (tuỳ chọn, mặc định PARENT ở service)
+ * - role: PARENT hoặc FAMILY_MEMBER (tuỳ chọn, mặc định PARENT ở service)
  * - inviteCode: tuỳ chọn, dùng khi tham gia gia đình có sẵn
  */
 const registerSchema = z.object({
@@ -28,7 +28,7 @@ const registerSchema = z.object({
   password: z.string().min(6),
   displayName: z.string().min(1).max(100),
   familyName: z.string().min(1).max(200).optional(),
-  role: z.enum(['PARENT', 'CHILD']).optional(),
+  role: z.enum(['PARENT', 'FAMILY_MEMBER']).optional(),
   inviteCode: z.string().optional(),
 })
 

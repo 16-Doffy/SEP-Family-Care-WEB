@@ -31,27 +31,24 @@ import { Prisma } from '@prisma/client'
 const MOCK_MODE = !env.STRIPE_SECRET_KEY
 
 /**
- * Tính ngày hết hạn subscription dựa trên chu kỳ thanh toán.
+ * Tính ngày hết hạn subscription dựa trên durationDays của gói (ưu tiên)
+ * hoặc rơi về billingPeriod nếu durationDays không được cấu hình.
  *
- * - `MONTHLY`: cộng thêm 1 tháng
- * - `YEARLY`: cộng thêm 1 năm
- * - `LIFETIME` / `FREE`: cộng thêm 100 năm (coi như không hết hạn)
- *
- * @param billingPeriod - Chu kỳ thanh toán của gói
- * @returns Đối tượng `Date` là ngày hết hạn
+ * @param plan - Bản ghi SubscriptionPlan
+ * @returns `Date` là ngày hết hạn
  */
-function nextExpiry(billingPeriod: string): Date {
+function nextExpiry(plan: { billingPeriod: string; durationDays: number | null }): Date {
   const now = new Date()
-  switch (billingPeriod) {
+  if (plan.durationDays && plan.durationDays > 0) {
+    now.setDate(now.getDate() + plan.durationDays)
+    return now
+  }
+  switch (plan.billingPeriod) {
     case 'YEARLY':
       now.setFullYear(now.getFullYear() + 1)
       break
     case 'LIFETIME':
-      // Lifetime dùng 100 năm như một giá trị "vô hạn" thực tế
-      now.setFullYear(now.getFullYear() + 100)
-      break
     case 'FREE':
-      // Gói FREE không có ngày hết hạn thực sự
       now.setFullYear(now.getFullYear() + 100)
       break
     case 'MONTHLY':
@@ -204,15 +201,20 @@ export async function finalizePayment(paymentId: string) {
 
     if (payment.type === 'SUBSCRIPTION' && payment.planId) {
       const plan = await tx.subscriptionPlan.findUniqueOrThrow({ where: { id: payment.planId } })
-      const expiresAt = nextExpiry(plan.billingPeriod)
+      const now = new Date()
+      const expiresAt = nextExpiry(plan)
 
-      // Cập nhật thông tin subscription của gia đình
+      // Cập nhật thông tin subscription + onboarding của gia đình.
+      // Đặt activatedAt + onboardingStep = ACTIVE để mở khóa các tính năng chính.
       await tx.family.update({
         where: { id: payment.familyId },
         data: {
           planId: plan.id,
           subscriptionStatus: 'ACTIVE',
+          subscriptionStartedAt: now,
           subscriptionExpiresAt: expiresAt,
+          activatedAt: now,
+          onboardingStep: 'ACTIVE',
         },
       })
 

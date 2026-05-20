@@ -39,8 +39,16 @@ interface Plan {
   price: number | string
   currency: string
   billingPeriod: string
+  durationDays: number | null
   maxMembers: number | null
   maxTasksPerMonth: number | null
+  albumStorageMb: number | null
+  systemStorageMb: number | null
+  aiEnabled: boolean
+  aiFinanceEnabled: boolean
+  advancedReports: boolean
+  prioritySupport: boolean
+  tier: number
   features: string[]
   isActive: boolean
 }
@@ -150,10 +158,17 @@ export function UpgradePlanDialog({
 
                   <div className="text-sm space-y-1.5 flex-1">
                     {/* Hiển thị giới hạn; null nghĩa là không giới hạn (∞) */}
-                    <div className="text-xs text-muted-foreground">
-                      {p.maxMembers == null ? '∞ thành viên' : `Tối đa ${p.maxMembers} thành viên`}
-                      {' · '}
-                      {p.maxTasksPerMonth == null ? '∞ task/tháng' : `${p.maxTasksPerMonth} task/tháng`}
+                    <div className="text-xs text-muted-foreground space-y-0.5">
+                      <div>
+                        {p.maxMembers == null ? '∞ thành viên' : `Tối đa ${p.maxMembers} thành viên`}
+                        {' · '}
+                        {p.maxTasksPerMonth == null ? '∞ task/tháng' : `${p.maxTasksPerMonth} task/tháng`}
+                      </div>
+                      <div>
+                        Album: {p.albumStorageMb == null ? '∞' : p.albumStorageMb >= 1024 ? `${(p.albumStorageMb / 1024).toFixed(0)}GB` : `${p.albumStorageMb}MB`}
+                        {p.aiEnabled && ' · AI ✓'}
+                        {p.aiFinanceEnabled && ' · AI tài chính ✓'}
+                      </div>
                     </div>
                     {p.features.map((f, i) => (
                       <div key={i} className="flex items-start gap-1.5 text-gray-700">

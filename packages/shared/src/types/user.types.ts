@@ -17,7 +17,7 @@ export interface User {
   displayName: string
   /** URL ảnh đại diện; có thể rỗng nếu chưa cài đặt. */
   avatarUrl?: string | null
-  /** Vai trò của người dùng trong hệ thống (SUPER_ADMIN | PARENT | CHILD). */
+  /** Vai trò của người dùng trong hệ thống (SUPER_ADMIN | PARENT | FAMILY_MEMBER). */
   role: Role
   /** Trạng thái hoạt động; tài khoản bị vô hiệu hoá sẽ không thể đăng nhập. */
   isActive: boolean
@@ -61,7 +61,7 @@ export interface RegisterDto {
    * Vai trò ban đầu trong gia đình; mặc định là PARENT nếu không truyền.
    * Lưu ý: SUPER_ADMIN không thể tự đăng ký từ endpoint này.
    */
-  role?: 'PARENT' | 'CHILD'
+  role?: 'PARENT' | 'FAMILY_MEMBER'
 }
 
 /**

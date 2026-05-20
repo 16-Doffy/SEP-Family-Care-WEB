@@ -96,7 +96,7 @@ export async function validateInviteCode(code: string) {
  * đoán hay brute-force. Mỗi mã có hiệu lực 7 ngày và chỉ dùng được một lần.
  *
  * @param familyId - ID gia đình cần sinh mã mời
- * @param role - Vai trò sẽ được gán cho người dùng khi dùng mã này (PARENT | CHILD)
+ * @param role - Vai trò sẽ được gán cho người dùng khi dùng mã này (PARENT | FAMILY_MEMBER)
  * @returns Mã mời dạng hex string 32 ký tự
  */
 export async function generateInviteCode(familyId: string, role: string): Promise<string> {
@@ -106,7 +106,7 @@ export async function generateInviteCode(familyId: string, role: string): Promis
     data: {
       familyId,
       code,
-      role: role as 'PARENT' | 'CHILD',
+      role: role as 'PARENT' | 'FAMILY_MEMBER',
       // Mã hết hạn sau 7 ngày kể từ thời điểm tạo
       expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     },
@@ -150,7 +150,7 @@ export async function joinFamily(userId: string, code: string) {
     // Cập nhật role của user theo role được chỉ định trong invite code
     await tx.user.update({
       where: { id: userId },
-      data: { role: invite.role as 'PARENT' | 'CHILD' },
+      data: { role: invite.role as 'PARENT' | 'FAMILY_MEMBER' },
     })
 
     const newMember = await tx.familyMember.create({
@@ -228,13 +228,13 @@ export async function removeMember(familyId: string, targetUserId: string, reque
  *
  * @param familyId - ID gia đình chứa thành viên cần đổi role
  * @param targetUserId - ID người dùng cần đổi role
- * @param newRole - Role mới ('PARENT' | 'CHILD')
+ * @param newRole - Role mới ('PARENT' | 'FAMILY_MEMBER')
  * @param requesterId - ID người thực hiện yêu cầu
  */
 export async function changeMemberRole(
   familyId: string,
   targetUserId: string,
-  newRole: 'PARENT' | 'CHILD',
+  newRole: 'PARENT' | 'FAMILY_MEMBER',
   requesterId: string,
 ) {
   if (targetUserId === requesterId) throw Errors.BadRequest('Cannot change your own role')
@@ -251,4 +251,49 @@ export async function changeMemberRole(
   })
 
   return { userId: targetUserId, newRole }
+}
+
+/**
+ * Lấy trạng thái onboarding của một gia đình.
+ *
+ * Các step:
+ *   - WORKSPACE_CREATED : đã tạo family workspace, chưa chọn gói
+ *   - PLAN_SELECTED     : đã chọn gói nhưng chưa thanh toán
+ *   - PAYMENT_VERIFIED  : thanh toán xong, đang provision
+ *   - ACTIVE            : workspace đã sẵn sàng dùng
+ */
+export async function getOnboardingStatus(familyId: string) {
+  const family = await prisma.family.findUnique({
+    where: { id: familyId },
+    include: { subscriptionPlan: true },
+  })
+  if (!family) throw Errors.NotFound('Family')
+
+  return {
+    familyId: family.id,
+    step: family.onboardingStep,
+    isActive: family.activatedAt != null && family.subscriptionStatus === 'ACTIVE',
+    subscriptionStatus: family.subscriptionStatus,
+    subscriptionExpiresAt: family.subscriptionExpiresAt,
+    activatedAt: family.activatedAt,
+    plan: family.subscriptionPlan
+      ? {
+          id: family.subscriptionPlan.id,
+          code: family.subscriptionPlan.code,
+          name: family.subscriptionPlan.name,
+        }
+      : null,
+  }
+}
+
+/**
+ * Cập nhật bước onboarding (vd: chuyển sang PLAN_SELECTED sau khi user
+ * chọn gói nhưng chưa thanh toán). Không validate transition, dành cho UI.
+ */
+export async function setOnboardingStep(familyId: string, step: string) {
+  return prisma.family.update({
+    where: { id: familyId },
+    data: { onboardingStep: step },
+    select: { id: true, onboardingStep: true },
+  })
 }

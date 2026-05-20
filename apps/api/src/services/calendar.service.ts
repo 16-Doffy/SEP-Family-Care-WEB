@@ -100,7 +100,7 @@ export async function createEvent(
  * để scheduler nhắc nhở tự động gửi lại thông báo theo thời gian mới.
  *
  * Phân quyền: Chỉ người tạo sự kiện (createdById) hoặc PARENT / SUPER_ADMIN mới được
- * cập nhật. CHILD chỉ được cập nhật sự kiện do chính họ tạo ra.
+ * cập nhật. FAMILY_MEMBER chỉ được cập nhật sự kiện do chính họ tạo ra.
  *
  * @param eventId - ID của sự kiện cần cập nhật
  * @param familyId - ID của gia đình (để kiểm tra quyền sở hữu)
@@ -122,7 +122,7 @@ export async function updateEvent(
   const event = await prisma.familyEvent.findFirst({ where: { id: eventId, familyId } })
   if (!event) throw Errors.NotFound('Event')
 
-  // Kiểm tra quyền: CHILD chỉ được sửa sự kiện do chính họ tạo
+  // Kiểm tra quyền: FAMILY_MEMBER chỉ được sửa sự kiện do chính họ tạo
   const isPrivileged = requesterRole === 'PARENT' || requesterRole === 'SUPER_ADMIN'
   const isOwner = requesterId && event.createdById === requesterId
   if (!isPrivileged && !isOwner) throw Errors.Forbidden()

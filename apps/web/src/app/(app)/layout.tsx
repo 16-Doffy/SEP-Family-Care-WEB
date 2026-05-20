@@ -6,6 +6,8 @@
 'use client'
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { useQuery } from '@tanstack/react-query'
+import { api } from '@/lib/api'
 import { useAuth } from '@/context/AuthContext'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { SOSButton } from '@/components/sos/SOSButton'
@@ -32,6 +34,27 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       router.push('/login')
     }
   }, [user, isLoading, router])
+
+  // Lấy onboarding status để biết family đã được kích hoạt chưa.
+  // Chỉ chạy khi user là PARENT và đã thuộc gia đình (FAMILY_MEMBER không cần onboarding).
+  const { data: onboardingStatus } = useQuery<{ step: string; isActive: boolean }>({
+    queryKey: ['onboarding-status'],
+    queryFn: () => api.get('/family/onboarding').then((r) => r.data),
+    enabled: !!user?.familyMember && user?.role === 'PARENT',
+  })
+
+  // Nếu chủ hộ chưa kích hoạt workspace (chưa thanh toán) → đẩy về /onboarding.
+  // SUPER_ADMIN không bị chặn vì có thể không thuộc family.
+  useEffect(() => {
+    if (
+      user?.role === 'PARENT' &&
+      user?.familyMember &&
+      onboardingStatus &&
+      !onboardingStatus.isActive
+    ) {
+      router.replace('/onboarding')
+    }
+  }, [user, onboardingStatus, router])
 
   // Hiển thị spinner trong khi AuthContext đang khôi phục session
   if (isLoading) {
