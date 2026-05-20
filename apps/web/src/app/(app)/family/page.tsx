@@ -17,9 +17,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { getInitials } from '@/lib/utils'
-import { UserPlus, Copy, Loader2, Crown, Trash2 } from 'lucide-react'
+import { UserPlus, Copy, Loader2, Crown, Trash2, Wallet } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { UpgradePlanDialog } from '@/components/payment/UpgradePlanDialog'
+import { IncomeSourceManager } from '@/components/finance/IncomeSourceManager'
 
 type FamilyMember = {
   id: string
@@ -41,6 +42,7 @@ export default function FamilyPage() {
   const [inviteCode, setInviteCode] = useState('')
   const [inviteRole, setInviteRole] = useState<'PARENT' | 'FAMILY_MEMBER'>('FAMILY_MEMBER')
   const [upgradeOpen, setUpgradeOpen] = useState(false)
+  const [expandedMember, setExpandedMember] = useState<string | null>(null)
 
   const { data: family } = useQuery({
     queryKey: ['family'],
@@ -129,51 +131,68 @@ export default function FamilyPage() {
             <div className="space-y-3">
               {members.map((member) => {
                 const canManageMember = isParent && member.user.id !== user?.id && !member.isOwner
+                const canEditFinance = isParent || member.user.id === user?.id
+                const expanded = expandedMember === member.id
                 return (
-                  <div key={member.id} className="flex items-center gap-3 p-3 rounded-lg border">
-                    <Avatar>
-                      <AvatarFallback className="bg-blue-100 text-blue-700">{getInitials(member.user.displayName)}</AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium truncate">{member.user.displayName}</p>
-                      <p className="text-sm text-muted-foreground truncate">{member.user.email}</p>
+                  <div key={member.id} className="rounded-lg border">
+                    <div className="flex items-center gap-3 p-3">
+                      <Avatar>
+                        <AvatarFallback className="bg-blue-100 text-blue-700">{getInitials(member.user.displayName)}</AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium truncate">{member.user.displayName}</p>
+                        <p className="text-sm text-muted-foreground truncate">{member.user.email}</p>
+                      </div>
+                      <Badge variant={member.user.role === 'PARENT' ? 'default' : 'secondary'}>
+                        {member.user.role === 'PARENT' ? 'Chủ hộ / Phụ huynh' : 'Thành viên'}
+                      </Badge>
+                      {member.isOwner && (
+                        <Badge variant="outline" className="text-xs">Chủ hộ</Badge>
+                      )}
+                      {member.user.id === user?.id && (
+                        <Badge variant="outline" className="text-xs">Bạn</Badge>
+                      )}
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => setExpandedMember(expanded ? null : member.id)}
+                        title="Thông tin tài chính"
+                      >
+                        <Wallet className={`w-4 h-4 ${expanded ? 'text-blue-600' : 'text-gray-400'}`} />
+                      </Button>
+                      {canManageMember && (
+                        <div className="flex items-center gap-2">
+                          <Select
+                            value={member.user.role === 'PARENT' ? 'PARENT' : 'FAMILY_MEMBER'}
+                            onValueChange={(role) => roleMut.mutate({ userId: member.user.id, role: role as 'PARENT' | 'FAMILY_MEMBER' })}
+                            disabled={roleMut.isPending}
+                          >
+                            <SelectTrigger className="w-44 h-8">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="PARENT">Chủ hộ / Phụ huynh</SelectItem>
+                              <SelectItem value="FAMILY_MEMBER">Thành viên</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            disabled={removeMut.isPending}
+                            onClick={() => {
+                              if (window.confirm(`Xóa ${member.user.displayName} khỏi gia đình?`)) {
+                                removeMut.mutate(member.user.id)
+                              }
+                            }}
+                          >
+                            <Trash2 className="w-4 h-4 text-red-500" />
+                          </Button>
+                        </div>
+                      )}
                     </div>
-                    <Badge variant={member.user.role === 'PARENT' ? 'default' : 'secondary'}>
-                      {member.user.role === 'PARENT' ? 'Chủ hộ / Phụ huynh' : 'Thành viên'}
-                    </Badge>
-                    {member.isOwner && (
-                      <Badge variant="outline" className="text-xs">Chủ hộ</Badge>
-                    )}
-                    {member.user.id === user?.id && (
-                      <Badge variant="outline" className="text-xs">Bạn</Badge>
-                    )}
-                    {canManageMember && (
-                      <div className="flex items-center gap-2">
-                        <Select
-                          value={member.user.role === 'PARENT' ? 'PARENT' : 'FAMILY_MEMBER'}
-                          onValueChange={(role) => roleMut.mutate({ userId: member.user.id, role: role as 'PARENT' | 'FAMILY_MEMBER' })}
-                          disabled={roleMut.isPending}
-                        >
-                          <SelectTrigger className="w-44 h-8">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="PARENT">Chủ hộ / Phụ huynh</SelectItem>
-                            <SelectItem value="FAMILY_MEMBER">Thành viên</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          disabled={removeMut.isPending}
-                          onClick={() => {
-                            if (window.confirm(`Xóa ${member.user.displayName} khỏi gia đình?`)) {
-                              removeMut.mutate(member.user.id)
-                            }
-                          }}
-                        >
-                          <Trash2 className="w-4 h-4 text-red-500" />
-                        </Button>
+                    {expanded && (
+                      <div className="border-t bg-gray-50 p-3">
+                        <IncomeSourceManager memberId={member.id} canEdit={canEditFinance} />
                       </div>
                     )}
                   </div>

@@ -17,9 +17,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { formatCurrency, formatDate, getInitials, getStatusColor, getStatusLabel } from '@/lib/utils'
+import { formatCurrency, formatDate, getInitials, getStatusColor, getStatusLabel, cn } from '@/lib/utils'
 import { Plus, Trophy, Calendar, Loader2, CheckCircle, XCircle, Play, Upload } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { RecurringTasks } from '@/components/tasks/RecurringTasks'
 
 /**
  * Định nghĩa các cột Kanban tương ứng với trạng thái nhiệm vụ.
@@ -35,6 +36,8 @@ const COLUMNS = [
 /** Kiểu dữ liệu nhiệm vụ trả về từ API */
 interface Task {
   id: string; title: string; description?: string; status: string; reward?: number; dueDate?: string
+  templateId?: string | null
+  isOpenForClaim?: boolean
   createdBy: { id: string; user: { displayName: string } }
   assignedTo?: { id: string; user: { displayName: string } } | null
   proofs: { id: string; imageUrl?: string; note?: string }[]
@@ -53,6 +56,7 @@ export default function TasksPage() {
   const [proofOpen, setProofOpen] = useState(false)
   const [proofNote, setProofNote] = useState('')
   const [proofFile, setProofFile] = useState<File | null>(null)
+  const [tab, setTab] = useState<'oneoff' | 'recurring'>('oneoff')
 
   const { data: tasks = [], isLoading } = useQuery<Task[]>({
     queryKey: ['tasks'],
@@ -109,19 +113,42 @@ export default function TasksPage() {
               {isParent ? 'Tạo việc, giao cho thành viên, duyệt bằng chứng và thưởng tiền.' : 'Bắt đầu việc được giao, nộp bằng chứng và theo dõi tiền thưởng.'}
             </p>
           </div>
-          {isParent && (
+          {isParent && tab === 'oneoff' && (
             <Button onClick={() => setCreateOpen(true)}>
               <Plus className="w-4 h-4 mr-2" />Tạo nhiệm vụ
             </Button>
           )}
         </div>
 
-        {isLoading ? (
+        <div className="flex gap-1 p-1 bg-gray-100 rounded-lg w-fit">
+          <button
+            onClick={() => setTab('oneoff')}
+            className={cn('px-4 py-1.5 rounded-md text-sm font-medium', tab === 'oneoff' ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700')}
+          >
+            Tự phát
+          </button>
+          <button
+            onClick={() => setTab('recurring')}
+            className={cn('px-4 py-1.5 rounded-md text-sm font-medium', tab === 'recurring' ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700')}
+          >
+            Định kỳ
+          </button>
+        </div>
+
+        {tab === 'recurring' && (
+          <RecurringTasks
+            isParent={isParent}
+            currentMemberId={user?.familyMember?.id}
+            members={members}
+          />
+        )}
+
+        {tab === 'oneoff' && (isLoading ? (
           <div className="flex items-center justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-blue-600" /></div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 overflow-x-auto">
             {COLUMNS.map(({ status, label, color }) => {
-              const colTasks = tasks.filter((t) => t.status === status)
+              const colTasks = tasks.filter((t) => t.status === status && !t.templateId)
               return (
                 <div key={status} className={`rounded-xl border-2 p-3 min-h-[200px] ${color}`}>
                   <div className="flex items-center justify-between mb-3">
@@ -161,7 +188,7 @@ export default function TasksPage() {
               )
             })}
           </div>
-        )}
+        ))}
       </div>
 
       {/* Create Task Modal */}

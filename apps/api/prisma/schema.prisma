@@ -57,6 +57,22 @@ enum NotificationType {
   CALENDAR_REMINDER
   ANNOUNCEMENT
   SYSTEM
+  RECURRING_TASK_OPEN_CLAIM
+  RECURRING_TASK_OVERDUE_UNCLAIMED
+  RECURRING_TASK_CLAIMED
+  BUDGET_WARNING
+  FUND_LOW_WARNING
+  FUND_SURPLUS_SUGGESTION
+}
+
+enum IncomeSourceType {
+  SALARY
+  BUSINESS
+  INVESTMENT
+  ALLOWANCE
+  RENTAL
+  FREELANCE
+  OTHER
 }
 
 enum AnnouncementType {
@@ -140,8 +156,8 @@ model User {
   taskProofs               TaskProof[]
   conversationParticipants ConversationParticipant[]
   sentMessages             Message[]
-  sosAlerts                SosAlert[]               @relation("SentSOS")
-  resolvedSosAlerts        SosAlert[]               @relation("ResolvedSOS")
+  sosAlerts                SosAlert[]                @relation("SentSOS")
+  resolvedSosAlerts        SosAlert[]                @relation("ResolvedSOS")
   locationShare            LocationShare?
   aiConversation           AiConversation?
 
@@ -162,12 +178,12 @@ model RefreshToken {
 }
 
 model PasswordResetToken {
-  id        String   @id @default(cuid())
-  token     String   @unique
+  id        String    @id @default(cuid())
+  token     String    @unique
   userId    String
   expiresAt DateTime
   usedAt    DateTime?
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -176,38 +192,42 @@ model PasswordResetToken {
 }
 
 model Family {
-  id                    String              @id @default(cuid())
+  id                    String             @id @default(cuid())
   name                  String
-  plan                  Plan                @default(FREE)
+  plan                  Plan               @default(FREE)
   planId                String?
-  status                FamilyStatus        @default(ACTIVE)
+  status                FamilyStatus       @default(ACTIVE)
   statusReason          String?
   lockedAt              DateTime?
-  subscriptionStatus    SubscriptionStatus  @default(ACTIVE)
+  subscriptionStatus    SubscriptionStatus @default(ACTIVE)
   subscriptionStartedAt DateTime?
   subscriptionExpiresAt DateTime?
   // Onboarding state: chưa active cho đến khi mua gói thành công.
   activatedAt           DateTime?
   // Bước onboarding hiện tại: WORKSPACE_CREATED | PLAN_SELECTED | PAYMENT_VERIFIED | ACTIVE
-  onboardingStep        String              @default("WORKSPACE_CREATED")
+  onboardingStep        String             @default("WORKSPACE_CREATED")
   stripeCustomerId      String?
-  createdAt             DateTime            @default(now())
-  updatedAt             DateTime            @updatedAt
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
 
-  subscriptionPlan SubscriptionPlan? @relation(fields: [planId], references: [id])
-  members          FamilyMember[]
-  wallets          Wallet[]
-  tasks            Task[]
-  conversations    Conversation[]
-  events           FamilyEvent[]
-  sosAlerts        SosAlert[]
-  moneyRequests    MoneyRequest[]
-  albumPhotos      AlbumPhoto[]
-  locationShares   LocationShare[]
-  payments         Payment[]
-  invites          FamilyInvite[]
-  announcements    Announcement[]
-  provision         FamilyProvision?
+  subscriptionPlan       SubscriptionPlan?       @relation(fields: [planId], references: [id])
+  members                FamilyMember[]
+  wallets                Wallet[]
+  tasks                  Task[]
+  conversations          Conversation[]
+  events                 FamilyEvent[]
+  sosAlerts              SosAlert[]
+  moneyRequests          MoneyRequest[]
+  albumPhotos            AlbumPhoto[]
+  locationShares         LocationShare[]
+  payments               Payment[]
+  invites                FamilyInvite[]
+  announcements          Announcement[]
+  provision              FamilyProvision?
+  budgets                FamilyBudget[]
+  familyExpenses         FamilyExpense[]
+  fundSnapshots          MonthlyFundSnapshot[]
+  recurringTaskTemplates RecurringTaskTemplate[]
 
   @@index([planId])
   @@index([status])
@@ -248,36 +268,36 @@ model FamilyInvite {
 }
 
 model SubscriptionPlan {
-  id                String   @id @default(cuid())
-  code              String   @unique
-  name              String
-  description       String?
-  price             Decimal  @default(0) @db.Decimal(12, 2)
-  priceMonthly      Decimal? @db.Decimal(12, 2)
-  priceYearly       Decimal? @db.Decimal(12, 2)
-  currency          String   @default("VND")
-  billingPeriod     String   @default("MONTHLY")
+  id               String   @id @default(cuid())
+  code             String   @unique
+  name             String
+  description      String?
+  price            Decimal  @default(0) @db.Decimal(12, 2)
+  priceMonthly     Decimal? @db.Decimal(12, 2)
+  priceYearly      Decimal? @db.Decimal(12, 2)
+  currency         String   @default("VND")
+  billingPeriod    String   @default("MONTHLY")
   // Thời hạn sử dụng tính theo ngày (vd: 30, 90, 365). null = vô thời hạn (LIFETIME).
-  durationDays      Int?
+  durationDays     Int?
   // Giới hạn tài nguyên
-  maxMembers        Int?
-  maxTasksPerMonth  Int?
+  maxMembers       Int?
+  maxTasksPerMonth Int?
   // Dung lượng (MB). null = không giới hạn.
-  albumStorageMb    Int?
-  systemStorageMb   Int?
+  albumStorageMb   Int?
+  systemStorageMb  Int?
   // Quyền sử dụng AI: tổng quát + AI tài chính (gói cao mới có)
-  aiEnabled         Boolean  @default(false)
-  aiFinanceEnabled  Boolean  @default(false)
+  aiEnabled        Boolean  @default(false)
+  aiFinanceEnabled Boolean  @default(false)
   // Trợ lý lập kế hoạch tài chính nâng cao
-  advancedReports   Boolean  @default(false)
-  prioritySupport   Boolean  @default(false)
+  advancedReports  Boolean  @default(false)
+  prioritySupport  Boolean  @default(false)
   // Bậc gói: 0 = free, 1 = basic, 2 = standard, 3 = premium...
-  tier              Int      @default(0)
-  features          Json     @default("[]")
-  isActive          Boolean  @default(true)
-  sortOrder         Int      @default(0)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  tier             Int      @default(0)
+  features         Json     @default("[]")
+  isActive         Boolean  @default(true)
+  sortOrder        Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   families Family[]
 
@@ -292,16 +312,29 @@ model FamilyMember {
   isOwner  Boolean  @default(false)
   joinedAt DateTime @default(now())
 
-  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  family       Family        @relation(fields: [familyId], references: [id], onDelete: Cascade)
-  wallet       Wallet?       @relation("PersonalWallet")
-  assignedTasks Task[]       @relation("AssignedTasks")
-  createdTasks  Task[]       @relation("CreatedTasks")
-  createdEvents FamilyEvent[]
-  moneyRequests         MoneyRequest[] @relation("RequestedMoney")
-  resolvedMoneyRequests MoneyRequest[] @relation("ResolvedMoneyRequest")
-  uploadedAlbumPhotos   AlbumPhoto[]
-  announcements         Announcement[]
+  // Core flow 1 — quản lý tài chính cá nhân
+  occupation             String?
+  hasIncome              Boolean  @default(false)
+  plannedMonthlyIncome   Decimal  @default(0) @db.Decimal(15, 2)
+  plannedPersonalExpense Decimal  @default(0) @db.Decimal(15, 2)
+  personalSpendingLimit  Decimal? @db.Decimal(15, 2)
+
+  user                      User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  family                    Family                  @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  wallet                    Wallet?                 @relation("PersonalWallet")
+  assignedTasks             Task[]                  @relation("AssignedTasks")
+  createdTasks              Task[]                  @relation("CreatedTasks")
+  originalAssignedTasks     Task[]                  @relation("OriginalAssignedTasks")
+  createdEvents             FamilyEvent[]
+  moneyRequests             MoneyRequest[]          @relation("RequestedMoney")
+  resolvedMoneyRequests     MoneyRequest[]          @relation("ResolvedMoneyRequest")
+  uploadedAlbumPhotos       AlbumPhoto[]
+  announcements             Announcement[]
+  incomeSources             IncomeSource[]
+  personalExpenses          PersonalExpense[]
+  familyExpensePayments     FamilyExpense[]         @relation("ExpensePayer")
+  recurringTemplatesDefault RecurringTaskTemplate[] @relation("RecurringDefaultAssignee")
+  recurringTemplatesCreated RecurringTaskTemplate[] @relation("RecurringCreator")
 
   @@index([familyId])
 }
@@ -357,14 +390,23 @@ model Task {
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 
-  family       Family        @relation(fields: [familyId], references: [id])
-  createdBy    FamilyMember  @relation("CreatedTasks", fields: [createdById], references: [id])
-  assignedTo   FamilyMember? @relation("AssignedTasks", fields: [assignedToId], references: [id])
-  proofs       TaskProof[]
-  transactions Transaction[]
+  // Recurring task linkage (core flow 2)
+  templateId         String?
+  scheduledDate      DateTime?
+  isOpenForClaim     Boolean   @default(false)
+  originalAssigneeId String?
+
+  family           Family                 @relation(fields: [familyId], references: [id])
+  createdBy        FamilyMember           @relation("CreatedTasks", fields: [createdById], references: [id])
+  assignedTo       FamilyMember?          @relation("AssignedTasks", fields: [assignedToId], references: [id])
+  originalAssignee FamilyMember?          @relation("OriginalAssignedTasks", fields: [originalAssigneeId], references: [id])
+  template         RecurringTaskTemplate? @relation(fields: [templateId], references: [id])
+  proofs           TaskProof[]
+  transactions     Transaction[]
 
   @@index([familyId, status])
   @@index([assignedToId])
+  @@index([templateId, scheduledDate])
 }
 
 model TaskProof {
@@ -405,7 +447,7 @@ model Conversation {
   createdAt DateTime         @default(now())
   updatedAt DateTime         @updatedAt
 
-  family       Family                   @relation(fields: [familyId], references: [id])
+  family       Family                    @relation(fields: [familyId], references: [id])
   participants ConversationParticipant[]
   messages     Message[]
 
@@ -443,13 +485,13 @@ model Message {
 }
 
 model FamilyEvent {
-  id          String    @id @default(cuid())
-  familyId    String
-  createdById String
-  title       String
-  description String?
-  startDate   DateTime
-  endDate     DateTime?
+  id           String    @id @default(cuid())
+  familyId     String
+  createdById  String
+  title        String
+  description  String?
+  startDate    DateTime
+  endDate      DateTime?
   allDay       Boolean   @default(false)
   color        String    @default("#3b82f6")
   reminderSent Boolean   @default(false)
@@ -498,8 +540,8 @@ model MoneyRequest {
   resolvedAt   DateTime?
   resolvedById String?
 
-  family     Family       @relation(fields: [familyId], references: [id])
-  requester  FamilyMember @relation("RequestedMoney", fields: [requesterId], references: [id])
+  family     Family        @relation(fields: [familyId], references: [id])
+  requester  FamilyMember  @relation("RequestedMoney", fields: [requesterId], references: [id])
   resolvedBy FamilyMember? @relation("ResolvedMoneyRequest", fields: [resolvedById], references: [id])
 
   @@index([familyId, status])
@@ -532,15 +574,15 @@ model AiMessage {
 }
 
 model LocationShare {
-  id         String   @id @default(cuid())
-  userId     String   @unique
-  familyId   String
-  isSharing  Boolean  @default(false)
-  latitude   Float?
-  longitude  Float?
-  accuracy   Float?
-  updatedAt  DateTime @updatedAt
-  createdAt  DateTime @default(now())
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  familyId  String
+  isSharing Boolean  @default(false)
+  latitude  Float?
+  longitude Float?
+  accuracy  Float?
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
 
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   family Family @relation(fields: [familyId], references: [id], onDelete: Cascade)
@@ -587,16 +629,133 @@ model AlbumPhoto {
 }
 
 model Announcement {
-  id         String           @id @default(cuid())
-  familyId   String
-  senderId   String
-  type       AnnouncementType @default(ANNOUNCEMENT)
-  content    String
-  createdAt  DateTime         @default(now())
+  id        String           @id @default(cuid())
+  familyId  String
+  senderId  String
+  type      AnnouncementType @default(ANNOUNCEMENT)
+  content   String
+  createdAt DateTime         @default(now())
 
   family Family       @relation(fields: [familyId], references: [id], onDelete: Cascade)
   sender FamilyMember @relation(fields: [senderId], references: [id])
 
   @@index([familyId, createdAt])
   @@index([senderId])
+}
+
+// ─── Core flow 1: Family Finance ──────────────────────────────────────────────
+
+model IncomeSource {
+  id             String           @id @default(cuid())
+  memberId       String
+  label          String
+  sourceType     IncomeSourceType @default(SALARY)
+  amountPerMonth Decimal          @db.Decimal(15, 2)
+  isActive       Boolean          @default(true)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  member FamilyMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@index([memberId, isActive])
+}
+
+model FamilyBudget {
+  id                   String   @id @default(cuid())
+  familyId             String
+  month                Int
+  year                 Int
+  plannedSharedExpense Decimal  @default(0) @db.Decimal(15, 2)
+  notes                String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  family     Family                 @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  categories FamilyBudgetCategory[]
+
+  @@unique([familyId, year, month])
+  @@index([familyId, year, month])
+}
+
+model FamilyBudgetCategory {
+  id       String  @id @default(cuid())
+  budgetId String
+  name     String
+  amount   Decimal @db.Decimal(15, 2)
+
+  budget FamilyBudget @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+
+  @@index([budgetId])
+}
+
+model PersonalExpense {
+  id         String   @id @default(cuid())
+  memberId   String
+  amount     Decimal  @db.Decimal(15, 2)
+  category   String
+  note       String?
+  occurredAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+
+  member FamilyMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@index([memberId, occurredAt])
+}
+
+model FamilyExpense {
+  id         String   @id @default(cuid())
+  familyId   String
+  category   String
+  amount     Decimal  @db.Decimal(15, 2)
+  note       String?
+  paidById   String?
+  occurredAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+
+  family Family        @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  paidBy FamilyMember? @relation("ExpensePayer", fields: [paidById], references: [id])
+
+  @@index([familyId, occurredAt])
+}
+
+model MonthlyFundSnapshot {
+  id                   String   @id @default(cuid())
+  familyId             String
+  year                 Int
+  month                Int
+  totalIncome          Decimal  @db.Decimal(15, 2)
+  totalSharedExpense   Decimal  @db.Decimal(15, 2)
+  totalPersonalExpense Decimal  @db.Decimal(15, 2)
+  surplus              Decimal  @db.Decimal(15, 2)
+  jointWalletBalance   Decimal  @db.Decimal(15, 2)
+  createdAt            DateTime @default(now())
+
+  family Family @relation(fields: [familyId], references: [id], onDelete: Cascade)
+
+  @@unique([familyId, year, month])
+  @@index([familyId, year, month])
+}
+
+// ─── Core flow 2: Recurring tasks ─────────────────────────────────────────────
+
+model RecurringTaskTemplate {
+  id                String   @id @default(cuid())
+  familyId          String
+  title             String
+  description       String?
+  reward            Decimal? @db.Decimal(15, 2)
+  rrule             String
+  timeOfDay         String?
+  defaultAssigneeId String?
+  isActive          Boolean  @default(true)
+  createdById       String
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  family          Family        @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  defaultAssignee FamilyMember? @relation("RecurringDefaultAssignee", fields: [defaultAssigneeId], references: [id])
+  createdBy       FamilyMember  @relation("RecurringCreator", fields: [createdById], references: [id])
+  instances       Task[]
+
+  @@index([familyId, isActive])
 }

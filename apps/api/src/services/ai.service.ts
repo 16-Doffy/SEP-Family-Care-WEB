@@ -13,6 +13,8 @@
 
 import { prisma } from '../config/database'
 import { env } from '../config/env'
+import { getMonthlySummary } from './finance.service'
+import { forecast } from './finance-predict.service'
 
 /**
  * Thông tin ngữ cảnh của người dùng đang chat với AI.
@@ -61,8 +63,9 @@ async function gatherUserContext(ctx: AiContext): Promise<string> {
   // Nếu người dùng chưa vào gia đình nào, không có dữ liệu để truy vấn
   if (!ctx.familyId) return 'Người dùng chưa tham gia gia đình nào.'
 
+  const now = new Date()
   // Thực hiện tất cả truy vấn song song để giảm thời gian chờ
-  const [wallets, pendingTasks, completedThisMonth, upcomingEvents] = await Promise.all([
+  const [wallets, pendingTasks, completedThisMonth, upcomingEvents, summary, fc] = await Promise.all([
     prisma.wallet.findMany({
       where: { familyId: ctx.familyId, OR: [{ type: 'JOINT' }, { owner: { userId: ctx.userId } }] },
       select: { name: true, type: true, balance: true, currency: true },
@@ -77,16 +80,20 @@ async function gatherUserContext(ctx: AiContext): Promise<string> {
         familyId: ctx.familyId,
         status: 'APPROVED',
         assignedTo: { userId: ctx.userId },
-        updatedAt: { gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1) },
+        updatedAt: { gte: new Date(now.getFullYear(), now.getMonth(), 1) },
       },
     }),
     // Lấy tối đa 3 sự kiện sắp diễn ra, sắp xếp theo thời gian gần nhất
     prisma.familyEvent.findMany({
-      where: { familyId: ctx.familyId, startDate: { gte: new Date() } },
+      where: { familyId: ctx.familyId, startDate: { gte: now } },
       orderBy: { startDate: 'asc' },
       take: 3,
       select: { title: true, startDate: true },
     }),
+    // Tổng hợp tài chính tháng hiện tại (Core flow 1)
+    getMonthlySummary(ctx.familyId, now.getFullYear(), now.getMonth() + 1).catch(() => null),
+    // Dự đoán 3 tháng tới
+    forecast(ctx.familyId, 3).catch(() => null),
   ])
 
   const walletStr = wallets
@@ -97,6 +104,23 @@ async function gatherUserContext(ctx: AiContext): Promise<string> {
     .map((e) => `- ${e.title} (${e.startDate.toLocaleDateString('vi-VN')} ${e.startDate.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })})`)
     .join('\n') || '(không có sự kiện sắp tới)'
 
+  const financeBlock = summary
+    ? [
+        `Tài chính tháng ${summary.month}/${summary.year}:`,
+        `- Thu nhập dự kiến: ${summary.planned.income.toLocaleString('vi-VN')}đ`,
+        `- Chi chung dự kiến: ${summary.planned.sharedExpense.toLocaleString('vi-VN')}đ; chi cá nhân dự kiến: ${summary.planned.personalExpense.toLocaleString('vi-VN')}đ`,
+        `- Chi chung thực tế: ${summary.actual.sharedExpense.toLocaleString('vi-VN')}đ; chi cá nhân thực tế: ${summary.actual.personalExpense.toLocaleString('vi-VN')}đ`,
+        `- Dư dự kiến: ${summary.planned.surplus.toLocaleString('vi-VN')}đ; dư thực tế: ${summary.actual.surplus.toLocaleString('vi-VN')}đ`,
+        `- Quỹ ví chung (JOINT): ${summary.jointWalletBalance.toLocaleString('vi-VN')}đ`,
+      ].join('\n')
+    : ''
+
+  const forecastBlock = fc && fc.projections.length > 0
+    ? `Dự đoán 3 tháng tới (trung bình dư ${fc.avgMonthlySurplus.toLocaleString('vi-VN')}đ/tháng):\n${fc.projections
+        .map((p) => `- ${p.month}/${p.year}: dự kiến quỹ ${p.projectedBalance.toLocaleString('vi-VN')}đ`)
+        .join('\n')}`
+    : ''
+
   // Ghép thành chuỗi có cấu trúc để AI dễ đọc và trích xuất số liệu
   return [
     `Người dùng: ${ctx.displayName} (${ctx.role})`,
@@ -104,7 +128,11 @@ async function gatherUserContext(ctx: AiContext): Promise<string> {
     `Nhiệm vụ đang chờ: ${pendingTasks}`,
     `Nhiệm vụ đã hoàn thành tháng này: ${completedThisMonth}`,
     `Sự kiện sắp tới:\n${eventsStr}`,
-  ].join('\n\n')
+    financeBlock,
+    forecastBlock,
+  ]
+    .filter(Boolean)
+    .join('\n\n')
 }
 
 /**

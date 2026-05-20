@@ -19,6 +19,10 @@ import { Wallet, ArrowUpRight, ArrowDownLeft, ArrowLeftRight, Loader2, HandCoins
 import { cn } from '@/lib/utils'
 import toast from 'react-hot-toast'
 import { TopupDialog } from '@/components/payment/TopupDialog'
+import { FinanceOverview } from '@/components/finance/FinanceOverview'
+import { BudgetTable } from '@/components/finance/BudgetTable'
+import { ExpenseLog } from '@/components/finance/ExpenseLog'
+import { useMonthlySummary, usePrediction, useWarnings } from '@/hooks/useFinance'
 
 /** Thông tin ví tiền (ví gia đình JOINT hoặc ví cá nhân PERSONAL) */
 interface WalletType { id: string; name: string; type: string; balance: number | string; currency: string; owner?: { user: { displayName: string } } | null }
@@ -53,7 +57,11 @@ export default function WalletPage() {
   const [requestOpen, setRequestOpen] = useState(false)
   const [rejectOpen, setRejectOpen] = useState<MoneyRequest | null>(null)
   const [selectedWallet, setSelectedWallet] = useState<WalletType | null>(null)
-  const [activeTab, setActiveTab] = useState<'wallets' | 'requests'>('wallets')
+  const [activeTab, setActiveTab] = useState<'overview' | 'budget' | 'log' | 'wallets' | 'requests'>('overview')
+
+  const { data: summary } = useMonthlySummary()
+  const { data: forecast } = usePrediction(3)
+  const { data: warnings } = useWarnings()
 
   const { data: wallets = [] } = useQuery<WalletType[]>({
     queryKey: ['wallets'],
@@ -132,7 +140,25 @@ export default function WalletPage() {
         {/* Header actions */}
         <div className="flex items-center justify-between">
           <div>
-            <div className="flex gap-1 p-1 bg-gray-100 rounded-lg">
+            <div className="flex gap-1 p-1 bg-gray-100 rounded-lg flex-wrap">
+              <button
+                onClick={() => setActiveTab('overview')}
+                className={cn('px-4 py-1.5 rounded-md text-sm font-medium transition-colors', activeTab === 'overview' ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700')}
+              >
+                Tổng quan tài chính
+              </button>
+              <button
+                onClick={() => setActiveTab('budget')}
+                className={cn('px-4 py-1.5 rounded-md text-sm font-medium transition-colors', activeTab === 'budget' ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700')}
+              >
+                Ngân sách
+              </button>
+              <button
+                onClick={() => setActiveTab('log')}
+                className={cn('px-4 py-1.5 rounded-md text-sm font-medium transition-colors', activeTab === 'log' ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700')}
+              >
+                Ghi chép
+              </button>
               <button
                 onClick={() => setActiveTab('wallets')}
                 className={cn('px-4 py-1.5 rounded-md text-sm font-medium transition-colors', activeTab === 'wallets' ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700')}
@@ -174,6 +200,19 @@ export default function WalletPage() {
             )}
           </div>
         </div>
+
+        {/* === TAB: OVERVIEW (Finance) === */}
+        {activeTab === 'overview' && (
+          <FinanceOverview summary={summary} forecast={forecast} warnings={warnings} />
+        )}
+
+        {/* === TAB: BUDGET === */}
+        {activeTab === 'budget' && summary && (
+          <BudgetTable summary={summary} isParent={isParent} currentMemberId={user?.familyMember?.id} />
+        )}
+
+        {/* === TAB: EXPENSE LOG === */}
+        {activeTab === 'log' && <ExpenseLog isParent={isParent} />}
 
         {/* === TAB: WALLETS === */}
         {activeTab === 'wallets' && (

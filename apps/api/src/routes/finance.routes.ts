@@ -1,0 +1,43 @@
+/**
+ * @module finance.routes
+ * @description Endpoints REST cho core flow tài chính gia đình.
+ *
+ * Mount tại `/api/finance`. Mọi route yêu cầu authenticate + requireFamily.
+ * Một số route nhạy cảm (sửa chi chung, đóng tháng) chỉ cho PARENT/SUPER_ADMIN.
+ */
+
+import { Router } from 'express'
+import * as ctrl from '../controllers/finance.controller'
+import { authenticate, requireFamily, requireRole } from '../middleware/auth'
+
+const router = Router()
+router.use(authenticate, requireFamily)
+
+// Income sources — member tự sửa của mình; PARENT sửa cho mọi người
+router.get('/members/:memberId/income-sources', ctrl.listIncomeSources)
+router.post('/members/:memberId/income-sources', ctrl.createIncomeSource)
+router.patch('/income-sources/:id', ctrl.updateIncomeSource)
+router.delete('/income-sources/:id', ctrl.deleteIncomeSource)
+
+// Member budget (nghề nghiệp, chi cá nhân dự kiến, hạn mức)
+router.put('/members/:memberId/budget', ctrl.updateMemberBudget)
+
+// Family budget (chi chung dự kiến)
+router.get('/budget', ctrl.getBudget)
+router.put('/budget', requireRole('PARENT', 'SUPER_ADMIN'), ctrl.upsertBudget)
+
+// Expenses
+router.post('/personal-expenses', ctrl.createPersonalExpense)
+router.get('/personal-expenses', ctrl.listPersonalExpenses)
+router.post('/family-expenses', requireRole('PARENT', 'SUPER_ADMIN'), ctrl.createFamilyExpense)
+router.get('/family-expenses', ctrl.listFamilyExpenses)
+
+// Summary / prediction / warnings
+router.get('/summary', ctrl.getSummary)
+router.get('/prediction', ctrl.getPrediction)
+router.get('/warnings', ctrl.getWarnings)
+
+// Đóng tháng — tạo snapshot
+router.post('/close-month', requireRole('PARENT', 'SUPER_ADMIN'), ctrl.closeMonth)
+
+export default router

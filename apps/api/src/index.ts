@@ -8,6 +8,7 @@ import { prisma } from './config/database'
 import { startCalendarReminderScheduler } from './services/calendar-reminder.service'
 import { ensureDefaultPlans } from './services/subscription-plan.service'
 import { startSubscriptionExpiryScheduler } from './services/payment.service'
+import { startRecurringTaskScheduler } from './services/recurring-task-scheduler.service'
 
 /**
  * Hàm khởi động bất đồng bộ — thực hiện theo thứ tự:
@@ -35,6 +36,7 @@ async function main() {
     // Khởi động các background job sau khi server đã lắng nghe thành công
     startCalendarReminderScheduler()
     startSubscriptionExpiryScheduler()
+    startRecurringTaskScheduler()
   })
 }
 

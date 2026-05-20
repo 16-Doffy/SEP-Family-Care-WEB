@@ -44,6 +44,8 @@ import aiRoutes from './ai.routes'
 import paymentRoutes from './payment.routes'
 import subscriptionPlanRoutes from './subscription-plan.routes'
 import announcementRoutes from './announcement.routes'
+import financeRoutes from './finance.routes'
+import recurringTaskRoutes from './recurring-task.routes'
 
 const router = Router()
 
@@ -63,5 +65,7 @@ router.use('/ai', aiRoutes)
 router.use('/payments', paymentRoutes)
 router.use('/subscription-plans', subscriptionPlanRoutes)
 router.use('/announcements', announcementRoutes)
+router.use('/finance', financeRoutes)
+router.use('/recurring-tasks', recurringTaskRoutes)
 
 export { router as apiRouter }
