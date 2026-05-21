@@ -48,6 +48,9 @@ router.delete('/members/:userId', requireFamily, requireRole('PARENT', 'SUPER_AD
 /** Thay đổi role thành viên (PARENT ↔ FAMILY_MEMBER) — chỉ PARENT hoặc SUPER_ADMIN (FE-06) */
 router.patch('/members/:userId/role', requireFamily, requireRole('PARENT', 'SUPER_ADMIN'), ctrl.changeMemberRole)
 
+/** Cập nhật hồ sơ thành viên: biệt danh, vai vế, ngày sinh, ghi chú. */
+router.patch('/members/:memberId/profile', requireFamily, requireRole('PARENT', 'SUPER_ADMIN'), ctrl.updateMemberProfile)
+
 /** Lấy trạng thái onboarding wizard của family workspace */
 router.get('/onboarding', requireFamily, ctrl.onboardingStatus)
 

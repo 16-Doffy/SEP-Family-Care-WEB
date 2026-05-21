@@ -17,7 +17,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { getInitials } from '@/lib/utils'
-import { UserPlus, Copy, Loader2, Crown, Trash2, Wallet } from 'lucide-react'
+import { UserPlus, Copy, Loader2, Crown, Trash2, Wallet, Save } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { UpgradePlanDialog } from '@/components/payment/UpgradePlanDialog'
 import { IncomeSourceManager } from '@/components/finance/IncomeSourceManager'
@@ -25,9 +25,36 @@ import { IncomeSourceManager } from '@/components/finance/IncomeSourceManager'
 type FamilyMember = {
   id: string
   nickname?: string
+  relationship?: FamilyRelationship
+  birthDate?: string | null
+  notes?: string | null
   isOwner?: boolean
   user: { id: string; displayName: string; email: string; role: string }
 }
+
+type FamilyRelationship =
+  | 'FATHER'
+  | 'MOTHER'
+  | 'CHILD'
+  | 'GRANDPARENT'
+  | 'SIBLING'
+  | 'SPOUSE'
+  | 'RELATIVE'
+  | 'OTHER'
+
+const RELATIONSHIP_OPTIONS: { value: FamilyRelationship; label: string }[] = [
+  { value: 'CHILD', label: 'Con' },
+  { value: 'FATHER', label: 'Bố' },
+  { value: 'MOTHER', label: 'Mẹ' },
+  { value: 'GRANDPARENT', label: 'Ông/Bà' },
+  { value: 'SIBLING', label: 'Anh/Chị/Em' },
+  { value: 'SPOUSE', label: 'Vợ/Chồng' },
+  { value: 'RELATIVE', label: 'Người thân' },
+  { value: 'OTHER', label: 'Chưa đặt' },
+]
+
+const relationshipLabel = (value?: string) =>
+  RELATIONSHIP_OPTIONS.find((item) => item.value === value)?.label ?? 'Chưa đặt'
 
 /**
  * Trang gia đình — quản lý thành viên và gói đăng ký.
@@ -41,8 +68,10 @@ export default function FamilyPage() {
   // Code mời được trả về từ API sau khi phụ huynh nhấn "Tạo link mời"
   const [inviteCode, setInviteCode] = useState('')
   const [inviteRole, setInviteRole] = useState<'PARENT' | 'FAMILY_MEMBER'>('FAMILY_MEMBER')
+  const [inviteRelationship, setInviteRelationship] = useState<FamilyRelationship>('CHILD')
   const [upgradeOpen, setUpgradeOpen] = useState(false)
   const [expandedMember, setExpandedMember] = useState<string | null>(null)
+  const [profileForms, setProfileForms] = useState<Record<string, { nickname: string; relationship: FamilyRelationship; birthDate: string; notes: string }>>({})
 
   const { data: family } = useQuery({
     queryKey: ['family'],
@@ -51,8 +80,18 @@ export default function FamilyPage() {
   })
 
   const inviteMut = useMutation({
-    mutationFn: (role: string) => api.post('/family/invite', { role }),
+    mutationFn: (data: { role: string; relationship: FamilyRelationship }) => api.post('/family/invite', data),
     onSuccess: (res) => setInviteCode(res.data.code),
+  })
+
+  const profileMut = useMutation({
+    mutationFn: ({ memberId, data }: { memberId: string; data: { nickname: string; relationship: FamilyRelationship; birthDate: string | null; notes: string } }) =>
+      api.patch(`/family/members/${memberId}/profile`, data),
+    onSuccess: () => {
+      toast.success('Đã cập nhật hồ sơ thành viên')
+      qc.invalidateQueries({ queryKey: ['family'] })
+    },
+    onError: (e: unknown) => toast.error((e as { response?: { data?: { error?: string } } })?.response?.data?.error ?? 'Không thể cập nhật hồ sơ'),
   })
 
   const roleMut = useMutation({
@@ -133,6 +172,12 @@ export default function FamilyPage() {
                 const canManageMember = isParent && member.user.id !== user?.id && !member.isOwner
                 const canEditFinance = isParent || member.user.id === user?.id
                 const expanded = expandedMember === member.id
+                const profileForm = profileForms[member.id] ?? {
+                  nickname: member.nickname ?? '',
+                  relationship: member.relationship ?? 'OTHER',
+                  birthDate: member.birthDate ? member.birthDate.slice(0, 10) : '',
+                  notes: member.notes ?? '',
+                }
                 return (
                   <div key={member.id} className="rounded-lg border">
                     <div className="flex items-center gap-3 p-3">
@@ -141,10 +186,15 @@ export default function FamilyPage() {
                       </Avatar>
                       <div className="flex-1 min-w-0">
                         <p className="font-medium truncate">{member.user.displayName}</p>
-                        <p className="text-sm text-muted-foreground truncate">{member.user.email}</p>
+                        <p className="text-sm text-muted-foreground truncate">
+                          {member.nickname ? `${member.nickname} · ` : ''}{member.user.email}
+                        </p>
                       </div>
+                      <Badge variant="outline" className="text-xs">
+                        Vai vế: {relationshipLabel(member.relationship)}
+                      </Badge>
                       <Badge variant={member.user.role === 'PARENT' ? 'default' : 'secondary'}>
-                        {member.user.role === 'PARENT' ? 'Chủ hộ / Phụ huynh' : 'Thành viên'}
+                        Quyền: {member.user.role === 'PARENT' ? 'Phụ huynh' : 'Thành viên'}
                       </Badge>
                       {member.isOwner && (
                         <Badge variant="outline" className="text-xs">Chủ hộ</Badge>
@@ -191,7 +241,88 @@ export default function FamilyPage() {
                       )}
                     </div>
                     {expanded && (
-                      <div className="border-t bg-gray-50 p-3">
+                      <div className="border-t bg-gray-50 p-3 space-y-3">
+                        {isParent && (
+                          <div className="grid grid-cols-1 md:grid-cols-4 gap-3 rounded-md border bg-white p-3">
+                            <div className="space-y-1">
+                              <Label>Biệt danh</Label>
+                              <Input
+                                value={profileForm.nickname}
+                                onChange={(e) =>
+                                  setProfileForms((prev) => ({
+                                    ...prev,
+                                    [member.id]: { ...profileForm, nickname: e.target.value },
+                                  }))
+                                }
+                                placeholder="Ví dụ: Bé Lan"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label>Vai vế</Label>
+                              <Select
+                                value={profileForm.relationship}
+                                onValueChange={(relationship) =>
+                                  setProfileForms((prev) => ({
+                                    ...prev,
+                                    [member.id]: { ...profileForm, relationship: relationship as FamilyRelationship },
+                                  }))
+                                }
+                              >
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  {RELATIONSHIP_OPTIONS.map((item) => (
+                                    <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="space-y-1">
+                              <Label>Ngày sinh</Label>
+                              <Input
+                                type="date"
+                                value={profileForm.birthDate}
+                                onChange={(e) =>
+                                  setProfileForms((prev) => ({
+                                    ...prev,
+                                    [member.id]: { ...profileForm, birthDate: e.target.value },
+                                  }))
+                                }
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label>Ghi chú</Label>
+                              <div className="flex gap-2">
+                                <Input
+                                  value={profileForm.notes}
+                                  onChange={(e) =>
+                                    setProfileForms((prev) => ({
+                                      ...prev,
+                                      [member.id]: { ...profileForm, notes: e.target.value },
+                                    }))
+                                  }
+                                  placeholder="Học sinh, đã đi làm..."
+                                />
+                                <Button
+                                  size="icon"
+                                  disabled={profileMut.isPending}
+                                  onClick={() =>
+                                    profileMut.mutate({
+                                      memberId: member.id,
+                                      data: {
+                                        nickname: profileForm.nickname,
+                                        relationship: profileForm.relationship,
+                                        birthDate: profileForm.birthDate || null,
+                                        notes: profileForm.notes,
+                                      },
+                                    })
+                                  }
+                                >
+                                  <Save className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        )}
                         <IncomeSourceManager memberId={member.id} canEdit={canEditFinance} />
                       </div>
                     )}
@@ -220,8 +351,19 @@ export default function FamilyPage() {
                 </SelectContent>
               </Select>
             </div>
+            <div className="space-y-2">
+              <Label>Vai vế trong gia đình</Label>
+              <Select value={inviteRelationship} onValueChange={(v) => setInviteRelationship(v as FamilyRelationship)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {RELATIONSHIP_OPTIONS.map((item) => (
+                    <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             {!inviteCode ? (
-              <Button className="w-full" onClick={() => inviteMut.mutate(inviteRole)} disabled={inviteMut.isPending}>
+              <Button className="w-full" onClick={() => inviteMut.mutate({ role: inviteRole, relationship: inviteRelationship })} disabled={inviteMut.isPending}>
                 {inviteMut.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
                 Tạo link mời
               </Button>

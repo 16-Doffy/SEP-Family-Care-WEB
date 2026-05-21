@@ -35,6 +35,7 @@ export function FinanceOverview({ summary, forecast, warnings }: Props) {
     return <p className="text-sm text-muted-foreground py-8 text-center">Đang tải số liệu...</p>
   }
 
+  const hasIncome = summary.actual.hasIncomeRecorded
   const surplusColor = summary.actual.surplus >= 0 ? 'text-green-600' : 'text-red-600'
   const plannedSurplusColor = summary.planned.surplus >= 0 ? 'text-green-600' : 'text-red-600'
 
@@ -52,10 +53,15 @@ export function FinanceOverview({ summary, forecast, warnings }: Props) {
         />
         <StatCard
           label="Tổng thu thực tế"
-          value={formatCurrency(summary.actual.income)}
-          hint={`Dự kiến ${formatCurrency(summary.planned.income)}`}
+          value={hasIncome ? formatCurrency(summary.actual.income) : 'Chưa ghi nhận'}
+          hint={
+            hasIncome
+              ? `Dự kiến ${formatCurrency(summary.planned.income)}`
+              : 'Hãy "Ghi thu nhập" để theo dõi'
+          }
           icon={TrendingUp}
           tone="green"
+          valueClassName={hasIncome ? undefined : 'text-gray-400 text-lg'}
         />
         <StatCard
           label="Tổng chi thực tế"
@@ -65,12 +71,18 @@ export function FinanceOverview({ summary, forecast, warnings }: Props) {
           tone="amber"
         />
         <StatCard
-          label="Dư / Thiếu tháng này"
-          value={formatCurrency(summary.actual.surplus)}
-          hint={`Dự kiến ${formatCurrency(summary.planned.surplus)}`}
+          label={hasIncome ? 'Dư / Thiếu tháng này' : 'Dư / Thiếu (dự kiến)'}
+          value={hasIncome ? formatCurrency(summary.actual.surplus) : formatCurrency(summary.planned.surplus)}
+          hint={
+            hasIncome
+              ? `Dự kiến ${formatCurrency(summary.planned.surplus)}`
+              : 'Chưa có thu thực tế'
+          }
           icon={Sparkles}
-          tone={summary.actual.surplus >= 0 ? 'green' : 'red'}
-          valueClassName={surplusColor}
+          tone={
+            (hasIncome ? summary.actual.surplus : summary.planned.surplus) >= 0 ? 'green' : 'red'
+          }
+          valueClassName={hasIncome ? surplusColor : plannedSurplusColor}
         />
       </div>
 

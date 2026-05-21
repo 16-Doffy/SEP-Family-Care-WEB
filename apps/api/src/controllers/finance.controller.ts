@@ -152,6 +152,7 @@ export async function createPersonalExpense(req: Request, res: Response, next: N
         category: z.string().min(1).max(60),
         note: z.string().max(500).optional(),
         occurredAt: z.string().optional(),
+        deductFromWallet: z.boolean().optional(),
       })
       .parse(req.body)
     const memberId = body.memberId ?? req.user.familyMemberId!
@@ -163,6 +164,7 @@ export async function createPersonalExpense(req: Request, res: Response, next: N
         category: body.category,
         note: body.note,
         occurredAt: body.occurredAt,
+        deductFromWallet: body.deductFromWallet,
       },
       access(req),
     )
@@ -176,10 +178,13 @@ export async function createPersonalExpense(req: Request, res: Response, next: N
 
 export async function listPersonalExpenses(req: Request, res: Response, next: NextFunction) {
   try {
-    const memberId = (req.query.memberId as string | undefined) ?? req.user.familyMemberId!
+    // FAMILY_MEMBER chỉ thấy của mình; PARENT thấy tất cả hoặc filter theo memberId
+    const queryMemberId = req.query.memberId as string | undefined
+    const isParent = req.user.role === 'PARENT' || req.user.role === 'SUPER_ADMIN'
+    const memberId = isParent ? queryMemberId : req.user.familyMemberId
     const from = req.query.from ? new Date(String(req.query.from)) : undefined
     const to = req.query.to ? new Date(String(req.query.to)) : undefined
-    const list = await finance.listPersonalExpenses(memberId, req.user.familyId!, { from, to, take: 100 })
+    const list = await finance.listPersonalExpenses(req.user.familyId!, { memberId, from, to, take: 100 })
     res.json(list)
   } catch (e) {
     next(e)
@@ -195,6 +200,7 @@ export async function createFamilyExpense(req: Request, res: Response, next: Nex
         note: z.string().max(500).optional(),
         paidById: z.string().optional(),
         occurredAt: z.string().optional(),
+        deductFromWallet: z.boolean().optional(),
       })
       .parse(req.body)
     const created = await finance.createFamilyExpense(req.user.familyId!, body)
@@ -209,6 +215,53 @@ export async function listFamilyExpenses(req: Request, res: Response, next: Next
     const from = req.query.from ? new Date(String(req.query.from)) : undefined
     const to = req.query.to ? new Date(String(req.query.to)) : undefined
     const list = await finance.listFamilyExpenses(req.user.familyId!, { from, to, take: 100 })
+    res.json(list)
+  } catch (e) {
+    next(e)
+  }
+}
+
+// ─── ActualIncome ────────────────────────────────────────────────────────────
+
+export async function createActualIncome(req: Request, res: Response, next: NextFunction) {
+  try {
+    const body = z
+      .object({
+        memberId: z.string().optional(),
+        amount: z.number().min(0),
+        sourceType: incomeSourceTypes.optional(),
+        note: z.string().max(500).optional(),
+        occurredAt: z.string().optional(),
+        creditToWallet: z.boolean().optional(),
+      })
+      .parse(req.body)
+    const memberId = body.memberId ?? req.user.familyMemberId!
+    const created = await finance.createActualIncome(
+      memberId,
+      req.user.familyId!,
+      {
+        amount: body.amount,
+        sourceType: body.sourceType,
+        note: body.note,
+        occurredAt: body.occurredAt,
+        creditToWallet: body.creditToWallet,
+      },
+      access(req),
+    )
+    res.status(201).json(created)
+  } catch (e) {
+    next(e)
+  }
+}
+
+export async function listActualIncomes(req: Request, res: Response, next: NextFunction) {
+  try {
+    const queryMemberId = req.query.memberId as string | undefined
+    const isParent = req.user.role === 'PARENT' || req.user.role === 'SUPER_ADMIN'
+    const memberId = isParent ? queryMemberId : req.user.familyMemberId
+    const from = req.query.from ? new Date(String(req.query.from)) : undefined
+    const to = req.query.to ? new Date(String(req.query.to)) : undefined
+    const list = await finance.listActualIncomes(req.user.familyId!, { memberId, from, to, take: 100 })
     res.json(list)
   } catch (e) {
     next(e)

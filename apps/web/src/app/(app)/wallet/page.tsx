@@ -57,7 +57,10 @@ export default function WalletPage() {
   const [requestOpen, setRequestOpen] = useState(false)
   const [rejectOpen, setRejectOpen] = useState<MoneyRequest | null>(null)
   const [selectedWallet, setSelectedWallet] = useState<WalletType | null>(null)
-  const [activeTab, setActiveTab] = useState<'overview' | 'budget' | 'log' | 'wallets' | 'requests'>('overview')
+  const isParentEarly = user?.role === 'PARENT' || user?.role === 'SUPER_ADMIN'
+  const [activeTab, setActiveTab] = useState<'overview' | 'wallets' | 'budget' | 'log' | 'requests'>(
+    isParentEarly ? 'overview' : 'wallets',
+  )
 
   const { data: summary } = useMonthlySummary()
   const { data: forecast } = usePrediction(3)
@@ -129,7 +132,7 @@ export default function WalletPage() {
   // SUPER_ADMIN được coi là phụ huynh để có quyền nạp tiền, chuyển tiền và duyệt yêu cầu
   const isParent = user?.role === 'PARENT' || user?.role === 'SUPER_ADMIN'
   const pageTitle = isParent ? 'Ví gia đình' : 'Ví cá nhân'
-  const requestTabLabel = isParent ? 'Yêu cầu xin tiền' : 'Yêu cầu của con'
+  const requestTabLabel = isParent ? 'Yêu cầu xin tiền' : 'Yêu cầu xin tiền của tôi'
   const transactions: Transaction[] = walletDetail?.transactions ?? []
 
   return (
@@ -141,29 +144,31 @@ export default function WalletPage() {
         <div className="flex items-center justify-between">
           <div>
             <div className="flex gap-1 p-1 bg-gray-100 rounded-lg flex-wrap">
+              {isParent && (
+                <button
+                  onClick={() => setActiveTab('overview')}
+                  className={cn('px-4 py-1.5 rounded-md text-sm font-medium transition-colors', activeTab === 'overview' ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700')}
+                >
+                  Tổng quan gia đình
+                </button>
+              )}
               <button
-                onClick={() => setActiveTab('overview')}
-                className={cn('px-4 py-1.5 rounded-md text-sm font-medium transition-colors', activeTab === 'overview' ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700')}
+                onClick={() => setActiveTab('wallets')}
+                className={cn('px-4 py-1.5 rounded-md text-sm font-medium transition-colors', activeTab === 'wallets' ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700')}
               >
-                Tổng quan tài chính
+                {isParent ? 'Ví gia đình' : 'Ví cá nhân'}
               </button>
               <button
                 onClick={() => setActiveTab('budget')}
                 className={cn('px-4 py-1.5 rounded-md text-sm font-medium transition-colors', activeTab === 'budget' ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700')}
               >
-                Ngân sách
+                {isParent ? 'Ngân sách tháng' : 'Ngân sách cá nhân'}
               </button>
               <button
                 onClick={() => setActiveTab('log')}
                 className={cn('px-4 py-1.5 rounded-md text-sm font-medium transition-colors', activeTab === 'log' ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700')}
               >
-                Ghi chép
-              </button>
-              <button
-                onClick={() => setActiveTab('wallets')}
-                className={cn('px-4 py-1.5 rounded-md text-sm font-medium transition-colors', activeTab === 'wallets' ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700')}
-              >
-                {isParent ? 'Các ví trong nhà' : 'Ví của con'}
+                {isParent ? 'Ghi thu / chi' : 'Thu/chi của tôi'}
               </button>
               <button
                 onClick={() => setActiveTab('requests')}
@@ -178,7 +183,9 @@ export default function WalletPage() {
               </button>
             </div>
             <p className="text-xs text-muted-foreground mt-2">
-              {isParent ? 'Phụ huynh quản lý ví chung, nạp tiền, chuyển tiền và duyệt yêu cầu của con.' : 'Con chỉ xem ví cá nhân, lịch sử giao dịch và gửi yêu cầu xin tiền.'}
+              {isParent
+                ? 'Phụ huynh quản lý ví chung + xem ví mọi thành viên, lập ngân sách, ghi thu/chi cho cả nhà.'
+                : 'Bạn quản lý ví cá nhân, ghi thu/chi của mình và xin tiền khi cần.'}
             </p>
           </div>
 
@@ -201,8 +208,8 @@ export default function WalletPage() {
           </div>
         </div>
 
-        {/* === TAB: OVERVIEW (Finance) === */}
-        {activeTab === 'overview' && (
+        {/* === TAB: OVERVIEW (Finance) — chỉ PARENT === */}
+        {activeTab === 'overview' && isParent && (
           <FinanceOverview summary={summary} forecast={forecast} warnings={warnings} />
         )}
 
@@ -246,7 +253,7 @@ export default function WalletPage() {
             {selectedWallet && (
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-lg">{isParent ? 'Lịch sử giao dịch' : 'Lịch sử tiền của con'} – {selectedWallet.name}</CardTitle>
+                  <CardTitle className="text-lg">Lịch sử giao dịch – {selectedWallet.name}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   {transactions.length === 0 ? (
@@ -288,7 +295,7 @@ export default function WalletPage() {
             {moneyRequests.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 gap-2 text-muted-foreground">
                 <HandCoins className="w-10 h-10 opacity-30" />
-                <p className="text-sm">{isParent ? 'Chưa có yêu cầu xin tiền nào từ thành viên' : 'Con chưa gửi yêu cầu xin tiền nào'}</p>
+                <p className="text-sm">{isParent ? 'Chưa có yêu cầu xin tiền nào từ thành viên' : 'Bạn chưa gửi yêu cầu xin tiền nào'}</p>
               </div>
             ) : (
               moneyRequests.map((mr) => {

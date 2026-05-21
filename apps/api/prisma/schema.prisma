@@ -16,6 +16,17 @@ enum Role {
   FAMILY_MEMBER
 }
 
+enum FamilyRelationship {
+  FATHER
+  MOTHER
+  CHILD
+  GRANDPARENT
+  SIBLING
+  SPOUSE
+  RELATIVE
+  OTHER
+}
+
 enum Plan {
   FREE
   BASIC
@@ -32,6 +43,7 @@ enum TransactionType {
   WITHDRAWAL
   TRANSFER
   TASK_REWARD
+  MONEY_REQUEST_PAYOUT
 }
 
 enum TaskStatus {
@@ -253,13 +265,14 @@ model FamilyProvision {
 }
 
 model FamilyInvite {
-  id        String    @id @default(cuid())
-  code      String    @unique
-  familyId  String
-  role      Role
-  usedAt    DateTime?
-  expiresAt DateTime
-  createdAt DateTime  @default(now())
+  id           String             @id @default(cuid())
+  code         String             @unique
+  familyId     String
+  role         Role
+  relationship FamilyRelationship @default(OTHER)
+  usedAt       DateTime?
+  expiresAt    DateTime
+  createdAt    DateTime           @default(now())
 
   family Family @relation(fields: [familyId], references: [id], onDelete: Cascade)
 
@@ -305,12 +318,15 @@ model SubscriptionPlan {
 }
 
 model FamilyMember {
-  id       String   @id @default(cuid())
-  userId   String   @unique
-  familyId String
-  nickname String?
-  isOwner  Boolean  @default(false)
-  joinedAt DateTime @default(now())
+  id           String             @id @default(cuid())
+  userId       String             @unique
+  familyId     String
+  nickname     String?
+  relationship FamilyRelationship @default(OTHER)
+  birthDate    DateTime?
+  notes        String?
+  isOwner      Boolean            @default(false)
+  joinedAt     DateTime           @default(now())
 
   // Core flow 1 — quản lý tài chính cá nhân
   occupation             String?
@@ -331,6 +347,7 @@ model FamilyMember {
   uploadedAlbumPhotos       AlbumPhoto[]
   announcements             Announcement[]
   incomeSources             IncomeSource[]
+  actualIncomes             ActualIncome[]
   personalExpenses          PersonalExpense[]
   familyExpensePayments     FamilyExpense[]         @relation("ExpensePayer")
   recurringTemplatesDefault RecurringTaskTemplate[] @relation("RecurringDefaultAssignee")
@@ -368,9 +385,12 @@ model Transaction {
   taskId       String?
   createdAt    DateTime        @default(now())
 
-  fromWallet Wallet? @relation("FromWallet", fields: [fromWalletId], references: [id])
-  toWallet   Wallet? @relation("ToWallet", fields: [toWalletId], references: [id])
-  task       Task?   @relation(fields: [taskId], references: [id])
+  fromWallet      Wallet?          @relation("FromWallet", fields: [fromWalletId], references: [id])
+  toWallet        Wallet?          @relation("ToWallet", fields: [toWalletId], references: [id])
+  task            Task?            @relation(fields: [taskId], references: [id])
+  personalExpense PersonalExpense? @relation("PersonalExpenseTx")
+  familyExpense   FamilyExpense?   @relation("FamilyExpenseTx")
+  actualIncome    ActualIncome?    @relation("ActualIncomeTx")
 
   @@index([fromWalletId])
   @@index([toWalletId])
@@ -689,33 +709,63 @@ model FamilyBudgetCategory {
 }
 
 model PersonalExpense {
-  id         String   @id @default(cuid())
-  memberId   String
-  amount     Decimal  @db.Decimal(15, 2)
-  category   String
-  note       String?
-  occurredAt DateTime @default(now())
-  createdAt  DateTime @default(now())
+  id                 String   @id @default(cuid())
+  memberId           String
+  amount             Decimal  @db.Decimal(15, 2)
+  category           String
+  note               String?
+  // Khi true: đã tạo Transaction WITHDRAWAL trừ ví cá nhân.
+  // Khi false: chỉ ghi sổ thống kê, không đụng ví.
+  deductedFromWallet Boolean  @default(false)
+  transactionId      String?  @unique
+  occurredAt         DateTime @default(now())
+  createdAt          DateTime @default(now())
 
-  member FamilyMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  member      FamilyMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  transaction Transaction? @relation("PersonalExpenseTx", fields: [transactionId], references: [id])
 
   @@index([memberId, occurredAt])
 }
 
 model FamilyExpense {
-  id         String   @id @default(cuid())
-  familyId   String
-  category   String
-  amount     Decimal  @db.Decimal(15, 2)
-  note       String?
-  paidById   String?
-  occurredAt DateTime @default(now())
-  createdAt  DateTime @default(now())
+  id                 String   @id @default(cuid())
+  familyId           String
+  category           String
+  amount             Decimal  @db.Decimal(15, 2)
+  note               String?
+  paidById           String?
+  // Khi true: đã tạo Transaction WITHDRAWAL trừ ví chung.
+  deductedFromWallet Boolean  @default(false)
+  transactionId      String?  @unique
+  occurredAt         DateTime @default(now())
+  createdAt          DateTime @default(now())
 
-  family Family        @relation(fields: [familyId], references: [id], onDelete: Cascade)
-  paidBy FamilyMember? @relation("ExpensePayer", fields: [paidById], references: [id])
+  family      Family        @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  paidBy      FamilyMember? @relation("ExpensePayer", fields: [paidById], references: [id])
+  transaction Transaction?  @relation("FamilyExpenseTx", fields: [transactionId], references: [id])
 
   @@index([familyId, occurredAt])
+}
+
+/// Thu nhập THỰC TẾ trong tháng — một dòng cho mỗi lần member ghi nhận
+/// (lương về, freelance về, tiền thưởng...). Khác với `IncomeSource` (cố định,
+/// dự kiến hàng tháng).
+model ActualIncome {
+  id               String           @id @default(cuid())
+  memberId         String
+  amount           Decimal          @db.Decimal(15, 2)
+  sourceType       IncomeSourceType @default(SALARY)
+  note             String?
+  // Khi true: đã tạo Transaction DEPOSIT vào ví cá nhân.
+  creditedToWallet Boolean          @default(false)
+  transactionId    String?          @unique
+  occurredAt       DateTime         @default(now())
+  createdAt        DateTime         @default(now())
+
+  member      FamilyMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  transaction Transaction? @relation("ActualIncomeTx", fields: [transactionId], references: [id])
+
+  @@index([memberId, occurredAt])
 }
 
 model MonthlyFundSnapshot {

@@ -117,7 +117,7 @@ export async function transfer(input: {
   amount: number
   description?: string
   familyId: string
-  type?: 'TRANSFER' | 'TASK_REWARD'
+  type?: 'TRANSFER' | 'TASK_REWARD' | 'MONEY_REQUEST_PAYOUT'
   taskId?: string
 }) {
   if (input.amount <= 0) throw Errors.BadRequest('Amount must be greater than 0')
@@ -218,4 +218,45 @@ export async function deposit(walletId: string, amount: number, description: str
 
   // Trả về bản ghi giao dịch (phần tử thứ hai trong mảng kết quả)
   return transaction
+}
+
+/**
+ * Trừ tiền khỏi một ví (WITHDRAWAL) — không có ví đích.
+ * Dùng khi ghi nhận chi tiêu thực tế và chọn "trừ ví":
+ *  - FamilyExpense → trừ ví JOINT
+ *  - PersonalExpense → trừ ví PERSONAL của member
+ *
+ * Idempotent: nếu số dư không đủ, ném `InsufficientFunds` (KHÔNG cho phép âm).
+ *
+ * @returns Transaction WITHDRAWAL vừa tạo (kèm `id` để gắn vào expense record).
+ */
+export async function withdraw(input: {
+  walletId: string
+  amount: number
+  description?: string
+  familyId: string
+}) {
+  if (input.amount <= 0) throw Errors.BadRequest('Amount must be greater than 0')
+
+  return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    const wallet = await tx.wallet.findFirst({
+      where: { id: input.walletId, familyId: input.familyId },
+    })
+    if (!wallet) throw Errors.NotFound('Wallet')
+    if (Number(wallet.balance) < input.amount) throw Errors.InsufficientFunds()
+
+    await tx.wallet.update({
+      where: { id: input.walletId },
+      data: { balance: { decrement: input.amount } },
+    })
+
+    return tx.transaction.create({
+      data: {
+        fromWalletId: input.walletId,
+        amount: input.amount,
+        type: 'WITHDRAWAL',
+        description: input.description,
+      },
+    })
+  })
 }

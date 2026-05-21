@@ -12,7 +12,7 @@
 
 import { prisma } from '../config/database'
 import { Errors } from '../utils/errors'
-import type { Prisma } from '@prisma/client'
+import type { FamilyRelationship, Prisma } from '@prisma/client'
 import { randomBytes } from 'crypto'
 import { assertCanAddMember } from './plan-limits.service'
 
@@ -99,7 +99,11 @@ export async function validateInviteCode(code: string) {
  * @param role - Vai trò sẽ được gán cho người dùng khi dùng mã này (PARENT | FAMILY_MEMBER)
  * @returns Mã mời dạng hex string 32 ký tự
  */
-export async function generateInviteCode(familyId: string, role: string): Promise<string> {
+export async function generateInviteCode(
+  familyId: string,
+  role: string,
+  relationship: FamilyRelationship = 'OTHER',
+): Promise<string> {
   // 16 bytes ngẫu nhiên → 32 ký tự hex; đủ entropy để không thể đoán được
   const code = randomBytes(16).toString('hex')
   await prisma.familyInvite.create({
@@ -107,6 +111,7 @@ export async function generateInviteCode(familyId: string, role: string): Promis
       familyId,
       code,
       role: role as 'PARENT' | 'FAMILY_MEMBER',
+      relationship,
       // Mã hết hạn sau 7 ngày kể từ thời điểm tạo
       expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     },
@@ -154,7 +159,11 @@ export async function joinFamily(userId: string, code: string) {
     })
 
     const newMember = await tx.familyMember.create({
-      data: { userId, familyId: invite.familyId },
+      data: {
+        userId,
+        familyId: invite.familyId,
+        relationship: invite.relationship,
+      },
     })
 
     // Tạo ví cá nhân cho thành viên mới — mọi thành viên đều có ví riêng
@@ -251,6 +260,36 @@ export async function changeMemberRole(
   })
 
   return { userId: targetUserId, newRole }
+}
+
+export async function updateMemberProfile(
+  familyId: string,
+  memberId: string,
+  data: {
+    nickname?: string | null
+    relationship?: FamilyRelationship
+    birthDate?: string | null
+    notes?: string | null
+  },
+) {
+  const member = await prisma.familyMember.findFirst({
+    where: { id: memberId, familyId },
+  })
+  if (!member) throw Errors.NotFound('Family member')
+
+  return prisma.familyMember.update({
+    where: { id: memberId },
+    data: {
+      nickname: data.nickname,
+      relationship: data.relationship,
+      birthDate: data.birthDate === undefined ? undefined : data.birthDate ? new Date(data.birthDate) : null,
+      notes: data.notes,
+    },
+    include: {
+      user: { select: { id: true, email: true, displayName: true, avatarUrl: true, role: true } },
+      wallet: { select: { id: true, balance: true } },
+    },
+  })
 }
 
 /**

@@ -223,11 +223,12 @@ async function main() {
 
   const parentMember = await prisma.familyMember.upsert({
     where: { userId: parent.id },
-    update: { isOwner: true },
+    update: { isOwner: true, relationship: 'FATHER' },
     create: {
       userId: parent.id,
       familyId: family.id,
       nickname: 'Bố',
+      relationship: 'FATHER',
       isOwner: true,
     },
   })
@@ -246,11 +247,12 @@ async function main() {
 
   const member1Member = await prisma.familyMember.upsert({
     where: { userId: member1.id },
-    update: {},
+    update: { relationship: 'CHILD' },
     create: {
       userId: member1.id,
       familyId: family.id,
       nickname: 'Anh Minh',
+      relationship: 'CHILD',
     },
   })
 
@@ -268,11 +270,12 @@ async function main() {
 
   const member2Member = await prisma.familyMember.upsert({
     where: { userId: member2.id },
-    update: {},
+    update: { relationship: 'CHILD' },
     create: {
       userId: member2.id,
       familyId: family.id,
       nickname: 'Bé Lan',
+      relationship: 'CHILD',
     },
   })
 

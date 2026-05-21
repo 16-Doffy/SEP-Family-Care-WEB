@@ -25,6 +25,10 @@ interface User {
   familyMember?: {
     id: string
     familyId: string
+    nickname?: string | null
+    relationship?: string | null
+    birthDate?: string | null
+    notes?: string | null
     family?: { id: string; name: string; plan: string }
   } | null
 }

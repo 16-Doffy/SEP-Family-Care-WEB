@@ -1,38 +1,37 @@
 /**
  * @module finance.service
- * @description Quản lý tài chính gia đình (Core flow 1).
+ * @description Quản lý tài chính gia đình theo 3 lớp tách biệt:
  *
- * Chịu trách nhiệm CRUD cho IncomeSource (nguồn thu), FamilyBudget (dự kiến
- * chi chung), PersonalExpense (chi cá nhân thực tế), FamilyExpense (chi chung
- * thực tế); tổng hợp số liệu thu/chi theo tháng (dự kiến vs thực tế); và đóng
- * tháng (closeMonth) để tạo MonthlyFundSnapshot phục vụ dự đoán.
+ *  1. **Planning (kế hoạch)**: `IncomeSource` + `FamilyBudget` +
+ *     `FamilyMember.plannedPersonalExpense` — dự kiến mỗi tháng.
+ *  2. **Actual (thực tế)**: `ActualIncome` + `PersonalExpense` + `FamilyExpense`
+ *     — số thực tế đã xảy ra trong tháng.
+ *  3. **Wallet Ledger (ví thật)**: khi `deductedFromWallet`/`creditedToWallet`
+ *     = true, expense/income tạo `Transaction` thực sự trừ/cộng `Wallet`.
  *
- * Các bút toán "chi tiêu" KHÔNG tự động trừ tiền ví JOINT — đây là sổ ghi chép
- * dùng cho thống kê. Tác động lên balance ví JOINT chỉ xảy ra qua các flow đã
- * có (transfer, deposit, task reward).
+ * `getMonthlySummary` trả số thực tế **chỉ từ ActualIncome** — không bao giờ
+ * dùng `plannedIncome` làm fallback cho actual.
  */
 
 import { prisma } from '../config/database'
 import { Errors } from '../utils/errors'
 import type { IncomeSourceType } from '@prisma/client'
+import { withdraw } from './wallet.service'
 
-/** Một thành viên truy cập có vai trò + memberId (tuỳ chọn) để kiểm tra quyền tự sửa của mình. */
 type Access = { role: string; familyMemberId?: string }
 
-/** Đảm bảo member thuộc về family. Trả về member kèm familyId để dùng tiếp. */
 async function ensureMember(memberId: string, familyId: string) {
   const m = await prisma.familyMember.findFirst({ where: { id: memberId, familyId } })
   if (!m) throw Errors.NotFound('Family member')
   return m
 }
 
-/** Chỉ chính chủ hoặc PARENT/SUPER_ADMIN mới được sửa dữ liệu của member khác. */
 function assertOwnerOrParent(targetMemberId: string, access: Access) {
   if (access.role === 'PARENT' || access.role === 'SUPER_ADMIN') return
   if (access.familyMemberId !== targetMemberId) throw Errors.Forbidden()
 }
 
-// ─── IncomeSource ─────────────────────────────────────────────────────────────
+// ─── PLANNING: IncomeSource ──────────────────────────────────────────────────
 
 export async function listIncomeSources(memberId: string, familyId: string) {
   await ensureMember(memberId, familyId)
@@ -85,10 +84,6 @@ export async function deleteIncomeSource(id: string, familyId: string, access: A
   await syncPlannedIncome(src.memberId)
 }
 
-/**
- * Cập nhật `plannedMonthlyIncome` + `hasIncome` của member dựa trên tổng các
- * nguồn thu đang active. Gọi mỗi khi IncomeSource bị thay đổi.
- */
 async function syncPlannedIncome(memberId: string) {
   const agg = await prisma.incomeSource.aggregate({
     where: { memberId, isActive: true },
@@ -101,7 +96,7 @@ async function syncPlannedIncome(memberId: string) {
   })
 }
 
-// ─── Member budget ────────────────────────────────────────────────────────────
+// ─── PLANNING: Member budget ─────────────────────────────────────────────────
 
 export async function updateMemberBudget(
   memberId: string,
@@ -121,7 +116,7 @@ export async function updateMemberBudget(
   })
 }
 
-// ─── FamilyBudget (chi chung dự kiến) ─────────────────────────────────────────
+// ─── PLANNING: Family budget (chi chung dự kiến) ─────────────────────────────
 
 export async function getFamilyBudget(familyId: string, year: number, month: number) {
   return prisma.familyBudget.findUnique({
@@ -143,7 +138,6 @@ export async function upsertFamilyBudget(
       create: { familyId, year, month, plannedSharedExpense: planned, notes: data.notes },
       update: { plannedSharedExpense: planned, notes: data.notes },
     })
-    // Replace categories trọn gói cho đơn giản
     await tx.familyBudgetCategory.deleteMany({ where: { budgetId: budget.id } })
     if (data.categories.length > 0) {
       await tx.familyBudgetCategory.createMany({
@@ -157,16 +151,118 @@ export async function upsertFamilyBudget(
   })
 }
 
-// ─── PersonalExpense ──────────────────────────────────────────────────────────
+// ─── ACTUAL: ActualIncome ────────────────────────────────────────────────────
 
-export async function createPersonalExpense(
+/**
+ * Ghi nhận một khoản thu nhập thực tế.
+ *
+ * Nếu `creditToWallet=true`: tạo Transaction DEPOSIT vào ví cá nhân của member
+ * (cộng balance). Mặc định false — chỉ ghi sổ.
+ */
+export async function createActualIncome(
   memberId: string,
   familyId: string,
-  data: { amount: number; category: string; note?: string; occurredAt?: string },
+  data: {
+    amount: number
+    sourceType?: IncomeSourceType
+    note?: string
+    occurredAt?: string
+    creditToWallet?: boolean
+  },
   access: Access,
 ) {
   await ensureMember(memberId, familyId)
   assertOwnerOrParent(memberId, access)
+  if (data.amount <= 0) throw Errors.BadRequest('Số tiền phải lớn hơn 0')
+
+  let transactionId: string | null = null
+
+  if (data.creditToWallet) {
+    const wallet = await prisma.wallet.findFirst({
+      where: { familyId, type: 'PERSONAL', ownerId: memberId },
+    })
+    if (!wallet) throw Errors.NotFound('Ví cá nhân của thành viên')
+    const [, tx] = await prisma.$transaction([
+      prisma.wallet.update({
+        where: { id: wallet.id },
+        data: { balance: { increment: data.amount } },
+      }),
+      prisma.transaction.create({
+        data: {
+          toWalletId: wallet.id,
+          amount: data.amount,
+          type: 'DEPOSIT',
+          description: `Thu nhập: ${data.note ?? data.sourceType ?? 'SALARY'}`,
+        },
+      }),
+    ])
+    transactionId = tx.id
+  }
+
+  return prisma.actualIncome.create({
+    data: {
+      memberId,
+      amount: data.amount,
+      sourceType: data.sourceType ?? 'SALARY',
+      note: data.note,
+      occurredAt: data.occurredAt ? new Date(data.occurredAt) : new Date(),
+      creditedToWallet: !!data.creditToWallet,
+      transactionId,
+    },
+  })
+}
+
+export async function listActualIncomes(
+  familyId: string,
+  filters?: { memberId?: string; from?: Date; to?: Date; take?: number },
+) {
+  return prisma.actualIncome.findMany({
+    where: {
+      member: { familyId },
+      ...(filters?.memberId && { memberId: filters.memberId }),
+      ...(filters?.from && { occurredAt: { gte: filters.from } }),
+      ...(filters?.to && { occurredAt: { lte: filters.to } }),
+    },
+    include: { member: { include: { user: { select: { displayName: true } } } } },
+    orderBy: { occurredAt: 'desc' },
+    take: filters?.take ?? 100,
+  })
+}
+
+// ─── ACTUAL: PersonalExpense ─────────────────────────────────────────────────
+
+export async function createPersonalExpense(
+  memberId: string,
+  familyId: string,
+  data: {
+    amount: number
+    category: string
+    note?: string
+    occurredAt?: string
+    deductFromWallet?: boolean
+  },
+  access: Access,
+) {
+  await ensureMember(memberId, familyId)
+  assertOwnerOrParent(memberId, access)
+  if (data.amount <= 0) throw Errors.BadRequest('Số tiền phải lớn hơn 0')
+
+  let transactionId: string | null = null
+
+  if (data.deductFromWallet) {
+    const wallet = await prisma.wallet.findFirst({
+      where: { familyId, type: 'PERSONAL', ownerId: memberId },
+    })
+    if (!wallet) throw Errors.NotFound('Ví cá nhân')
+    const tx = await withdraw({
+      walletId: wallet.id,
+      amount: data.amount,
+      description: `Chi cá nhân: ${data.category}${data.note ? ` — ${data.note}` : ''}`,
+      familyId,
+    })
+    transactionId = tx.id
+  }
+
   return prisma.personalExpense.create({
     data: {
       memberId,
@@ -174,36 +270,59 @@ export async function createPersonalExpense(
       category: data.category,
       note: data.note,
       occurredAt: data.occurredAt ? new Date(data.occurredAt) : new Date(),
+      deductedFromWallet: !!data.deductFromWallet,
+      transactionId,
     },
   })
 }
 
 export async function listPersonalExpenses(
-  memberId: string,
   familyId: string,
-  range?: { from?: Date; to?: Date; take?: number },
+  filters?: { memberId?: string; from?: Date; to?: Date; take?: number },
 ) {
-  await ensureMember(memberId, familyId)
   return prisma.personalExpense.findMany({
     where: {
-      memberId,
-      ...(range?.from && { occurredAt: { gte: range.from } }),
-      ...(range?.to && { occurredAt: { lte: range.to } }),
+      member: { familyId },
+      ...(filters?.memberId && { memberId: filters.memberId }),
+      ...(filters?.from && { occurredAt: { gte: filters.from } }),
+      ...(filters?.to && { occurredAt: { lte: filters.to } }),
     },
+    include: { member: { include: { user: { select: { displayName: true } } } } },
     orderBy: { occurredAt: 'desc' },
-    take: range?.take ?? 100,
+    take: filters?.take ?? 100,
   })
 }
 
-// ─── FamilyExpense (chi chung thực tế, do PARENT ghi) ────────────────────────
+// ─── ACTUAL: FamilyExpense ───────────────────────────────────────────────────
 
 export async function createFamilyExpense(
   familyId: string,
-  data: { amount: number; category: string; note?: string; paidById?: string; occurredAt?: string },
+  data: {
+    amount: number
+    category: string
+    note?: string
+    paidById?: string
+    occurredAt?: string
+    deductFromWallet?: boolean
+  },
 ) {
-  if (data.paidById) {
-    await ensureMember(data.paidById, familyId)
+  if (data.amount <= 0) throw Errors.BadRequest('Số tiền phải lớn hơn 0')
+  if (data.paidById) await ensureMember(data.paidById, familyId)
+
+  let transactionId: string | null = null
+
+  if (data.deductFromWallet) {
+    const wallet = await prisma.wallet.findFirst({ where: { familyId, type: 'JOINT' } })
+    if (!wallet) throw Errors.NotFound('Ví chung')
+    const tx = await withdraw({
+      walletId: wallet.id,
+      amount: data.amount,
+      description: `Chi chung: ${data.category}${data.note ? ` — ${data.note}` : ''}`,
+      familyId,
+    })
+    transactionId = tx.id
   }
+
   return prisma.familyExpense.create({
     data: {
       familyId,
@@ -212,32 +331,47 @@ export async function createFamilyExpense(
       note: data.note,
       paidById: data.paidById,
       occurredAt: data.occurredAt ? new Date(data.occurredAt) : new Date(),
+      deductedFromWallet: !!data.deductFromWallet,
+      transactionId,
     },
   })
 }
 
-export async function listFamilyExpenses(familyId: string, range?: { from?: Date; to?: Date; take?: number }) {
+export async function listFamilyExpenses(
+  familyId: string,
+  filters?: { from?: Date; to?: Date; take?: number },
+) {
   return prisma.familyExpense.findMany({
     where: {
       familyId,
-      ...(range?.from && { occurredAt: { gte: range.from } }),
-      ...(range?.to && { occurredAt: { lte: range.to } }),
+      ...(filters?.from && { occurredAt: { gte: filters.from } }),
+      ...(filters?.to && { occurredAt: { lte: filters.to } }),
     },
     include: { paidBy: { include: { user: { select: { displayName: true } } } } },
     orderBy: { occurredAt: 'desc' },
-    take: range?.take ?? 100,
+    take: filters?.take ?? 100,
   })
 }
 
-// ─── Tổng hợp tháng ───────────────────────────────────────────────────────────
+// ─── SUMMARY: ghép planning + actual ─────────────────────────────────────────
 
-/** Trả về [from, to) cho 1 tháng cụ thể (giờ địa phương server). */
 function monthRange(year: number, month: number) {
   const from = new Date(year, month - 1, 1)
   const to = new Date(year, month, 1)
   return { from, to }
 }
 
+/**
+ * Trả về summary tài chính của family theo tháng.
+ *
+ * Nguyên tắc:
+ *  - `planned.*` = tổng từ IncomeSource / FamilyMember.plannedPersonalExpense /
+ *    FamilyBudget. Đây là kế hoạch.
+ *  - `actual.*` = tổng từ ActualIncome / PersonalExpense / FamilyExpense.
+ *    KHÔNG bao giờ fallback về planned.
+ *  - `actual.hasIncomeRecorded` = true nếu có ít nhất 1 ActualIncome trong tháng;
+ *    nếu false, FE nên hiển thị "Chưa ghi nhận thu thực tế" thay vì dùng planned.
+ */
 export async function getMonthlySummary(familyId: string, year: number, month: number) {
   const { from, to } = monthRange(year, month)
 
@@ -247,7 +381,7 @@ export async function getMonthlySummary(familyId: string, year: number, month: n
   })
   const memberIds = members.map((m) => m.id)
 
-  const [budget, personalAgg, familyAgg, jointWallet] = await Promise.all([
+  const [budget, personalAgg, familyAgg, actualIncAgg, jointWallet] = await Promise.all([
     getFamilyBudget(familyId, year, month),
     prisma.personalExpense.groupBy({
       by: ['memberId'],
@@ -258,30 +392,38 @@ export async function getMonthlySummary(familyId: string, year: number, month: n
       where: { familyId, occurredAt: { gte: from, lt: to } },
       _sum: { amount: true },
     }),
+    prisma.actualIncome.groupBy({
+      by: ['memberId'],
+      where: { memberId: { in: memberIds }, occurredAt: { gte: from, lt: to } },
+      _sum: { amount: true },
+      _count: true,
+    }),
     prisma.wallet.findFirst({ where: { familyId, type: 'JOINT' } }),
   ])
 
   const personalByMember = new Map<string, number>()
-  personalAgg.forEach((row) => personalByMember.set(row.memberId, Number(row._sum.amount ?? 0)))
+  personalAgg.forEach((r) => personalByMember.set(r.memberId, Number(r._sum.amount ?? 0)))
+  const actualIncByMember = new Map<string, number>()
+  actualIncAgg.forEach((r) => actualIncByMember.set(r.memberId, Number(r._sum.amount ?? 0)))
 
-  // Quy ước: thu nhập thực tế tháng đó = plannedMonthlyIncome (chưa có flow nhập
-  // thu nhập thực tế từng tháng). Đây là giả định v1 vì user đã xác nhận theo
-  // mô hình "thu nhập bình quân".
+  // Planning
   const plannedIncome = members.reduce((s, m) => s + Number(m.plannedMonthlyIncome), 0)
   const plannedPersonalExpense = members.reduce((s, m) => s + Number(m.plannedPersonalExpense), 0)
   const plannedSharedExpense = Number(budget?.plannedSharedExpense ?? 0)
   const plannedExpense = plannedSharedExpense + plannedPersonalExpense
-
-  const actualPersonalExpense = Array.from(personalByMember.values()).reduce((s, v) => s + v, 0)
-  const actualSharedExpense = Number(familyAgg._sum.amount ?? 0)
-  const actualExpense = actualPersonalExpense + actualSharedExpense
-
-  const actualIncome = plannedIncome
   const plannedSurplus = plannedIncome - plannedExpense
+
+  // Actual
+  const actualSharedExpense = Number(familyAgg._sum.amount ?? 0)
+  const actualPersonalExpense = Array.from(personalByMember.values()).reduce((s, v) => s + v, 0)
+  const actualIncome = Array.from(actualIncByMember.values()).reduce((s, v) => s + v, 0)
+  const hasIncomeRecorded = actualIncAgg.length > 0 && actualIncome > 0
+  const actualExpense = actualSharedExpense + actualPersonalExpense
   const actualSurplus = actualIncome - actualExpense
 
   const perMember = members.map((m) => {
-    const actual = personalByMember.get(m.id) ?? 0
+    const aExp = personalByMember.get(m.id) ?? 0
+    const aInc = actualIncByMember.get(m.id) ?? 0
     return {
       memberId: m.id,
       nickname: m.nickname,
@@ -289,11 +431,14 @@ export async function getMonthlySummary(familyId: string, year: number, month: n
       avatarUrl: m.user.avatarUrl,
       occupation: m.occupation,
       hasIncome: m.hasIncome,
+      relationship: (m as { relationship?: string }).relationship ?? 'OTHER',
       plannedIncome: Number(m.plannedMonthlyIncome),
       plannedPersonalExpense: Number(m.plannedPersonalExpense),
       personalSpendingLimit: m.personalSpendingLimit ? Number(m.personalSpendingLimit) : null,
-      actualPersonalExpense: actual,
-      isOverLimit: m.personalSpendingLimit ? actual > Number(m.personalSpendingLimit) : false,
+      actualIncome: aInc,
+      actualPersonalExpense: aExp,
+      hasIncomeRecorded: aInc > 0,
+      isOverLimit: m.personalSpendingLimit ? aExp > Number(m.personalSpendingLimit) : false,
     }
   })
 
@@ -314,16 +459,14 @@ export async function getMonthlySummary(familyId: string, year: number, month: n
       personalExpense: actualPersonalExpense,
       totalExpense: actualExpense,
       surplus: actualSurplus,
+      hasIncomeRecorded,
     },
     budget,
     perMember,
   }
 }
 
-/**
- * Đóng tháng — tạo MonthlyFundSnapshot cho (year, month) dựa trên summary thực
- * tế. Idempotent: nếu snapshot đã tồn tại thì upsert ghi đè.
- */
+/** Snapshot tháng — chỉ dùng actual. */
 export async function closeMonth(familyId: string, year: number, month: number) {
   const summary = await getMonthlySummary(familyId, year, month)
   return prisma.monthlyFundSnapshot.upsert({
@@ -348,11 +491,6 @@ export async function closeMonth(familyId: string, year: number, month: number) 
   })
 }
 
-/**
- * Khi member ghi 1 PersonalExpense → kiểm tra xem actual tháng đã vượt 150%
- * `personalSpendingLimit` chưa. Trả về true nếu nên bắn cảnh báo (gọi từ
- * controller hoặc finance-predict service).
- */
 export async function checkOverspendThisMonth(memberId: string) {
   const m = await prisma.familyMember.findUnique({ where: { id: memberId } })
   if (!m || !m.personalSpendingLimit) return false
@@ -362,6 +500,6 @@ export async function checkOverspendThisMonth(memberId: string) {
     where: { memberId, occurredAt: { gte: from, lt: to } },
     _sum: { amount: true },
   })
-  const actual = Number(agg._sum.amount ?? 0)
-  return actual > Number(m.personalSpendingLimit) * 1.0
+  return Number(agg._sum.amount ?? 0) > Number(m.personalSpendingLimit)
 }
+

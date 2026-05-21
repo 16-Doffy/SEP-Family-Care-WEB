@@ -26,6 +26,10 @@ router.put('/members/:memberId/budget', ctrl.updateMemberBudget)
 router.get('/budget', ctrl.getBudget)
 router.put('/budget', requireRole('PARENT', 'SUPER_ADMIN'), ctrl.upsertBudget)
 
+// Actual income (thu nhập thực tế từng lần ghi nhận)
+router.post('/actual-incomes', ctrl.createActualIncome)
+router.get('/actual-incomes', ctrl.listActualIncomes)
+
 // Expenses
 router.post('/personal-expenses', ctrl.createPersonalExpense)
 router.get('/personal-expenses', ctrl.listPersonalExpenses)

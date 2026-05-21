@@ -5,6 +5,16 @@
 
 import type { Role } from '../constants/roles'
 
+export type FamilyRelationship =
+  | 'FATHER'
+  | 'MOTHER'
+  | 'CHILD'
+  | 'GRANDPARENT'
+  | 'SIBLING'
+  | 'SPOUSE'
+  | 'RELATIVE'
+  | 'OTHER'
+
 /**
  * Đại diện cho một tài khoản người dùng trong hệ thống.
  */
@@ -38,6 +48,12 @@ export interface FamilyMember {
   familyId: string
   /** Biệt danh trong gia đình; nếu không có sẽ hiển thị displayName. */
   nickname?: string | null
+  /** Vai vế trong gia đình, độc lập với role phân quyền. */
+  relationship: FamilyRelationship
+  /** Ngày sinh của thành viên nếu gia đình muốn lưu để quản lý theo độ tuổi. */
+  birthDate?: string | null
+  /** Ghi chú nội bộ về thành viên. */
+  notes?: string | null
   /** Thời điểm gia nhập gia đình (ISO 8601). */
   joinedAt: string
   /** Thông tin người dùng được nhúng kèm để tránh truy vấn thêm. */

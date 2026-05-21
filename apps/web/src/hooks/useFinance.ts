@@ -13,10 +13,13 @@ export interface MemberSummary {
   avatarUrl: string | null
   occupation: string | null
   hasIncome: boolean
+  relationship: string
   plannedIncome: number
   plannedPersonalExpense: number
   personalSpendingLimit: number | null
+  actualIncome: number
   actualPersonalExpense: number
+  hasIncomeRecorded: boolean
   isOverLimit: boolean
 }
 
@@ -25,7 +28,7 @@ export interface MonthlySummary {
   month: number
   jointWalletBalance: number
   planned: { income: number; sharedExpense: number; personalExpense: number; totalExpense: number; surplus: number }
-  actual: { income: number; sharedExpense: number; personalExpense: number; totalExpense: number; surplus: number }
+  actual: { income: number; sharedExpense: number; personalExpense: number; totalExpense: number; surplus: number; hasIncomeRecorded: boolean }
   budget: {
     id: string
     plannedSharedExpense: number | string
@@ -73,6 +76,8 @@ export interface PersonalExpense {
   category: string
   note: string | null
   occurredAt: string
+  deductedFromWallet?: boolean
+  member?: { user: { displayName: string } }
 }
 
 export interface FamilyExpense {
@@ -83,7 +88,19 @@ export interface FamilyExpense {
   note: string | null
   paidById: string | null
   occurredAt: string
+  deductedFromWallet?: boolean
   paidBy?: { user: { displayName: string } } | null
+}
+
+export interface ActualIncome {
+  id: string
+  memberId: string
+  amount: number | string
+  sourceType: IncomeSource['sourceType']
+  note: string | null
+  creditedToWallet: boolean
+  occurredAt: string
+  member?: { user: { displayName: string } }
 }
 
 export function useMonthlySummary(year?: number, month?: number) {
@@ -137,12 +154,19 @@ export function useUpsertBudget() {
 export function useCreatePersonalExpense() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (data: { memberId?: string; amount: number; category: string; note?: string; occurredAt?: string }) =>
-      api.post('/finance/personal-expenses', data).then((r) => r.data),
+    mutationFn: (data: {
+      memberId?: string
+      amount: number
+      category: string
+      note?: string
+      occurredAt?: string
+      deductFromWallet?: boolean
+    }) => api.post('/finance/personal-expenses', data).then((r) => r.data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['finance-summary'] })
       qc.invalidateQueries({ queryKey: ['finance-warnings'] })
       qc.invalidateQueries({ queryKey: ['personal-expenses'] })
+      qc.invalidateQueries({ queryKey: ['wallets'] })
     },
   })
 }
@@ -150,11 +174,18 @@ export function useCreatePersonalExpense() {
 export function useCreateFamilyExpense() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (data: { amount: number; category: string; note?: string; paidById?: string; occurredAt?: string }) =>
-      api.post('/finance/family-expenses', data).then((r) => r.data),
+    mutationFn: (data: {
+      amount: number
+      category: string
+      note?: string
+      paidById?: string
+      occurredAt?: string
+      deductFromWallet?: boolean
+    }) => api.post('/finance/family-expenses', data).then((r) => r.data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['finance-summary'] })
       qc.invalidateQueries({ queryKey: ['family-expenses'] })
+      qc.invalidateQueries({ queryKey: ['wallets'] })
     },
   })
 }
@@ -173,6 +204,35 @@ export function useFamilyExpenses() {
   return useQuery<FamilyExpense[]>({
     queryKey: ['family-expenses'],
     queryFn: () => api.get('/finance/family-expenses').then((r) => r.data),
+  })
+}
+
+export function useActualIncomes(memberId?: string) {
+  return useQuery<ActualIncome[]>({
+    queryKey: ['actual-incomes', memberId],
+    queryFn: () =>
+      api
+        .get('/finance/actual-incomes', { params: memberId ? { memberId } : {} })
+        .then((r) => r.data),
+  })
+}
+
+export function useCreateActualIncome() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: {
+      memberId?: string
+      amount: number
+      sourceType?: IncomeSource['sourceType']
+      note?: string
+      occurredAt?: string
+      creditToWallet?: boolean
+    }) => api.post('/finance/actual-incomes', data).then((r) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['finance-summary'] })
+      qc.invalidateQueries({ queryKey: ['actual-incomes'] })
+      qc.invalidateQueries({ queryKey: ['wallets'] })
+    },
   })
 }
 

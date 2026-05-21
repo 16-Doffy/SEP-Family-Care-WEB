@@ -154,6 +154,7 @@ export async function resolveMoneyRequest(input: {
       amount,
       description: `Duyệt yêu cầu: ${request.reason ?? 'Xin tiền'}`,
       familyId: input.familyId,
+      type: 'MONEY_REQUEST_PAYOUT',
     })
   }
 

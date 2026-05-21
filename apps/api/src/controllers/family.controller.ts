@@ -16,6 +16,17 @@ import type { Request, Response, NextFunction } from 'express'
 import * as familyService from '../services/family.service'
 import { z } from 'zod'
 
+const familyRelationship = z.enum([
+  'FATHER',
+  'MOTHER',
+  'CHILD',
+  'GRANDPARENT',
+  'SIBLING',
+  'SPOUSE',
+  'RELATIVE',
+  'OTHER',
+])
+
 /**
  * Lấy thông tin chi tiết gia đình của người dùng đang đăng nhập.
  *
@@ -73,8 +84,13 @@ export async function updateFamily(req: Request, res: Response, next: NextFuncti
  */
 export async function generateInvite(req: Request, res: Response, next: NextFunction) {
   try {
-    const { role } = z.object({ role: z.enum(['PARENT', 'FAMILY_MEMBER']) }).parse(req.body)
-    const code = await familyService.generateInviteCode(req.user.familyId!, role)
+    const { role, relationship } = z
+      .object({
+        role: z.enum(['PARENT', 'FAMILY_MEMBER']),
+        relationship: familyRelationship.optional(),
+      })
+      .parse(req.body)
+    const code = await familyService.generateInviteCode(req.user.familyId!, role, relationship)
     // Trả về expiresIn dạng chuỗi mô tả để client hiển thị mà không cần tính toán
     res.json({ code, expiresIn: '7 days' })
   } catch (e) {
@@ -172,6 +188,23 @@ export async function changeMemberRole(req: Request, res: Response, next: NextFu
       role,
       req.user.userId,
     )
+    res.json(result)
+  } catch (e) {
+    next(e)
+  }
+}
+
+export async function updateMemberProfile(req: Request, res: Response, next: NextFunction) {
+  try {
+    const data = z
+      .object({
+        nickname: z.string().max(80).nullable().optional(),
+        relationship: familyRelationship.optional(),
+        birthDate: z.string().nullable().optional(),
+        notes: z.string().max(500).nullable().optional(),
+      })
+      .parse(req.body)
+    const result = await familyService.updateMemberProfile(req.user.familyId!, req.params.memberId, data)
     res.json(result)
   } catch (e) {
     next(e)
