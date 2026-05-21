@@ -51,18 +51,20 @@ export function createApp() {
   app.use(express.json({ limit: '10mb' }))
   app.use(express.urlencoded({ extended: true, limit: '10mb' }))
 
-  // Rate limiting chặt cho route xác thực — giảm thiểu tấn công brute-force
+  // Rate limiting chặt cho route xác thực — giảm thiểu tấn công brute-force.
+  // Trong development thì nới hẳn limit để dev không bị 429 khi reload nhiều.
+  const isDev = env.NODE_ENV !== 'production'
   app.use('/api/auth', rateLimit({
     windowMs: 15 * 60 * 1000, // Cửa sổ 15 phút
-    limit: 30,                 // Tối đa 30 request mỗi IP trong cửa sổ
-    standardHeaders: true,     // Trả về thông tin giới hạn qua header RateLimit-*
-    legacyHeaders: false,      // Tắt header X-RateLimit-* cũ
+    limit: isDev ? 300 : 30,   // Prod: 30 / 15 phút; Dev: 300 / 15 phút
+    standardHeaders: true,
+    legacyHeaders: false,
   }))
 
   // Rate limiting tổng thể cho toàn bộ API — phòng chống lạm dụng
   app.use('/api', rateLimit({
-    windowMs: 15 * 60 * 1000, // Cửa sổ 15 phút
-    limit: 500,                // Tối đa 500 request mỗi IP trong cửa sổ
+    windowMs: 15 * 60 * 1000,
+    limit: isDev ? 5000 : 500, // Prod: 500 / 15 phút; Dev: 5000 / 15 phút
     standardHeaders: true,
     legacyHeaders: false,
   }))

@@ -42,6 +42,11 @@ export function BudgetTable({ summary, isParent, currentMemberId }: Props) {
   const totalPlannedIncome = summary.planned.income
   const totalPlannedExpense = summary.planned.totalExpense
 
+  // FAMILY_MEMBER chỉ thấy ngân sách của chính mình — không xem dữ liệu người khác
+  const visibleMembers = isParent
+    ? summary.perMember
+    : summary.perMember.filter((m) => m.memberId === currentMemberId)
+
   return (
     <div className="space-y-4">
       <Card>
@@ -79,10 +84,14 @@ export function BudgetTable({ summary, isParent, currentMemberId }: Props) {
 
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Ngân sách từng thành viên</CardTitle>
-          <p className="text-xs text-muted-foreground">
-            Tổng thu dự kiến {formatCurrency(totalPlannedIncome)} – tổng chi dự kiến {formatCurrency(totalPlannedExpense)}
-          </p>
+          <CardTitle className="text-base">
+            {isParent ? 'Ngân sách từng thành viên' : 'Ngân sách của tôi'}
+          </CardTitle>
+          {isParent && (
+            <p className="text-xs text-muted-foreground">
+              Tổng thu dự kiến {formatCurrency(totalPlannedIncome)} – tổng chi dự kiến {formatCurrency(totalPlannedExpense)}
+            </p>
+          )}
         </CardHeader>
         <CardContent className="overflow-x-auto p-0">
           <table className="w-full text-sm">
@@ -98,7 +107,7 @@ export function BudgetTable({ summary, isParent, currentMemberId }: Props) {
               </tr>
             </thead>
             <tbody>
-              {summary.perMember.map((m) => {
+              {visibleMembers.map((m) => {
                 const canEdit = isParent || m.memberId === currentMemberId
                 return (
                   <tr key={m.memberId} className={cn('border-t', m.isOverLimit && 'bg-red-50')}>

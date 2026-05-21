@@ -97,7 +97,7 @@ export default function TasksPage() {
 
   // SUPER_ADMIN được coi là phụ huynh để có đầy đủ quyền quản lý nhiệm vụ
   const isParent = user?.role === 'PARENT' || user?.role === 'SUPER_ADMIN'
-  const pageTitle = isParent ? 'Quản lý nhiệm vụ' : 'Nhiệm vụ của con'
+  const pageTitle = isParent ? 'Quản lý nhiệm vụ' : 'Nhiệm vụ của tôi'
   const members = family?.members ?? []
   // Base URL API dùng để hiển thị ảnh bằng chứng
   const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000'
@@ -108,7 +108,7 @@ export default function TasksPage() {
       <div className="p-6 space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-semibold">{isParent ? 'Bảng nhiệm vụ gia đình' : 'Việc được giao cho con'}</h2>
+            <h2 className="text-xl font-semibold">{isParent ? 'Bảng nhiệm vụ gia đình' : 'Việc được giao cho tôi'}</h2>
             <p className="text-sm text-muted-foreground">
               {isParent ? 'Tạo việc, giao cho thành viên, duyệt bằng chứng và thưởng tiền.' : 'Bắt đầu việc được giao, nộp bằng chứng và theo dõi tiền thưởng.'}
             </p>
