@@ -101,6 +101,7 @@ enum MessageType {
   TEXT
   IMAGE
   LOCATION
+  FILE
 }
 
 enum SosStatus {

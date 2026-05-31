@@ -38,6 +38,11 @@ router.post('/logout', ctrl.logout)
  * Route này yêu cầu access token hợp lệ qua middleware `authenticate`.
  */
 router.get('/me', authenticate, ctrl.me)
+router.patch('/me', authenticate, ctrl.updateMe)
+router.post('/change-password', authenticate, ctrl.changePassword)
+router.get('/me/sessions', authenticate, ctrl.sessions)
+router.delete('/me/sessions/:id', authenticate, ctrl.revokeSession)
+router.get('/me/stats', authenticate, ctrl.stats)
 
 /** Yêu cầu reset mật khẩu — trả về resetToken (MVP: trực tiếp, production: gửi email) */
 router.post('/forgot-password', ctrl.forgotPassword)

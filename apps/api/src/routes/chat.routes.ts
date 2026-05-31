@@ -33,6 +33,8 @@ router.post('/conversations/:id/messages', ctrl.sendTextMessage)
 
 // Route upload ảnh: Multer middleware xử lý multipart/form-data trước khi vào controller
 router.post('/conversations/:id/messages/image', ctrl.chatUpload.single('image'), ctrl.sendImageMessage)
+router.post('/conversations/:id/messages/file', ctrl.chatFileUpload.single('file'), ctrl.sendFileMessage)
+router.post('/conversations/:id/messages/location', ctrl.sendLocationMessage)
 
 router.patch('/conversations/:id/read', ctrl.markRead)
 

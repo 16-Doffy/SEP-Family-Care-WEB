@@ -40,6 +40,18 @@ export const chatUpload = multer({
   fileFilter: (_req, file, cb) => cb(null, /jpeg|jpg|png|gif|webp/.test(path.extname(file.originalname).toLowerCase())),
 })
 
+export const chatFileUpload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, uploadDir),
+    filename: (_req, file, cb) => cb(null, `${Date.now()}-${Math.round(Math.random() * 1e9)}${path.extname(file.originalname)}`),
+  }),
+  limits: { fileSize: 25 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase()
+    cb(null, /pdf|doc|docx|xls|xlsx|ppt|pptx|txt|zip/.test(ext.replace('.', '')))
+  },
+})
+
 /**
  * Lấy danh sách tất cả cuộc trò chuyện của người dùng trong gia đình.
  * Mỗi cuộc trò chuyện được kèm theo thông tin thành viên và tin nhắn gần nhất.
@@ -167,6 +179,58 @@ export async function sendImageMessage(req: Request, res: Response, next: NextFu
     })
 
     // Phát sự kiện real-time, tương tự sendTextMessage
+    try {
+      const { getIO } = await import('../config/socket')
+      getIO().to(`conversation:${req.params.id}`).emit('chat:message', message)
+    } catch {}
+
+    res.status(201).json(message)
+  } catch (e) { next(e) }
+}
+
+export async function sendFileMessage(req: Request, res: Response, next: NextFunction) {
+  try {
+    if (!req.file) throw new Error('No file uploaded')
+
+    const fileUrl = `/uploads/${req.file.filename}`
+    const message = await chatService.sendMessage({
+      conversationId: req.params.id,
+      senderId: req.user.userId,
+      type: 'FILE',
+      content: fileUrl,
+      metadata: {
+        fileUrl,
+        fileName: req.file.originalname,
+        mimeType: req.file.mimetype,
+        size: req.file.size,
+      },
+    })
+
+    try {
+      const { getIO } = await import('../config/socket')
+      getIO().to(`conversation:${req.params.id}`).emit('chat:message', message)
+    } catch {}
+
+    res.status(201).json(message)
+  } catch (e) { next(e) }
+}
+
+export async function sendLocationMessage(req: Request, res: Response, next: NextFunction) {
+  try {
+    const data = z.object({
+      latitude: z.number().min(-90).max(90),
+      longitude: z.number().min(-180).max(180),
+      address: z.string().max(300).optional(),
+    }).parse(req.body)
+
+    const message = await chatService.sendMessage({
+      conversationId: req.params.id,
+      senderId: req.user.userId,
+      type: 'LOCATION',
+      content: data.address ?? `${data.latitude}, ${data.longitude}`,
+      metadata: data,
+    })
+
     try {
       const { getIO } = await import('../config/socket')
       getIO().to(`conversation:${req.params.id}`).emit('chat:message', message)

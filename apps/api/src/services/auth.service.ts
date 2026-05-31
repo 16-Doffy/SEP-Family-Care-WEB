@@ -271,6 +271,67 @@ export async function getMe(userId: string) {
   return safeUser
 }
 
+export async function updateMe(userId: string, data: { displayName?: string; avatarUrl?: string | null }) {
+  const user = await prisma.user.update({
+    where: { id: userId },
+    data: {
+      ...(data.displayName !== undefined && { displayName: data.displayName }),
+      ...(data.avatarUrl !== undefined && { avatarUrl: data.avatarUrl }),
+    },
+    include: { familyMember: { include: { family: true } } },
+  })
+  const { passwordHash: _, ...safeUser } = user
+  return safeUser
+}
+
+export async function changePassword(userId: string, currentPassword: string, newPassword: string) {
+  const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } })
+  if (!(await bcrypt.compare(currentPassword, user.passwordHash))) {
+    throw Errors.BadRequest('Current password is incorrect')
+  }
+  const passwordHash = await bcrypt.hash(newPassword, 10)
+  await prisma.$transaction([
+    prisma.user.update({ where: { id: userId }, data: { passwordHash } }),
+    prisma.refreshToken.deleteMany({ where: { userId } }),
+  ])
+}
+
+export async function getSessions(userId: string) {
+  return prisma.refreshToken.findMany({
+    where: { userId, expiresAt: { gt: new Date() } },
+    select: { id: true, createdAt: true, expiresAt: true },
+    orderBy: { createdAt: 'desc' },
+  })
+}
+
+export async function revokeSession(userId: string, sessionId: string) {
+  await prisma.refreshToken.deleteMany({ where: { id: sessionId, userId } })
+}
+
+export async function getMyStats(userId: string) {
+  const member = await prisma.familyMember.findUnique({ where: { userId } })
+  if (!member) {
+    return { completedTasks: 0, totalReward: 0, sosCount: 0, moneyRequests: 0 }
+  }
+
+  const [completedTasks, rewardTx, sosCount, moneyRequests] = await Promise.all([
+    prisma.task.count({ where: { assignedToId: member.id, status: 'APPROVED' } }),
+    prisma.transaction.aggregate({
+      where: { toWallet: { ownerId: member.id }, type: 'TASK_REWARD' },
+      _sum: { amount: true },
+    }),
+    prisma.sosAlert.count({ where: { senderId: userId } }),
+    prisma.moneyRequest.count({ where: { requesterId: member.id } }),
+  ])
+
+  return {
+    completedTasks,
+    totalReward: Number(rewardTx._sum.amount ?? 0),
+    sosCount,
+    moneyRequests,
+  }
+}
+
 /**
  * Tạo cặp access token và refresh token cho người dùng.
  *

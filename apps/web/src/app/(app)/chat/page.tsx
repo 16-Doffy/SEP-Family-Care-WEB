@@ -13,7 +13,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { getInitials, formatDateTime } from '@/lib/utils'
-import { Send, ImageIcon, Users, MessageSquare, Loader2 } from 'lucide-react'
+import { Send, ImageIcon, Users, MessageSquare, Loader2, FileUp, MapPin, ExternalLink } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import toast from 'react-hot-toast'
 
@@ -76,6 +76,7 @@ export default function ChatPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const messagesScrollRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const attachmentInputRef = useRef<HTMLInputElement>(null)
   // Ref cho typing timeout để debounce sự kiện "đang nhập"
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -179,6 +180,23 @@ export default function ChatPage() {
     onError: () => toast.error('Gửi ảnh thất bại'),
   })
 
+  const fileMut = useMutation({
+    mutationFn: (file: File) => {
+      const fd = new FormData()
+      fd.append('file', file)
+      return api.post(`/chat/conversations/${selectedId}/messages/file`, fd, { headers: { 'Content-Type': 'multipart/form-data' } })
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['conversations'] }),
+    onError: () => toast.error('Không gửi được tệp'),
+  })
+
+  const locationMut = useMutation({
+    mutationFn: (data: { latitude: number; longitude: number }) =>
+      api.post(`/chat/conversations/${selectedId}/messages/location`, data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['conversations'] }),
+    onError: () => toast.error('Không gửi được vị trí'),
+  })
+
   const openGroupChat = useCallback(async () => {
     try {
       const { data } = await api.get('/chat/conversations/group')
@@ -204,6 +222,19 @@ export default function ChatPage() {
   const handleSend = () => {
     if (!inputText.trim() || !selectedId) return
     sendMut.mutate(inputText.trim())
+  }
+
+  const handleShareLocation = () => {
+    if (!selectedId) return
+    if (!navigator.geolocation) {
+      toast.error('Trình duyệt không hỗ trợ lấy vị trí')
+      return
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => locationMut.mutate({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
+      () => toast.error('Không lấy được vị trí hiện tại'),
+      { enableHighAccuracy: true, timeout: 10000 },
+    )
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -356,6 +387,22 @@ export default function ChatPage() {
                           <div className={cn('px-3 py-2 rounded-2xl text-sm', isMe ? 'bg-blue-600 text-white rounded-tr-sm' : 'bg-white text-gray-900 shadow-sm rounded-tl-sm')}>
                             {msg.type === 'IMAGE' ? (
                               <img src={`${API_URL}${msg.content}`} alt="img" className="rounded-lg max-h-48 max-w-full object-cover" />
+                            ) : msg.type === 'FILE' ? (
+                              <a href={`${API_URL}${msg.content}`} target="_blank" rel="noreferrer" className="flex items-center gap-2 underline">
+                                <FileUp className="w-4 h-4" />
+                                <span>{String(msg.metadata?.fileName ?? 'Tep dinh kem')}</span>
+                                <ExternalLink className="w-3 h-3" />
+                              </a>
+                            ) : msg.type === 'LOCATION' ? (
+                              <a
+                                href={`https://www.google.com/maps?q=${msg.metadata?.latitude},${msg.metadata?.longitude}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="flex items-center gap-2 underline"
+                              >
+                                <MapPin className="w-4 h-4" />
+                                <span>Mo vi tri tren ban do</span>
+                              </a>
                             ) : (
                               <p className="whitespace-pre-wrap break-words">{msg.content}</p>
                             )}
@@ -375,8 +422,15 @@ export default function ChatPage() {
               {/* Input */}
               <div className="p-3 border-t bg-white flex gap-2 items-center shrink-0">
                 <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) imageMut.mutate(f); e.target.value = '' }} />
+                <input ref={attachmentInputRef} type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) fileMut.mutate(f); e.target.value = '' }} />
                 <Button size="icon" variant="ghost" onClick={() => fileInputRef.current?.click()} disabled={imageMut.isPending} title="Gửi ảnh">
                   {imageMut.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImageIcon className="w-4 h-4 text-muted-foreground" />}
+                </Button>
+                <Button size="icon" variant="ghost" onClick={() => attachmentInputRef.current?.click()} disabled={fileMut.isPending} title="Gui tep">
+                  {fileMut.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileUp className="w-4 h-4 text-muted-foreground" />}
+                </Button>
+                <Button size="icon" variant="ghost" onClick={handleShareLocation} disabled={locationMut.isPending} title="Gui vi tri">
+                  {locationMut.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <MapPin className="w-4 h-4 text-muted-foreground" />}
                 </Button>
                 <Input
                   placeholder="Nhập tin nhắn..."

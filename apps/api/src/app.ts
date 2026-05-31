@@ -14,6 +14,19 @@ import { apiRouter } from './routes'
 import { env } from './config/env'
 import { setIOGetter } from './services/notification.service'
 
+function isAllowedCorsOrigin(origin?: string) {
+  if (!origin) return true
+  if (origin === env.WEB_URL) return true
+  if (env.NODE_ENV === 'production') return false
+
+  try {
+    const url = new URL(origin)
+    return ['localhost', '127.0.0.1'].includes(url.hostname)
+  } catch {
+    return false
+  }
+}
+
 /**
  * Tạo và cấu hình đầy đủ ứng dụng Express kèm HTTP server.
  *
@@ -43,7 +56,7 @@ export function createApp() {
 
   // Chỉ chấp nhận request từ frontend URL được cấu hình, kèm cookie credentials
   app.use(cors({
-    origin: env.WEB_URL,
+    origin: (origin, cb) => cb(null, isAllowedCorsOrigin(origin)),
     credentials: true,
   }))
 

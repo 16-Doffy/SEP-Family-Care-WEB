@@ -147,6 +147,59 @@ export async function me(req: Request, res: Response, next: NextFunction) {
   }
 }
 
+export async function updateMe(req: Request, res: Response, next: NextFunction) {
+  try {
+    const data = z.object({
+      displayName: z.string().min(1).max(100).optional(),
+      avatarUrl: z.string().url().nullable().optional(),
+    }).parse(req.body)
+    const user = await authService.updateMe(req.user.userId, data)
+    res.json(user)
+  } catch (e) {
+    next(e)
+  }
+}
+
+export async function changePassword(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { currentPassword, newPassword } = z.object({
+      currentPassword: z.string().min(1),
+      newPassword: z.string().min(6),
+    }).parse(req.body)
+    await authService.changePassword(req.user.userId, currentPassword, newPassword)
+    res.json({ message: 'Password changed successfully' })
+  } catch (e) {
+    next(e)
+  }
+}
+
+export async function sessions(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await authService.getSessions(req.user.userId)
+    res.json(result)
+  } catch (e) {
+    next(e)
+  }
+}
+
+export async function revokeSession(req: Request, res: Response, next: NextFunction) {
+  try {
+    await authService.revokeSession(req.user.userId, req.params.id)
+    res.json({ ok: true })
+  } catch (e) {
+    next(e)
+  }
+}
+
+export async function stats(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await authService.getMyStats(req.user.userId)
+    res.json(result)
+  } catch (e) {
+    next(e)
+  }
+}
+
 export async function forgotPassword(req: Request, res: Response, next: NextFunction) {
   try {
     const { email } = z.object({ email: z.string().email() }).parse(req.body)

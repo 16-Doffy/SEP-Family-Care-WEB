@@ -195,7 +195,7 @@ export async function getMessages(conversationId: string, userId: string, cursor
 export async function sendMessage(input: {
   conversationId: string
   senderId: string
-  type: 'TEXT' | 'IMAGE' | 'LOCATION'
+  type: 'TEXT' | 'IMAGE' | 'LOCATION' | 'FILE'
   content: string
   metadata?: Record<string, unknown>
 }) {
