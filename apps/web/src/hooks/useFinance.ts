@@ -190,30 +190,35 @@ export function useCreateFamilyExpense() {
   })
 }
 
-export function usePersonalExpenses(memberId?: string) {
+interface DateRange {
+  /** ISO date inclusive */
+  from?: string
+  /** ISO date inclusive */
+  to?: string
+  memberId?: string
+}
+
+export function usePersonalExpenses(range?: DateRange) {
   return useQuery<PersonalExpense[]>({
-    queryKey: ['personal-expenses', memberId],
+    queryKey: ['personal-expenses', range],
     queryFn: () =>
-      api
-        .get('/finance/personal-expenses', { params: memberId ? { memberId } : {} })
-        .then((r) => r.data),
+      api.get('/finance/personal-expenses', { params: range ?? {} }).then((r) => r.data),
   })
 }
 
-export function useFamilyExpenses() {
+export function useFamilyExpenses(range?: DateRange) {
   return useQuery<FamilyExpense[]>({
-    queryKey: ['family-expenses'],
-    queryFn: () => api.get('/finance/family-expenses').then((r) => r.data),
+    queryKey: ['family-expenses', range],
+    queryFn: () =>
+      api.get('/finance/family-expenses', { params: range ?? {} }).then((r) => r.data),
   })
 }
 
-export function useActualIncomes(memberId?: string) {
+export function useActualIncomes(range?: DateRange) {
   return useQuery<ActualIncome[]>({
-    queryKey: ['actual-incomes', memberId],
+    queryKey: ['actual-incomes', range],
     queryFn: () =>
-      api
-        .get('/finance/actual-incomes', { params: memberId ? { memberId } : {} })
-        .then((r) => r.data),
+      api.get('/finance/actual-incomes', { params: range ?? {} }).then((r) => r.data),
   })
 }
 

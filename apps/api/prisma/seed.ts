@@ -407,6 +407,62 @@ async function main() {
     skipDuplicates: true,
   })
 
+
+  // ── Review 1 Scope: Album categories + Wearable/GPS demo ────────────────
+  const birthdayCategory = await prisma.albumCategory.upsert({
+    where: { familyId_name: { familyId: family.id, name: 'Sinh nhật gia đình' } },
+    update: { ruleType: 'EVENT', color: '#ec4899' },
+    create: {
+      familyId: family.id,
+      name: 'Sinh nhật gia đình',
+      description: 'Ảnh sinh nhật, tiệc gia đình, kỷ niệm theo sự kiện',
+      color: '#ec4899',
+      ruleType: 'EVENT',
+      createdById: parentMember.id,
+    },
+  })
+  await prisma.albumCategory.upsert({
+    where: { familyId_name: { familyId: family.id, name: 'Ảnh của Bé Lan' } },
+    update: { ruleType: 'AI_FACE', color: '#8b5cf6' },
+    create: {
+      familyId: family.id,
+      name: 'Ảnh của Bé Lan',
+      description: 'Category mô phỏng AI face clustering cho thành viên Lan',
+      color: '#8b5cf6',
+      ruleType: 'AI_FACE',
+      criteria: { memberUserId: member2.id },
+      createdById: parentMember.id,
+    },
+  })
+
+  const lanWatch = await prisma.device.upsert({
+    where: { deviceCode: 'FC-WATCH-LAN-001' },
+    update: { familyId: family.id, ownerUserId: member2.id, status: 'ACTIVE', batteryLevel: 86 },
+    create: {
+      familyId: family.id,
+      ownerUserId: member2.id,
+      name: 'Smartwatch SOS của Lan',
+      type: 'SMARTWATCH',
+      deviceCode: 'FC-WATCH-LAN-001',
+      status: 'ACTIVE',
+      batteryLevel: 86,
+      lastLatitude: 10.841912,
+      lastLongitude: 106.809812,
+      lastSeenAt: new Date(),
+    },
+  })
+
+  await prisma.deviceRoutePoint.createMany({
+    data: [
+      { id: 'route-lan-001', familyId: family.id, deviceId: lanWatch.id, userId: member2.id, latitude: 10.841912, longitude: 106.809812, accuracy: 12, source: 'WEARABLE', recordedAt: new Date(Date.now() - 3 * 60 * 60 * 1000) },
+      { id: 'route-lan-002', familyId: family.id, deviceId: lanWatch.id, userId: member2.id, latitude: 10.842412, longitude: 106.811312, accuracy: 15, source: 'WEARABLE', recordedAt: new Date(Date.now() - 2 * 60 * 60 * 1000) },
+      { id: 'route-lan-003', familyId: family.id, deviceId: lanWatch.id, userId: member2.id, latitude: 10.843012, longitude: 106.812912, accuracy: 10, source: 'WEARABLE', recordedAt: new Date(Date.now() - 1 * 60 * 60 * 1000) },
+    ],
+    skipDuplicates: true,
+  })
+
+  console.log(`Review 1 demo data: category ${birthdayCategory.name}, wearable ${lanWatch.name}`)
+
   console.log('Sample tasks created')
   console.log('\nSeed completed!')
   console.log('\nDemo accounts (password: demo1234):')

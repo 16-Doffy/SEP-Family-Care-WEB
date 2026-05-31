@@ -56,6 +56,30 @@ export function useDeleteRecurringTemplate() {
   })
 }
 
+export function useUpdateRecurringTemplate() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({
+      id,
+      data,
+    }: {
+      id: string
+      data: Partial<{
+        title: string
+        description: string
+        reward: number
+        rrule: string
+        timeOfDay: string
+        defaultAssigneeId: string | null
+        isActive: boolean
+      }>
+    }) => api.patch(`/recurring-tasks/${id}`, data).then((r) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['recurring-templates'] })
+    },
+  })
+}
+
 export function useGenerateToday() {
   const qc = useQueryClient()
   return useMutation({

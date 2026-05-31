@@ -25,6 +25,12 @@ interface CreateSOSInput {
   familyId: string
   /** ID của người dùng kích hoạt SOS */
   senderId: string
+  /** Nguồn kích hoạt: app mobile, wearable hoặc GPS device */
+  source?: 'MOBILE_APP' | 'WEARABLE' | 'GPS_DEVICE' | 'MOCK'
+  /** Thiết bị kích hoạt SOS nếu có */
+  deviceId?: string
+  /** true khi cảnh báo đến từ fall detection */
+  fallDetected?: boolean
   /** Vĩ độ (latitude) của vị trí khẩn cấp (tùy chọn) */
   latitude?: number
   /** Kinh độ (longitude) của vị trí khẩn cấp (tùy chọn) */
@@ -51,11 +57,15 @@ export async function createSOSAlert(input: CreateSOSInput) {
       longitude: input.longitude,
       address: input.address,
       message: input.message,
+      source: input.source ?? 'MOBILE_APP',
+      deviceId: input.deviceId,
+      fallDetected: input.fallDetected ?? false,
       // Trạng thái khởi tạo luôn là ACTIVE để thành viên biết cần phản hồi ngay
       status: 'ACTIVE',
     },
     include: {
       sender: { select: { id: true, displayName: true, avatarUrl: true } },
+      device: { select: { id: true, name: true, type: true, deviceCode: true } },
     },
   })
 }
@@ -77,6 +87,7 @@ export async function getFamilySOSAlerts(familyId: string) {
       sender: { select: { id: true, displayName: true, avatarUrl: true } },
       // resolvedBy chỉ có giá trị khi status là RESOLVED hoặc FALSE_ALARM
       resolvedBy: { select: { id: true, displayName: true } },
+      device: { select: { id: true, name: true, type: true, deviceCode: true } },
     },
   })
 }
@@ -100,6 +111,7 @@ export async function getActiveSOSAlerts(familyId: string) {
     include: {
       sender: { select: { id: true, displayName: true, avatarUrl: true } },
       resolvedBy: { select: { id: true, displayName: true } },
+      device: { select: { id: true, name: true, type: true, deviceCode: true } },
     },
   })
 }
@@ -140,6 +152,7 @@ export async function updateSOSStatus(
     include: {
       sender: { select: { id: true, displayName: true, avatarUrl: true } },
       resolvedBy: { select: { id: true, displayName: true } },
+      device: { select: { id: true, name: true, type: true, deviceCode: true } },
     },
   })
 }

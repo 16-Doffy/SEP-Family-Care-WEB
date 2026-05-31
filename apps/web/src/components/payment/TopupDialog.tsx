@@ -1,12 +1,12 @@
 'use client'
 /**
  * @module TopupDialog
- * @description Dialog nạp tiền vào ví gia đình thông qua cổng thanh toán.
+ * @description Dialog ghi nhận nạp Family Fund qua luồng thanh toán mô phỏng.
  *
  * Cho phép người dùng:
  * - Chọn ví gia đình (loại JOINT) muốn nạp tiền vào.
  * - Nhập số tiền thủ công hoặc chọn nhanh từ các mệnh giá định sẵn.
- * - Nút nạp tiền bị vô hiệu hoá nếu số tiền dưới 10.000 VND.
+ * - Nút ghi nhận Family Fund bị vô hiệu hoá nếu số tiền dưới 10.000 VND.
  *
  * Luồng thanh toán được xử lý bởi `startCheckout` (mock hoặc Stripe).
  * Sau khi nạp thành công (mock mode), làm mới danh sách ví và đóng dialog.
@@ -40,7 +40,7 @@ const QUICK_AMOUNTS = [100_000, 500_000, 1_000_000, 2_000_000]
 type PaymentMethod = 'STRIPE' | 'MOMO' | 'BANK'
 
 const PAYMENT_METHODS: { value: PaymentMethod; label: string; description: string; available: boolean }[] = [
-  { value: 'STRIPE', label: 'Ví gia đình (Stripe)', description: 'Nạp ngay qua thẻ thanh toán', available: true },
+  { value: 'STRIPE', label: 'Mock Payment', description: 'Ghi nhận nội bộ cho Family Fund', available: true },
   { value: 'MOMO', label: 'Ví MoMo', description: 'Sắp ra mắt', available: false },
   { value: 'BANK', label: 'Chuyển khoản ngân hàng', description: 'Sắp ra mắt', available: false },
 ]
@@ -77,7 +77,7 @@ export function TopupDialog({
     onSuccess: (instant) => {
       if (instant) {
         // Mock mode: nạp tiền thành công, làm mới cache ví và đóng dialog
-        toast.success(`💰 Đã nạp ${Number(amount).toLocaleString('vi-VN')} VND`)
+        toast.success(`💰 Đã ghi nhận ${Number(amount).toLocaleString('vi-VN')} VND vào Family Fund`)
         qc.invalidateQueries({ queryKey: ['wallets'] })
         qc.invalidateQueries({ queryKey: ['wallet-detail'] })
         onOpenChange(false)
@@ -86,7 +86,7 @@ export function TopupDialog({
       // Stripe mode: trình duyệt đã redirect, không cần xử lý gì thêm
     },
     onError: (e: { response?: { data?: { error?: string } } }) => {
-      toast.error(e.response?.data?.error ?? 'Nạp tiền thất bại')
+      toast.error(e.response?.data?.error ?? 'Ghi nhận thất bại')
     },
   })
 
@@ -96,10 +96,10 @@ export function TopupDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <CreditCard className="w-5 h-5 text-blue-600" />
-            Nạp tiền qua cổng thanh toán
+            Ghi nhận Family Fund
           </DialogTitle>
           <DialogDescription>
-            Nạp tiền vào ví gia đình thông qua Stripe (mock mode khi chưa cấu hình)
+            Đây là Family Fund/Internal Ledger dùng cho demo capstone; mock payment chỉ ghi nhận nội bộ, không phải ví điện tử thật.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
@@ -180,10 +180,10 @@ export function TopupDialog({
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Huỷ</Button>
-          {/* Nút nạp tiền: vô hiệu hoá khi đang xử lý, chưa chọn ví, hoặc số tiền < 10.000 VND */}
+          {/* Nút ghi nhận Family Fund: vô hiệu hoá khi đang xử lý, chưa chọn ví, hoặc số tiền < 10.000 VND */}
           <Button onClick={() => topupMut.mutate()} disabled={topupMut.isPending || !walletId || !amount || Number(amount) < 10_000}>
             {topupMut.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <CreditCard className="w-4 h-4 mr-2" />}
-            Nạp tiền
+            Ghi nhận
           </Button>
         </DialogFooter>
       </DialogContent>

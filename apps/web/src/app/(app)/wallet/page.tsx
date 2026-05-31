@@ -20,8 +20,10 @@ import { cn } from '@/lib/utils'
 import toast from 'react-hot-toast'
 import { TopupDialog } from '@/components/payment/TopupDialog'
 import { FinanceOverview } from '@/components/finance/FinanceOverview'
+import { PersonalOverview } from '@/components/finance/PersonalOverview'
 import { BudgetTable } from '@/components/finance/BudgetTable'
 import { ExpenseLog } from '@/components/finance/ExpenseLog'
+import { MonthSelector } from '@/components/finance/MonthSelector'
 import { useMonthlySummary, usePrediction, useWarnings } from '@/hooks/useFinance'
 
 /** Thông tin ví tiền (ví gia đình JOINT hoặc ví cá nhân PERSONAL) */
@@ -59,10 +61,13 @@ export default function WalletPage() {
   const [selectedWallet, setSelectedWallet] = useState<WalletType | null>(null)
   const isParentEarly = user?.role === 'PARENT' || user?.role === 'SUPER_ADMIN'
   const [activeTab, setActiveTab] = useState<'overview' | 'wallets' | 'budget' | 'log' | 'requests'>(
-    isParentEarly ? 'overview' : 'wallets',
+    isParentEarly ? 'overview' : 'overview',
   )
+  const now = new Date()
+  const [selectedYear, setSelectedYear] = useState(now.getFullYear())
+  const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1)
 
-  const { data: summary } = useMonthlySummary()
+  const { data: summary } = useMonthlySummary(selectedYear, selectedMonth)
   const { data: forecast } = usePrediction(3)
   const { data: warnings } = useWarnings()
 
@@ -144,14 +149,12 @@ export default function WalletPage() {
         <div className="flex items-center justify-between">
           <div>
             <div className="flex gap-1 p-1 bg-gray-100 rounded-lg flex-wrap">
-              {isParent && (
-                <button
-                  onClick={() => setActiveTab('overview')}
-                  className={cn('px-4 py-1.5 rounded-md text-sm font-medium transition-colors', activeTab === 'overview' ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700')}
-                >
-                  Tổng quan gia đình
-                </button>
-              )}
+              <button
+                onClick={() => setActiveTab('overview')}
+                className={cn('px-4 py-1.5 rounded-md text-sm font-medium transition-colors', activeTab === 'overview' ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700')}
+              >
+                {isParent ? 'Tổng quan gia đình' : 'Tổng quan của tôi'}
+              </button>
               <button
                 onClick={() => setActiveTab('wallets')}
                 className={cn('px-4 py-1.5 rounded-md text-sm font-medium transition-colors', activeTab === 'wallets' ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700')}
@@ -208,9 +211,32 @@ export default function WalletPage() {
           </div>
         </div>
 
-        {/* === TAB: OVERVIEW (Finance) — chỉ PARENT === */}
+        {/* Thanh chọn tháng — áp dụng cho overview/budget/log */}
+        {(activeTab === 'overview' || activeTab === 'budget' || activeTab === 'log') && (
+          <MonthSelector
+            year={selectedYear}
+            month={selectedMonth}
+            onChange={(y, m) => {
+              setSelectedYear(y)
+              setSelectedMonth(m)
+            }}
+          />
+        )}
+
+        {/* === TAB: OVERVIEW === */}
         {activeTab === 'overview' && isParent && (
           <FinanceOverview summary={summary} forecast={forecast} warnings={warnings} />
+        )}
+        {activeTab === 'overview' && !isParent && (
+          <PersonalOverview
+            summary={summary}
+            warnings={warnings}
+            currentMemberId={user?.familyMember?.id}
+            personalWalletBalance={Number(
+              // FAMILY_MEMBER backend đã filter wallets về của mình → lấy PERSONAL wallet đầu tiên
+              wallets.find((w) => w.type === 'PERSONAL')?.balance ?? 0,
+            )}
+          />
         )}
 
         {/* === TAB: BUDGET === */}
@@ -219,7 +245,9 @@ export default function WalletPage() {
         )}
 
         {/* === TAB: EXPENSE LOG === */}
-        {activeTab === 'log' && <ExpenseLog isParent={isParent} />}
+        {activeTab === 'log' && (
+          <ExpenseLog isParent={isParent} year={selectedYear} month={selectedMonth} />
+        )}
 
         {/* === TAB: WALLETS === */}
         {activeTab === 'wallets' && (
@@ -448,24 +476,43 @@ export default function WalletPage() {
             <DialogTitle>Xin tiền từ ví gia đình</DialogTitle>
             <DialogDescription>Gửi yêu cầu đến phụ huynh để xin tiền</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Số tiền cần xin (VND) *</Label>
-              <Input
-                type="number" min="1000" placeholder="50000"
-                value={requestForm.amount}
-                onChange={(e) => setRequestForm({ ...requestForm, amount: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Lý do</Label>
-              <Input
-                placeholder="Mua sách giáo khoa, tiền xe bus..."
-                value={requestForm.reason}
-                onChange={(e) => setRequestForm({ ...requestForm, reason: e.target.value })}
-              />
-            </div>
-          </div>
+          {(() => {
+            const jointBalance = summary?.jointWalletBalance ?? 0
+            const reqAmount = Number(requestForm.amount) || 0
+            const exceedsFund = reqAmount > 0 && reqAmount > jointBalance
+            return (
+              <div className="space-y-4">
+                <div className="rounded-lg border bg-blue-50/40 px-3 py-2 text-xs">
+                  <p className="text-muted-foreground">Quỹ gia đình hiện có</p>
+                  <p className="font-semibold text-blue-700 text-base">
+                    {formatCurrency(jointBalance)}
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label>Số tiền cần xin (VND) *</Label>
+                  <Input
+                    type="number" min="1000" placeholder="50000"
+                    value={requestForm.amount}
+                    onChange={(e) => setRequestForm({ ...requestForm, amount: e.target.value })}
+                    className={exceedsFund ? 'border-amber-400 focus-visible:ring-amber-400' : ''}
+                  />
+                  {exceedsFund && (
+                    <p className="text-xs text-amber-600">
+                      ⚠ Số tiền xin lớn hơn quỹ chung. Phụ huynh có thể không duyệt được.
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label>Lý do</Label>
+                  <Input
+                    placeholder="Mua sách giáo khoa, tiền xe bus..."
+                    value={requestForm.reason}
+                    onChange={(e) => setRequestForm({ ...requestForm, reason: e.target.value })}
+                  />
+                </div>
+              </div>
+            )
+          })()}
           <DialogFooter>
             <Button variant="outline" onClick={() => setRequestOpen(false)}>Hủy</Button>
             <Button

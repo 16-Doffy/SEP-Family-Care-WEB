@@ -55,7 +55,7 @@ export default function DashboardPage() {
 
   return (
     <div>
-      <Topbar title={isParent ? 'Tổng quan phụ huynh' : 'Tổng quan của con'} />
+      <Topbar title={isParent ? 'Tổng quan phụ huynh' : 'Tổng quan của tôi'} />
       <div className="p-6 space-y-6">
         {/* Welcome */}
         <div>
@@ -63,7 +63,7 @@ export default function DashboardPage() {
             Xin chào, {user?.displayName} 👋
           </h2>
           <p className="text-muted-foreground">
-            {isParent ? 'Quản lý hoạt động gia đình' : 'Theo dõi ví cá nhân, nhiệm vụ và thông báo của con'} · {family?.name ?? 'Đang tải...'}
+            {isParent ? 'Quản lý hoạt động gia đình' : 'Theo dõi ví cá nhân, nhiệm vụ và thông báo của bạn'} · {family?.name ?? 'Đang tải...'}
           </p>
         </div>
 
@@ -131,7 +131,7 @@ export default function DashboardPage() {
         {/* Members */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">{isParent ? 'Thành viên gia đình' : 'Gia đình của con'}</CardTitle>
+            <CardTitle className="text-lg">{isParent ? 'Thành viên gia đình' : 'Gia đình của tôi'}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -158,7 +158,7 @@ export default function DashboardPage() {
         {/* Recent tasks */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">{isParent ? 'Nhiệm vụ gần đây trong gia đình' : 'Nhiệm vụ của con gần đây'}</CardTitle>
+            <CardTitle className="text-lg">{isParent ? 'Nhiệm vụ gần đây trong gia đình' : 'Nhiệm vụ của tôi gần đây'}</CardTitle>
           </CardHeader>
           <CardContent>
             {tasks.slice(0, 5).length === 0 ? (

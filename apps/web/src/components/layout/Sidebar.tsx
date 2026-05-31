@@ -3,7 +3,7 @@
 import React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, Wallet, CheckSquare, Settings, Users, Shield, LogOut, MessageSquare, CalendarDays, Siren, Image, MapPin, Sparkles, Crown, UserRound, BarChart3, UserCircle, Server } from 'lucide-react'
+import { Home, Wallet, CheckSquare, Settings, Users, Shield, LogOut, MessageSquare, CalendarDays, Siren, Image, MapPin, Sparkles, Crown, UserRound, BarChart3, UserCircle, Server, Activity } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/context/AuthContext'
 import { useRouter } from 'next/navigation'
@@ -25,6 +25,7 @@ const parentItems: NavItem[] = [
   { href: '/calendar', label: 'Lịch gia đình', icon: CalendarDays },
   { href: '/album', label: 'Album ảnh', icon: Image },
   { href: '/location', label: 'Vị trí gia đình', icon: MapPin },
+  { href: '/devices', label: 'Thiết bị & GPS', icon: Activity },
   { href: '/sos', label: 'SOS Khẩn cấp', icon: Siren, danger: true },
   { href: '/family', label: 'Gia đình', icon: Users },
   { href: '/settings', label: 'Cài đặt', icon: Settings },
@@ -40,6 +41,7 @@ const familyMemberItems: NavItem[] = [
   { href: '/calendar', label: 'Lịch gia đình', icon: CalendarDays },
   { href: '/album', label: 'Album gia đình', icon: Image },
   { href: '/location', label: 'Chia sẻ vị trí', icon: MapPin },
+  { href: '/devices', label: 'Thiết bị & GPS', icon: Activity },
   { href: '/sos', label: 'Gửi SOS', icon: Siren, danger: true },
   { href: '/family', label: 'Thành viên gia đình', icon: Users },
   { href: '/settings', label: 'Cài đặt cá nhân', icon: Settings },

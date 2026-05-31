@@ -148,6 +148,27 @@ enum PaymentType {
   WALLET_TOPUP
 }
 
+enum DeviceType {
+  MOBILE_APP
+  SMARTWATCH
+  GPS_TRACKER
+  BLE_DEVICE
+}
+
+enum DeviceStatus {
+  PAIRED
+  ACTIVE
+  LOST
+  DISABLED
+}
+
+enum RouteSource {
+  MOBILE_APP
+  WEARABLE
+  GPS_DEVICE
+  MOCK
+}
+
 // ─── Models ───────────────────────────────────────────────────────────────────
 
 model User {
@@ -172,6 +193,8 @@ model User {
   resolvedSosAlerts        SosAlert[]                @relation("ResolvedSOS")
   locationShare            LocationShare?
   aiConversation           AiConversation?
+  ownedDevices             Device[]                  @relation("DeviceOwner")
+  routePoints              DeviceRoutePoint[]
 
   @@index([email])
 }
@@ -231,7 +254,10 @@ model Family {
   sosAlerts              SosAlert[]
   moneyRequests          MoneyRequest[]
   albumPhotos            AlbumPhoto[]
+  albumCategories        AlbumCategory[]
   locationShares         LocationShare[]
+  devices                Device[]
+  deviceRoutePoints      DeviceRoutePoint[]
   payments               Payment[]
   invites                FamilyInvite[]
   announcements          Announcement[]
@@ -345,6 +371,7 @@ model FamilyMember {
   moneyRequests             MoneyRequest[]          @relation("RequestedMoney")
   resolvedMoneyRequests     MoneyRequest[]          @relation("ResolvedMoneyRequest")
   uploadedAlbumPhotos       AlbumPhoto[]
+  managedAlbumCategories    AlbumCategory[]
   announcements             Announcement[]
   incomeSources             IncomeSource[]
   actualIncomes             ActualIncome[]
@@ -532,6 +559,9 @@ model SosAlert {
   longitude    Float?
   address      String?
   message      String?
+  source       RouteSource @default(MOBILE_APP)
+  deviceId     String?
+  fallDetected Boolean @default(false)
   status       SosStatus @default(ACTIVE)
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
@@ -541,9 +571,11 @@ model SosAlert {
   family     Family @relation(fields: [familyId], references: [id])
   sender     User   @relation("SentSOS", fields: [senderId], references: [id])
   resolvedBy User?  @relation("ResolvedSOS", fields: [resolvedById], references: [id])
+  device     Device? @relation(fields: [deviceId], references: [id])
 
   @@index([familyId, status])
   @@index([senderId])
+  @@index([deviceId])
   @@index([createdAt])
 }
 
@@ -637,15 +669,95 @@ model AlbumPhoto {
   id         String   @id @default(cuid())
   familyId   String
   uploaderId String
+  categoryId String?
   imageUrl   String
   caption    String?
+  // Người dùng xác nhận ảnh có thể hiển thị trong album chung hay chưa.
+  isShared   Boolean  @default(true)
+  // Danh sách tag do AI gợi ý hoặc người dùng xác nhận, ví dụ: ["Dad", "Trip 2026"].
+  tags       Json     @default("[]")
+  aiStatus   String   @default("PENDING") // PENDING | SUGGESTED | CONFIRMED | SKIPPED
+  aiMetadata Json?
   createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
-  family   Family       @relation(fields: [familyId], references: [id])
-  uploader FamilyMember @relation(fields: [uploaderId], references: [id])
+  family   Family         @relation(fields: [familyId], references: [id])
+  uploader FamilyMember   @relation(fields: [uploaderId], references: [id])
+  category AlbumCategory? @relation(fields: [categoryId], references: [id])
 
   @@index([familyId, createdAt])
+  @@index([familyId, categoryId])
   @@index([uploaderId])
+}
+
+model AlbumCategory {
+  id          String   @id @default(cuid())
+  familyId    String
+  name        String
+  description String?
+  color       String   @default("#ec4899")
+  ruleType    String   @default("MANUAL") // MANUAL | EVENT | MEMBER | AI_FACE | CUSTOM
+  criteria    Json?
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  family    Family        @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  createdBy FamilyMember? @relation(fields: [createdById], references: [id])
+  photos    AlbumPhoto[]
+
+  @@unique([familyId, name])
+  @@index([familyId, ruleType])
+}
+
+model Device {
+  id           String       @id @default(cuid())
+  familyId     String
+  ownerUserId  String?
+  name         String
+  type         DeviceType   @default(SMARTWATCH)
+  deviceCode   String       @unique
+  status       DeviceStatus @default(PAIRED)
+  batteryLevel Int?
+  lastLatitude Float?
+  lastLongitude Float?
+  lastSeenAt   DateTime?
+  sosEnabled   Boolean      @default(true)
+  fallDetectionEnabled Boolean @default(true)
+  locationTrackingEnabled Boolean @default(true)
+  metadata     Json?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  family      Family             @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  owner       User?              @relation("DeviceOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
+  routePoints DeviceRoutePoint[]
+  sosAlerts   SosAlert[]
+
+  @@index([familyId, status])
+  @@index([ownerUserId])
+}
+
+model DeviceRoutePoint {
+  id         String      @id @default(cuid())
+  familyId   String
+  deviceId   String
+  userId     String?
+  latitude   Float
+  longitude  Float
+  accuracy   Float?
+  speed      Float?
+  source     RouteSource @default(WEARABLE)
+  recordedAt DateTime    @default(now())
+  createdAt  DateTime    @default(now())
+
+  family Family @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  device Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  user   User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([familyId, recordedAt])
+  @@index([deviceId, recordedAt])
+  @@index([userId, recordedAt])
 }
 
 model Announcement {

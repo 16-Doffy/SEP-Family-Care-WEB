@@ -11,6 +11,7 @@ import * as albumService from '../services/album.service'
 import multer from 'multer'
 import path from 'path'
 import fs from 'fs'
+import { z } from 'zod'
 
 /** Thư mục lưu trữ file ảnh tải lên; được tạo tự động nếu chưa tồn tại */
 const uploadDir = path.join(process.cwd(), 'uploads')
@@ -65,10 +66,15 @@ export async function uploadPhotos(req: Request, res: Response, next: NextFuncti
 
     // Trim caption để loại bỏ khoảng trắng thừa; nếu rỗng thì không lưu
     const caption = (req.body.caption as string | undefined)?.trim() || undefined
+    const categoryId = (req.body.categoryId as string | undefined)?.trim() || undefined
+    const tagsRaw = (req.body.tags as string | undefined)?.trim()
+    const tags = tagsRaw ? tagsRaw.split(',').map((t) => t.trim()).filter(Boolean) : undefined
 
     const photos = await albumService.uploadPhotos({
       familyId: req.user.familyId,
       uploaderId: req.user.familyMemberId,
+      categoryId,
+      tags,
       files: files.map((f) => ({
         url: `/uploads/${f.filename}`,
         caption,
@@ -94,8 +100,12 @@ export async function getPhotos(req: Request, res: Response, next: NextFunction)
       res.status(400).json({ error: 'Not in a family' })
       return
     }
-    const { cursor } = req.query
-    const photos = await albumService.getFamilyPhotos(req.user.familyId, cursor as string | undefined)
+    const { cursor, categoryId } = req.query
+    const photos = await albumService.getFamilyPhotos(
+      req.user.familyId,
+      cursor as string | undefined,
+      categoryId as string | undefined,
+    )
     res.json({ photos })
   } catch (e) { next(e) }
 }
@@ -167,5 +177,68 @@ export async function getStats(req: Request, res: Response, next: NextFunction) 
     }
     const stats = await albumService.getStats(req.user.familyId)
     res.json(stats)
+  } catch (e) { next(e) }
+}
+
+
+export async function listCategories(req: Request, res: Response, next: NextFunction) {
+  try {
+    const categories = await albumService.listCategories(req.user.familyId!)
+    res.json({ categories })
+  } catch (e) { next(e) }
+}
+
+export async function createCategory(req: Request, res: Response, next: NextFunction) {
+  try {
+    const body = z.object({
+      name: z.string().min(1).max(80),
+      description: z.string().max(300).optional(),
+      color: z.string().max(20).optional(),
+      ruleType: z.enum(['MANUAL', 'EVENT', 'MEMBER', 'AI_FACE', 'CUSTOM']).optional(),
+      criteria: z.unknown().optional(),
+    }).parse(req.body)
+    const category = await albumService.createCategory({
+      familyId: req.user.familyId!,
+      createdById: req.user.familyMemberId,
+      ...body,
+    })
+    res.status(201).json({ category })
+  } catch (e) { next(e) }
+}
+
+export async function updateCategory(req: Request, res: Response, next: NextFunction) {
+  try {
+    const body = z.object({
+      name: z.string().min(1).max(80).optional(),
+      description: z.string().max(300).nullable().optional(),
+      color: z.string().max(20).optional(),
+      ruleType: z.enum(['MANUAL', 'EVENT', 'MEMBER', 'AI_FACE', 'CUSTOM']).optional(),
+      criteria: z.unknown().optional(),
+    }).parse(req.body)
+    const category = await albumService.updateCategory(req.params.id, req.user.familyId!, body)
+    res.json({ category })
+  } catch (e) { next(e) }
+}
+
+export async function deleteCategory(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await albumService.deleteCategory(req.params.id, req.user.familyId!)
+    res.json(result)
+  } catch (e) { next(e) }
+}
+
+export async function assignPhotoCategory(req: Request, res: Response, next: NextFunction) {
+  try {
+    const body = z.object({
+      categoryId: z.string().nullable().optional(),
+      tags: z.array(z.string()).optional(),
+      aiStatus: z.enum(['PENDING', 'SUGGESTED', 'CONFIRMED', 'SKIPPED']).optional(),
+    }).parse(req.body)
+    const photo = await albumService.assignPhotoCategory({
+      photoId: req.params.id,
+      familyId: req.user.familyId!,
+      ...body,
+    })
+    res.json({ photo })
   } catch (e) { next(e) }
 }

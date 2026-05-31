@@ -25,6 +25,7 @@
  * - /ai                → AI Chat Assistant (Family Care Assistant)
  * - /payments          → Thanh toán subscription và nạp ví
  * - /subscription-plans → Danh sách gói đăng ký
+ * - /devices            → Wearable/GPS device, SOS từ thiết bị và lộ trình di chuyển
  */
 
 import { Router } from 'express'
@@ -46,6 +47,7 @@ import subscriptionPlanRoutes from './subscription-plan.routes'
 import announcementRoutes from './announcement.routes'
 import financeRoutes from './finance.routes'
 import recurringTaskRoutes from './recurring-task.routes'
+import deviceRoutes from './device.routes'
 
 const router = Router()
 
@@ -67,5 +69,6 @@ router.use('/subscription-plans', subscriptionPlanRoutes)
 router.use('/announcements', announcementRoutes)
 router.use('/finance', financeRoutes)
 router.use('/recurring-tasks', recurringTaskRoutes)
+router.use('/devices', deviceRoutes)
 
 export { router as apiRouter }

@@ -57,6 +57,7 @@ export default function TasksPage() {
   const [proofNote, setProofNote] = useState('')
   const [proofFile, setProofFile] = useState<File | null>(null)
   const [tab, setTab] = useState<'oneoff' | 'recurring'>('oneoff')
+  const [filterAssignee, setFilterAssignee] = useState<string>('ALL')
 
   const { data: tasks = [], isLoading } = useQuery<Task[]>({
     queryKey: ['tasks'],
@@ -135,6 +136,28 @@ export default function TasksPage() {
           </button>
         </div>
 
+        {tab === 'oneoff' && isParent && members.length > 0 && (
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">Lọc theo thành viên:</span>
+            <Select value={filterAssignee} onValueChange={setFilterAssignee}>
+              <SelectTrigger className="w-52 h-8 text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">Tất cả</SelectItem>
+                <SelectItem value="UNASSIGNED">Chưa giao</SelectItem>
+                {members
+                  .filter((m: { user: { role: string } }) => m.user.role !== 'SUPER_ADMIN')
+                  .map((m: { id: string; user: { displayName: string } }) => (
+                    <SelectItem key={m.id} value={m.id}>
+                      {m.user.displayName}
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
         {tab === 'recurring' && (
           <RecurringTasks
             isParent={isParent}
@@ -148,7 +171,12 @@ export default function TasksPage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 overflow-x-auto">
             {COLUMNS.map(({ status, label, color }) => {
-              const colTasks = tasks.filter((t) => t.status === status && !t.templateId)
+              const colTasks = tasks.filter((t) => {
+                if (t.status !== status || t.templateId) return false
+                if (!isParent || filterAssignee === 'ALL') return true
+                if (filterAssignee === 'UNASSIGNED') return !t.assignedTo
+                return t.assignedTo?.id === filterAssignee
+              })
               return (
                 <div key={status} className={`rounded-xl border-2 p-3 min-h-[200px] ${color}`}>
                   <div className="flex items-center justify-between mb-3">
@@ -297,7 +325,7 @@ export default function TasksPage() {
                     </>
                   )}
                   {!isParent && !['PENDING', 'IN_PROGRESS'].includes(detailTask.status) && (
-                    <p className="text-sm text-muted-foreground">Con chỉ cần theo dõi trạng thái nhiệm vụ này.</p>
+                    <p className="text-sm text-muted-foreground">Bạn chỉ cần theo dõi trạng thái nhiệm vụ này.</p>
                   )}
                 </div>
               </div>

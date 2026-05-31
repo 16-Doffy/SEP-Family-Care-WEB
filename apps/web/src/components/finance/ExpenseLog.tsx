@@ -44,20 +44,33 @@ const SOURCE_LABELS: Record<IncomeSource['sourceType'], string> = {
   OTHER: 'Khác',
 }
 
-export function ExpenseLog({ isParent }: { isParent: boolean }) {
+export function ExpenseLog({ isParent, year, month }: { isParent: boolean; year?: number; month?: number }) {
+  const now = new Date()
+  const y = year ?? now.getFullYear()
+  const m = month ?? now.getMonth() + 1
+  const from = new Date(y, m - 1, 1).toISOString()
+  const to = new Date(y, m, 1).toISOString()
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <ActualIncomeForm />
-        <PersonalExpenseForm />
-        {isParent && <FamilyExpenseForm />}
+        <ActualIncomeForm defaultDate={isCurrentMonth(y, m) ? undefined : firstDayOfMonth(y, m)} />
+        <PersonalExpenseForm defaultDate={isCurrentMonth(y, m) ? undefined : firstDayOfMonth(y, m)} />
+        {isParent && <FamilyExpenseForm defaultDate={isCurrentMonth(y, m) ? undefined : firstDayOfMonth(y, m)} />}
       </div>
-      <LedgerList />
+      <LedgerList from={from} to={to} monthLabel={`${m}/${y}`} />
     </div>
   )
 }
 
-function ActualIncomeForm() {
+function isCurrentMonth(y: number, m: number) {
+  const now = new Date()
+  return y === now.getFullYear() && m === now.getMonth() + 1
+}
+function firstDayOfMonth(y: number, m: number) {
+  return new Date(y, m - 1, 1).toISOString().slice(0, 10)
+}
+
+function ActualIncomeForm({ defaultDate }: { defaultDate?: string }) {
   const [amount, setAmount] = useState('')
   const [sourceType, setSourceType] = useState<IncomeSource['sourceType']>('SALARY')
   const [note, setNote] = useState('')
@@ -114,6 +127,7 @@ function ActualIncomeForm() {
                 sourceType,
                 note: note || undefined,
                 creditToWallet,
+                occurredAt: defaultDate,
               })
               toast.success(creditToWallet ? 'Đã ghi thu & cộng vào ví' : 'Đã ghi thu nhập')
               setAmount('')
@@ -131,7 +145,7 @@ function ActualIncomeForm() {
   )
 }
 
-function PersonalExpenseForm() {
+function PersonalExpenseForm({ defaultDate }: { defaultDate?: string }) {
   const [amount, setAmount] = useState('')
   const [category, setCategory] = useState(PERSONAL_CATEGORIES[0])
   const [note, setNote] = useState('')
@@ -185,6 +199,7 @@ function PersonalExpenseForm() {
                 category,
                 note: note || undefined,
                 deductFromWallet,
+                occurredAt: defaultDate,
               })
               toast.success(deductFromWallet ? 'Đã ghi chi & trừ ví' : 'Đã ghi chi tiêu')
               setAmount('')
@@ -202,7 +217,7 @@ function PersonalExpenseForm() {
   )
 }
 
-function FamilyExpenseForm() {
+function FamilyExpenseForm({ defaultDate }: { defaultDate?: string }) {
   const [amount, setAmount] = useState('')
   const [category, setCategory] = useState(FAMILY_CATEGORIES[0])
   const [note, setNote] = useState('')
@@ -256,6 +271,7 @@ function FamilyExpenseForm() {
                 category,
                 note: note || undefined,
                 deductFromWallet,
+                occurredAt: defaultDate,
               })
               toast.success(deductFromWallet ? 'Đã ghi chi & trừ ví chung' : 'Đã ghi chi chung')
               setAmount('')
@@ -273,10 +289,11 @@ function FamilyExpenseForm() {
   )
 }
 
-function LedgerList() {
-  const { data: incomes = [] } = useActualIncomes()
-  const { data: personal = [] } = usePersonalExpenses()
-  const { data: family = [] } = useFamilyExpenses()
+function LedgerList({ from, to, monthLabel }: { from: string; to: string; monthLabel: string }) {
+  const range = { from, to }
+  const { data: incomes = [] } = useActualIncomes(range)
+  const { data: personal = [] } = usePersonalExpenses(range)
+  const { data: family = [] } = useFamilyExpenses(range)
 
   const rows = [
     ...incomes.map((e) => ({
@@ -314,13 +331,16 @@ function LedgerList() {
   return (
     <Card>
       <CardHeader className="pb-2">
-        <CardTitle className="text-base">Nhật ký thu / chi</CardTitle>
+        <CardTitle className="text-base flex items-center gap-2">
+          Nhật ký thu / chi
+          <span className="text-xs font-normal text-muted-foreground">Tháng {monthLabel}</span>
+        </CardTitle>
       </CardHeader>
       <CardContent>
         {rows.length === 0 ? (
           <div className="text-center text-muted-foreground py-8">
             <Receipt className="w-8 h-8 mx-auto opacity-30" />
-            <p className="text-sm mt-2">Chưa có khoản nào</p>
+            <p className="text-sm mt-2">Chưa có khoản nào trong tháng {monthLabel}</p>
           </div>
         ) : (
           <div className="space-y-2">

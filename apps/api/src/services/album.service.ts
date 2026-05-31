@@ -7,6 +7,8 @@
  */
 
 import { prisma } from '../config/database'
+
+const db = prisma as any
 import { Errors } from '../utils/errors'
 import path from 'path'
 import fs from 'fs'
@@ -26,22 +28,33 @@ import fs from 'fs'
 export async function uploadPhotos(input: {
   familyId: string
   uploaderId: string  // FamilyMember.id
+  categoryId?: string
+  tags?: string[]
   files: { url: string; caption?: string }[]
 }) {
   if (input.files.length === 0) throw Errors.BadRequest('Không có ảnh nào')
 
+  if (input.categoryId) {
+    const category = await db.albumCategory.findFirst({ where: { id: input.categoryId, familyId: input.familyId } })
+    if (!category) throw Errors.BadRequest('Album category không hợp lệ')
+  }
+
   // Dùng $transaction để đảm bảo tất cả ảnh được lưu cùng lúc (all-or-nothing)
   const photos = await prisma.$transaction(
     input.files.map((f) =>
-      prisma.albumPhoto.create({
+      db.albumPhoto.create({
         data: {
           familyId: input.familyId,
           uploaderId: input.uploaderId,
+          categoryId: input.categoryId,
           imageUrl: f.url,
           caption: f.caption,
+          tags: input.tags ?? [],
+          aiStatus: input.tags?.length ? 'CONFIRMED' : 'PENDING',
         },
         include: {
           uploader: { include: { user: { select: { id: true, displayName: true, avatarUrl: true } } } },
+          category: true,
         },
       }),
     ),
@@ -62,15 +75,16 @@ export async function uploadPhotos(input: {
  *                 bỏ qua nếu đây là trang đầu tiên
  * @returns Danh sách `AlbumPhoto` kèm thông tin người tải lên.
  */
-export async function getFamilyPhotos(familyId: string, cursor?: string) {
-  return prisma.albumPhoto.findMany({
-    where: { familyId },
+export async function getFamilyPhotos(familyId: string, cursor?: string, categoryId?: string) {
+  return db.albumPhoto.findMany({
+    where: { familyId, ...(categoryId ? { categoryId } : {}) },
     orderBy: { createdAt: 'desc' },
     take: 60,
     // Nếu có cursor thì bỏ qua bản ghi tại cursor (skip: 1) và bắt đầu từ bản ghi kế tiếp
     ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
     include: {
       uploader: { include: { user: { select: { id: true, displayName: true, avatarUrl: true } } } },
+      category: true,
     },
   })
 }
@@ -85,10 +99,11 @@ export async function getFamilyPhotos(familyId: string, cursor?: string) {
  * @throws {NotFoundError} Nếu ảnh không tồn tại hoặc không thuộc gia đình này
  */
 export async function getPhoto(id: string, familyId: string) {
-  const photo = await prisma.albumPhoto.findFirst({
+  const photo = await db.albumPhoto.findFirst({
     where: { id, familyId },
     include: {
       uploader: { include: { user: { select: { id: true, displayName: true, avatarUrl: true } } } },
+      category: true,
     },
   })
   if (!photo) throw Errors.NotFound('Ảnh')
@@ -120,7 +135,7 @@ export async function deletePhoto(input: {
   userId: string
   isParent: boolean
 }) {
-  const photo = await prisma.albumPhoto.findFirst({
+  const photo = await db.albumPhoto.findFirst({
     where: { id: input.id, familyId: input.familyId },
     include: { uploader: { select: { userId: true } } },
   })
@@ -131,7 +146,7 @@ export async function deletePhoto(input: {
     throw Errors.Forbidden()
   }
 
-  await prisma.albumPhoto.delete({ where: { id: input.id } })
+  await db.albumPhoto.delete({ where: { id: input.id } })
 
   // Xóa file vật lý; bỏ qua lỗi nếu file không tồn tại hoặc không có quyền xóa
   try {
@@ -156,13 +171,96 @@ export async function deletePhoto(input: {
  */
 export async function getStats(familyId: string) {
   // Chạy song song để giảm thời gian chờ thay vì tuần tự
-  const [total, byMember] = await Promise.all([
-    prisma.albumPhoto.count({ where: { familyId } }),
-    prisma.albumPhoto.groupBy({
+  const [total, byMember, byCategory] = await Promise.all([
+    db.albumPhoto.count({ where: { familyId } }),
+    db.albumPhoto.groupBy({
       by: ['uploaderId'],
       where: { familyId },
       _count: true,
     }),
+    db.albumPhoto.groupBy({
+      by: ['categoryId'],
+      where: { familyId },
+      _count: true,
+    }),
   ])
-  return { total, byMember }
+  return { total, byMember, byCategory }
+}
+
+export async function listCategories(familyId: string) {
+  return db.albumCategory.findMany({
+    where: { familyId },
+    orderBy: [{ ruleType: 'asc' }, { createdAt: 'desc' }],
+    include: { _count: { select: { photos: true } } },
+  })
+}
+
+export async function createCategory(input: {
+  familyId: string
+  name: string
+  description?: string
+  color?: string
+  ruleType?: string
+  criteria?: unknown
+  createdById?: string
+}) {
+  return db.albumCategory.create({
+    data: {
+      familyId: input.familyId,
+      name: input.name,
+      description: input.description,
+      color: input.color ?? '#ec4899',
+      ruleType: input.ruleType ?? 'MANUAL',
+      criteria: input.criteria as any,
+      createdById: input.createdById,
+    },
+    include: { _count: { select: { photos: true } } },
+  })
+}
+
+export async function updateCategory(id: string, familyId: string, data: {
+  name?: string
+  description?: string | null
+  color?: string
+  ruleType?: string
+  criteria?: unknown
+}) {
+  const category = await db.albumCategory.findFirst({ where: { id, familyId } })
+  if (!category) throw Errors.NotFound('Album category')
+  return db.albumCategory.update({ where: { id }, data, include: { _count: { select: { photos: true } } } })
+}
+
+export async function deleteCategory(id: string, familyId: string) {
+  const category = await db.albumCategory.findFirst({ where: { id, familyId } })
+  if (!category) throw Errors.NotFound('Album category')
+  await db.albumPhoto.updateMany({ where: { familyId, categoryId: id }, data: { categoryId: null } })
+  await db.albumCategory.delete({ where: { id } })
+  return { ok: true }
+}
+
+export async function assignPhotoCategory(input: {
+  photoId: string
+  familyId: string
+  categoryId?: string | null
+  tags?: string[]
+  aiStatus?: 'PENDING' | 'SUGGESTED' | 'CONFIRMED' | 'SKIPPED'
+}) {
+  const photo = await db.albumPhoto.findFirst({ where: { id: input.photoId, familyId: input.familyId } })
+  if (!photo) throw Errors.NotFound('Ảnh')
+  if (input.categoryId) {
+    const category = await db.albumCategory.findFirst({ where: { id: input.categoryId, familyId: input.familyId } })
+    if (!category) throw Errors.BadRequest('Album category không hợp lệ')
+  }
+  return db.albumPhoto.update({
+    where: { id: input.photoId },
+    data: {
+      categoryId: input.categoryId ?? null,
+      ...(input.tags ? { tags: input.tags } : {}),
+      ...(input.aiStatus ? { aiStatus: input.aiStatus } : {}),
+    },
+    include: {
+      uploader: { include: { user: { select: { id: true, displayName: true, avatarUrl: true } } } },
+      category: true,
+    },
+  })
 }
