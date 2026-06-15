@@ -22,6 +22,7 @@ import { formatCurrency, formatDateTime, cn } from '@/lib/utils'
 import { Wallet, ArrowDownLeft, ArrowUpRight, Loader2, PiggyBank, Tags, Plus, Sparkles } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { getApiErrorMessage } from '@/lib/api'
+import { useAuth } from '@/context/AuthContext'
 import { useActiveFamily } from '@/hooks/useFamily'
 import {
   useFinanceOverview, useFinanceModels, useModelTemplates, useFinanceJars,
@@ -29,8 +30,9 @@ import {
   useCreateFinanceCategory, useCreateLedgerEntry,
   type FinanceModel, type FinanceJar, type LedgerEntryType,
 } from '@/hooks/useTeamFinance'
+import { BudgetTab, GoalsTab, SupportTab, AlertsTab, ReportTab } from '@/components/finance/ExtraFinanceTabs'
 
-type Tab = 'overview' | 'jars' | 'log' | 'categories'
+type Tab = 'overview' | 'jars' | 'log' | 'categories' | 'budget' | 'goals' | 'support' | 'alerts' | 'report'
 
 const ENTRY_TYPES: { value: LedgerEntryType; label: string; income: boolean }[] = [
   { value: 'INCOME', label: 'Thu nhập', income: true },
@@ -44,8 +46,11 @@ const ENTRY_TYPES: { value: LedgerEntryType; label: string; income: boolean }[] 
 const isIncomeType = (t: LedgerEntryType) => ENTRY_TYPES.find((e) => e.value === t)?.income ?? false
 
 export default function FinancePage() {
+  const { user } = useAuth()
   const { familyId, family, isLoading: familyLoading } = useActiveFamily()
   const [activeTab, setActiveTab] = useState<Tab>('overview')
+  const myRole = family?.members?.find((m) => m.userId === user?.id)?.familyRole
+  const isManager = myRole === 'FAMILY_MANAGER' || myRole === 'DEPUTY_MEMBER' || user?.role === 'SYSTEM_ADMIN'
 
   const overview = useFinanceOverview(familyId)
   const models = useFinanceModels(familyId)
@@ -83,6 +88,11 @@ export default function FinancePage() {
     { id: 'jars', label: 'Mô hình & Lọ' },
     { id: 'log', label: 'Giao dịch' },
     { id: 'categories', label: 'Danh mục' },
+    { id: 'budget', label: 'Ngân sách' },
+    { id: 'goals', label: 'Mục tiêu' },
+    { id: 'support', label: 'Hỗ trợ chi tiêu' },
+    { id: 'alerts', label: 'Cảnh báo' },
+    { id: 'report', label: 'Báo cáo' },
   ]
 
   return (
@@ -113,6 +123,11 @@ export default function FinancePage() {
         {activeTab === 'jars' && <JarsTab familyId={familyId} models={models.data ?? []} jars={jars.data ?? []} />}
         {activeTab === 'log' && <LedgerTab familyId={familyId} entries={entries.data ?? []} categories={categories.data ?? []} />}
         {activeTab === 'categories' && <CategoriesTab familyId={familyId} />}
+        {activeTab === 'budget' && <BudgetTab familyId={familyId} isManager={isManager} />}
+        {activeTab === 'goals' && <GoalsTab familyId={familyId} isManager={isManager} />}
+        {activeTab === 'support' && <SupportTab familyId={familyId} isManager={isManager} />}
+        {activeTab === 'alerts' && <AlertsTab familyId={familyId} isManager={isManager} />}
+        {activeTab === 'report' && <ReportTab familyId={familyId} />}
       </div>
     </div>
   )
