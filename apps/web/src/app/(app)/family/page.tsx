@@ -76,7 +76,7 @@ export default function FamilyPage() {
     mutationFn: (userId: string) => api.delete(`/families/${familyId}/members/${userId}`),
     onSuccess: () => {
       toast.success('Đã xóa thành viên')
-      qc.invalidateQueries({ queryKey: ['families', 'my'] })
+      qc.invalidateQueries({ queryKey: ['families'] })
     },
     onError: (e) => toast.error(getApiErrorMessage(e, 'Không thể xóa thành viên')),
   })

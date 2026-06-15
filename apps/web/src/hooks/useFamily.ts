@@ -47,7 +47,11 @@ export function setActiveFamilyId(id: string) {
   if (typeof window !== 'undefined') localStorage.setItem(ACTIVE_FAMILY_KEY, id)
 }
 
-/** Danh sách gia đình của người dùng hiện tại. */
+/**
+ * Danh sách gia đình của người dùng hiện tại.
+ * Lưu ý: endpoint này trả về members ở dạng rút gọn (không có id/userId/user),
+ * chỉ dùng để liệt kê và chọn gia đình. Cần members đầy đủ thì dùng useFamilyDetail.
+ */
 export function useMyFamilies() {
   return useQuery<Family[]>({
     queryKey: ['families', 'my'],
@@ -55,14 +59,30 @@ export function useMyFamilies() {
   })
 }
 
+/** Chi tiết một gia đình kèm members đầy đủ (id, userId, user, vai trò...). */
+export function useFamilyDetail(familyId: string | null) {
+  return useQuery<Family>({
+    queryKey: ['families', 'detail', familyId],
+    queryFn: () => api.get(`/families/${familyId}`).then((r) => r.data),
+    enabled: !!familyId,
+  })
+}
+
 /**
- * Gia đình đang hoạt động: ưu tiên id đã lưu trong localStorage, nếu không thì lấy phần tử đầu.
- * Trả về cả `familyId` tiện dùng cho các hook finance.
+ * Gia đình đang hoạt động: chọn id (ưu tiên localStorage, nếu không lấy phần tử đầu)
+ * từ `/families/my`, rồi lấy chi tiết qua `/families/{id}` để có members đầy đủ.
  */
 export function useActiveFamily() {
-  const query = useMyFamilies()
-  const families = query.data ?? []
+  const list = useMyFamilies()
+  const families = list.data ?? []
   const savedId = getActiveFamilyId()
-  const active = families.find((f) => f.id === savedId) ?? families[0] ?? null
-  return { ...query, families, family: active, familyId: active?.id ?? null }
+  const familyId = (families.find((f) => f.id === savedId) ?? families[0])?.id ?? null
+  const detail = useFamilyDetail(familyId)
+  return {
+    families,
+    family: detail.data ?? null,
+    familyId,
+    isLoading: list.isLoading || (!!familyId && detail.isLoading),
+    refetch: detail.refetch,
+  }
 }

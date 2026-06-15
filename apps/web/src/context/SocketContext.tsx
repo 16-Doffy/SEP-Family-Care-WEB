@@ -11,10 +11,8 @@
  * Trả về `null` khi người dùng chưa đăng nhập.
  */
 
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
+import { createContext, useContext, ReactNode } from 'react'
 import type { Socket } from 'socket.io-client'
-import { getSocket, disconnectSocket } from '@/lib/socket'
-import { useAuth } from './AuthContext'
 
 /**
  * Context lưu instance Socket.IO hiện tại.
@@ -33,28 +31,10 @@ const SocketContext = createContext<Socket | null>(null)
  * @param children - Cây component cần truy cập socket
  */
 export function SocketProvider({ children }: { children: ReactNode }) {
-  const { accessToken } = useAuth()
-  const [socket, setSocket] = useState<Socket | null>(null)
-
-  useEffect(() => {
-    if (!accessToken) {
-      // Người dùng đăng xuất: ngắt kết nối WebSocket
-      disconnectSocket()
-      setSocket(null)
-      return
-    }
-
-    // Người dùng đăng nhập: tạo hoặc tái sử dụng kết nối socket với token mới
-    const s = getSocket(accessToken)
-    setSocket(s)
-
-    // Cleanup: ngắt kết nối khi accessToken thay đổi hoặc component unmount
-    return () => {
-      disconnectSocket()
-    }
-  }, [accessToken])
-
-  return <SocketContext.Provider value={socket}>{children}</SocketContext.Provider>
+  // API team hiện chưa có máy chủ WebSocket (Socket.IO), nên không mở kết nối
+  // để tránh lỗi "WebSocket connection failed" lặp lại trên console.
+  // Provider vẫn tồn tại và cung cấp `null` để `useSocket()` dùng được ở mọi nơi.
+  return <SocketContext.Provider value={null}>{children}</SocketContext.Provider>
 }
 
 /**
