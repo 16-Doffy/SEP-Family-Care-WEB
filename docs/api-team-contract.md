@@ -1,0 +1,124 @@
+# API Team Contract (http://103.110.84.66) — Family Care API v1.0
+
+## Endpoints
+
+- **POST** `/api/v1/auth/register` ← RegisterDto  _Register a new account (default role: FAMILY_MANAGER)_
+- **POST** `/api/v1/auth/login` ← LoginDto  _Authenticate with email & password_
+- **POST** `/api/v1/auth/refresh` ← RefreshTokenDto  _Rotate the token pair using a valid refresh token_
+- **POST** `/api/v1/auth/logout` ← LogoutDto  _Log out. Pass refreshToken to revoke only this device, omit to revoke all_
+- **GET** `/api/v1/auth/me`  _Get the currently authenticated user_
+- **POST** `/api/v1/families` ← CreateFamilyDto  _Create a family (creator becomes MANAGER)_
+- **GET** `/api/v1/families/my`  _List families the current user belongs to_
+- **GET** `/api/v1/families/{familyId}`  _Get a family (members only)_
+- **PATCH** `/api/v1/families/{familyId}` ← UpdateFamilyDto  _Update a family (family MANAGER only)_
+- **DELETE** `/api/v1/families/{familyId}/members/{userId}`  _Remove a member from the family (MANAGER only)_
+- **GET** `/api/v1/families/{familyId}/finance/monthly-finances/me`  _Lấy thông tin tài chính tháng của thành viên hiện tại_
+- **POST** `/api/v1/families/{familyId}/finance/monthly-finances/me` ← CreateMemberMonthlyFinanceDto  _Tạo thông tin tài chính tháng cho thành viên hiện tại_
+- **PUT** `/api/v1/families/{familyId}/finance/monthly-finances/me` ← UpdateMemberMonthlyFinanceDto  _Cập nhật thông tin tài chính tháng của thành viên hiện tại_
+- **GET** `/api/v1/families/{familyId}/finance/model-templates`  _Lấy các mẫu mô hình tài chính có sẵn trong hệ thống_
+- **GET** `/api/v1/families/{familyId}/finance/models`  _Lấy mô hình tài chính; thành viên thường chỉ thấy mô hình đang hoạt động_
+- **POST** `/api/v1/families/{familyId}/finance/models` ← CreateFinanceModelDto  _Tạo mô hình tài chính và các hũ mặc định cho mô hình chuẩn_
+- **PATCH** `/api/v1/families/{familyId}/finance/models/{modelId}/activate`  _Kích hoạt mô hình tài chính và vô hiệu hóa mô hình cũ_
+- **GET** `/api/v1/families/{familyId}/finance/jars`  _Lấy hũ tài chính; thành viên thường chỉ thấy hũ của mô hình đang hoạt động_
+- **POST** `/api/v1/families/{familyId}/finance/jars` ← CreateFinanceJarDto  _Tạo hũ tài chính thuộc một mô hình của gia đình_
+- **PATCH** `/api/v1/families/{familyId}/finance/jars/{jarId}` ← UpdateFinanceJarDto  _Cập nhật hũ tài chính của gia đình_
+- **GET** `/api/v1/families/{familyId}/finance/categories`  _Lấy danh sách danh mục tài chính của gia đình_
+- **POST** `/api/v1/families/{familyId}/finance/categories` ← CreateFinanceCategoryDto  _Tạo danh mục tài chính cho gia đình_
+- **GET** `/api/v1/families/{familyId}/finance/support-requests`  _Lấy danh sách yêu cầu hỗ trợ chi tiêu có thể xem_
+- **POST** `/api/v1/families/{familyId}/finance/support-requests` ← CreateSpendingSupportRequestDto  _Tạo yêu cầu hỗ trợ chi tiêu cho bản thân_
+- **GET** `/api/v1/families/{familyId}/finance/support-requests/{requestId}`  _Lấy chi tiết yêu cầu hỗ trợ chi tiêu_
+- **PATCH** `/api/v1/families/{familyId}/finance/support-requests/{requestId}/review` ← ReviewSpendingSupportRequestDto  _Phê duyệt hoặc từ chối yêu cầu hỗ trợ chi tiêu_
+- **PATCH** `/api/v1/families/{familyId}/finance/support-requests/{requestId}/cancel`  _Hủy yêu cầu hỗ trợ chi tiêu đang chờ của bản thân_
+- **GET** `/api/v1/families/{familyId}/finance/alerts`  _Lấy danh sách cảnh báo tài chính có thể xem_
+- **GET** `/api/v1/families/{familyId}/finance/alerts/{alertId}`  _Lấy chi tiết cảnh báo tài chính_
+- **POST** `/api/v1/families/{familyId}/finance/alerts/recompute` ← RecomputeBudgetAlertsDto  _Tính lại cảnh báo ngân sách và mục tiêu tài chính_
+- **PATCH** `/api/v1/families/{familyId}/finance/alerts/{alertId}/acknowledge`  _Xác nhận đã xem cảnh báo tài chính_
+- **PATCH** `/api/v1/families/{familyId}/finance/alerts/{alertId}/resolve` ← ResolveBudgetAlertDto  _Đánh dấu cảnh báo tài chính đã được giải quyết_
+- **GET** `/api/v1/families/{familyId}/finance/reports/overview`  _Lấy báo cáo tổng quan tài chính gia đình_
+- **GET** `/api/v1/families/{familyId}/finance/reports/budget-goal`  _Lấy báo cáo ngân sách, mục tiêu và cảnh báo_
+- **GET** `/api/v1/families/{familyId}/finance/reports/non-essential-spending`  _Lấy báo cáo chi tiêu không thiết yếu_
+- **GET** `/api/v1/families/{familyId}/finance/financial-goals`  _Lấy danh sách mục tiêu tài chính có thể xem_
+- **POST** `/api/v1/families/{familyId}/finance/financial-goals` ← CreateFinancialGoalDto  _Tạo mục tiêu tài chính gia đình_
+- **GET** `/api/v1/families/{familyId}/finance/financial-goals/{goalId}`  _Lấy chi tiết và tiến độ mục tiêu tài chính_
+- **PATCH** `/api/v1/families/{familyId}/finance/financial-goals/{goalId}` ← UpdateFinancialGoalDto  _Cập nhật mục tiêu tài chính gia đình_
+- **PATCH** `/api/v1/families/{familyId}/finance/financial-goals/{goalId}/cancel`  _Hủy mục tiêu tài chính gia đình_
+- **GET** `/api/v1/families/{familyId}/finance/financial-goals/{goalId}/progress`  _Lấy tiến độ tính toán của mục tiêu tài chính_
+- **GET** `/api/v1/families/{familyId}/finance/financial-goals/{goalId}/allocations`  _Lấy các giao dịch đã phân bổ vào mục tiêu_
+- **POST** `/api/v1/families/{familyId}/finance/financial-goals/{goalId}/allocations` ← CreateGoalAllocationDto  _Phân bổ một phần giao dịch vào mục tiêu tài chính_
+- **PATCH** `/api/v1/families/{familyId}/finance/goal-allocations/{allocationId}` ← UpdateGoalAllocationDto  _Cập nhật số tiền phân bổ vào mục tiêu_
+- **DELETE** `/api/v1/families/{familyId}/finance/goal-allocations/{allocationId}`  _Xóa phân bổ khỏi mục tiêu tài chính_
+- **GET** `/api/v1/families/{familyId}/finance/budget-plans`  _Lấy danh sách kế hoạch ngân sách của gia đình_
+- **POST** `/api/v1/families/{familyId}/finance/budget-plans` ← CreateBudgetPlanDto  _Tạo kế hoạch ngân sách ở trạng thái DRAFT_
+- **GET** `/api/v1/families/{familyId}/finance/budget-plans/{budgetPlanId}`  _Lấy chi tiết kế hoạch ngân sách_
+- **PATCH** `/api/v1/families/{familyId}/finance/budget-plans/{budgetPlanId}` ← UpdateBudgetPlanDto  _Cập nhật kế hoạch ngân sách đang ở trạng thái DRAFT_
+- **PATCH** `/api/v1/families/{familyId}/finance/budget-plans/{budgetPlanId}/activate`  _Kích hoạt kế hoạch ngân sách_
+- **PATCH** `/api/v1/families/{familyId}/finance/budget-plans/{budgetPlanId}/close`  _Đóng kế hoạch ngân sách đang hoạt động_
+- **PATCH** `/api/v1/families/{familyId}/finance/budget-plans/{budgetPlanId}/cancel`  _Hủy kế hoạch ngân sách DRAFT hoặc ACTIVE_
+- **GET** `/api/v1/families/{familyId}/finance/budget-plans/{budgetPlanId}/report`  _Lấy báo cáo planned-vs-actual của kế hoạch ngân sách_
+- **POST** `/api/v1/families/{familyId}/finance/budget-plans/{budgetPlanId}/lines` ← CreateBudgetLineDto  _Thêm dòng vào kế hoạch ngân sách DRAFT_
+- **PATCH** `/api/v1/families/{familyId}/finance/budget-lines/{budgetLineId}` ← UpdateBudgetLineDto  _Cập nhật dòng ngân sách thuộc kế hoạch DRAFT_
+- **DELETE** `/api/v1/families/{familyId}/finance/budget-lines/{budgetLineId}`  _Xóa dòng ngân sách thuộc kế hoạch DRAFT_
+- **GET** `/api/v1/families/{familyId}/finance/ledger/entries`  _Lấy danh sách giao dịch trong sổ tài chính chung_
+- **POST** `/api/v1/families/{familyId}/finance/ledger/entries` ← CreateLedgerEntryDto  _Tạo giao dịch nội bộ trong sổ tài chính chung của gia đình_
+- **GET** `/api/v1/families/{familyId}/finance/overview`  _Lấy tổng quan sổ tài chính chung và thông tin tháng của thành viên hiện tại_
+- **POST** `/api/v1/families/{familyId}/invitations` ← CreateInvitationDto  _Invite a member to a family (FAMILY_MANAGER only)_
+- **GET** `/api/v1/invitations/{token}`  _Look up an invitation by token (public)_
+- **POST** `/api/v1/invitations/{token}/accept`  _Accept an invitation (joins the family)_
+- **POST** `/api/v1/invitations/{token}/reject`  _Reject an invitation_
+- **POST** `/api/v1/admin/subscription-plans` ← CreateSubscriptionPlanDto  _Create a subscription plan (SYSTEM_ADMIN only)_
+- **GET** `/api/v1/admin/subscription-plans`  _List subscription plans (paginated, incl. inactive)_
+- **GET** `/api/v1/admin/subscription-plans/{id}`  _Get a subscription plan by id_
+- **PATCH** `/api/v1/admin/subscription-plans/{id}` ← UpdateSubscriptionPlanDto  _Update a subscription plan_
+- **DELETE** `/api/v1/admin/subscription-plans/{id}`  _Delete a subscription plan_
+- **GET** `/api/v1/subscription-plans`  _List active subscription plans (for subscribers)_
+- **GET** `/api/v1/admin/users`  _List users (paginated, SYSTEM_ADMIN only)_
+- **GET** `/api/v1/admin/users/{id}`  _Get a user by id_
+- **PATCH** `/api/v1/admin/users/{id}` ← AdminUpdateUserDto  _Update a user (status/type/profile)_
+- **DELETE** `/api/v1/admin/users/{id}`  _Delete a user_
+- **GET** `/api/v1/admin/families`  _List families (paginated, SYSTEM_ADMIN only)_
+- **GET** `/api/v1/admin/families/{id}`  _Get a family by id (with members)_
+- **PATCH** `/api/v1/admin/families/{id}` ← AdminUpdateFamilyDto  _Update a family_
+- **DELETE** `/api/v1/admin/families/{id}`  _Delete a family (cascades members + invitations)_
+- **GET** `/api/v1/admin/invitations`  _List invitations (paginated, SYSTEM_ADMIN only)_
+- **GET** `/api/v1/admin/invitations/{id}`  _Get an invitation by id_
+- **PATCH** `/api/v1/admin/invitations/{id}` ← AdminUpdateInvitationDto  _Update an invitation status_
+- **DELETE** `/api/v1/admin/invitations/{id}`  _Delete an invitation_
+- **GET** `/api/v1/admin/family-members`  _List family members (paginated, SYSTEM_ADMIN only)_
+- **GET** `/api/v1/admin/family-members/{id}`  _Get a family member by id_
+- **PATCH** `/api/v1/admin/family-members/{id}` ← AdminUpdateMemberDto  _Update a family member (role/relationship/status)_
+- **DELETE** `/api/v1/admin/family-members/{id}`  _Remove a family member_
+
+## DTO schemas
+
+- **RegisterDto**: email*:string, password*:string, fullName:string, phone:string, avatarUrl:string
+- **LoginDto**: email*:string, password*:string
+- **RefreshTokenDto**: refreshToken*:string
+- **LogoutDto**: refreshToken:string
+- **CreateFamilyDto**: name*:string, description:string, avatarUrl:string, relationship:enum(FATHER|MOTHER|SPOUSE|CHILD|SISTER|BROTHER|GRANDPARENT|OTHER)
+- **UpdateFamilyDto**: name:string, description:string, avatarUrl:string
+- **CreateMemberMonthlyFinanceDto**: periodMonth*:number, periodYear*:number, expectedIncome:object, actualIncome:object, expectedPersonalExpense:object, actualPersonalExpense:object, incomeVisibility:enum(PRIVATE|FAMILY), expenseVisibility:enum(PRIVATE|FAMILY), note:object
+- **UpdateMemberMonthlyFinanceDto**: periodMonth*:number, periodYear*:number, expectedIncome:object, actualIncome:object, expectedPersonalExpense:object, actualPersonalExpense:object, incomeVisibility:enum(PRIVATE|FAMILY), expenseVisibility:enum(PRIVATE|FAMILY), note:object
+- **CreateFinanceModelDto**: modelType*:enum(FIVE_JARS|EIGHTY_TWENTY|CUSTOM), name*:string
+- **CreateFinanceJarDto**: financeModelId*:string, name*:string, jarCode*:string, allocationPercentage*:number, description:string, isActive:boolean
+- **UpdateFinanceJarDto**: name:string, jarCode:string, allocationPercentage:number, description:object, isActive:boolean
+- **CreateFinanceCategoryDto**: name*:string, categoryType*:enum(INCOME|EXPENSE), essentialType:enum(ESSENTIAL|NON_ESSENTIAL|NEUTRAL)
+- **CreateSpendingSupportRequestDto**: amount*:number, categoryId:string, purpose*:string
+- **ReviewSpendingSupportRequestDto**: decision*:enum(APPROVE|REJECT), decisionNote:string, occurredAt:string
+- **RecomputeBudgetAlertsDto**: budgetPlanId:string, goalId:string, periodStart:string, periodEnd:string, scope:enum(ALL|BUDGET|GOAL|NON_ESSENTIAL)
+- **ResolveBudgetAlertDto**: note:string
+- **CreateFinancialGoalDto**: goalName*:string, targetAmount*:number, deadline:string, monthlyContributionTarget:number, relatedJarId:string
+- **UpdateFinancialGoalDto**: goalName:string, targetAmount:number, deadline:object, monthlyContributionTarget:object, relatedJarId:object
+- **CreateGoalAllocationDto**: ledgerEntryId*:string, amount*:number
+- **UpdateGoalAllocationDto**: amount*:number
+- **CreateBudgetLineDto**: categoryId:string, jarId:string, plannedAmount*:number, thresholdAmount:number, thresholdPercent:number, essentialType:enum(ESSENTIAL|NON_ESSENTIAL|NEUTRAL), note:string
+- **CreateBudgetPlanDto**: planName*:string, periodType*:enum(MONTHLY|QUARTERLY|YEARLY), periodStart*:string, periodEnd*:string, expectedSharedIncome:number, expectedSharedExpense:number, lines:CreateBudgetLineDto[]
+- **UpdateBudgetPlanDto**: planName:string, periodType:enum(MONTHLY|QUARTERLY|YEARLY), periodStart:string, periodEnd:string, expectedSharedIncome:object, expectedSharedExpense:object
+- **UpdateBudgetLineDto**: categoryId:object, jarId:object, plannedAmount:number, thresholdAmount:object, thresholdPercent:object, essentialType:enum(ESSENTIAL|NON_ESSENTIAL|NEUTRAL), note:object
+- **CreateLedgerEntryDto**: entryType*:enum(INCOME|EXPENSE|CONTRIBUTION|ALLOWANCE|REWARD|SUPPORT|ADJUSTMENT), amount*:number, description*:string, note:string, entryDate*:string, categoryId:string, sourceType:string, sourceId:string
+- **CreateInvitationDto**: email*:string, invitedPhone:string, familyRole:enum(FAMILY_MANAGER|DEPUTY_MEMBER|FAMILY_MEMBER), relationship:enum(FATHER|MOTHER|SPOUSE|CHILD|SISTER|BROTHER|GRANDPARENT|OTHER)
+- **CreateSubscriptionPlanDto**: planCode*:enum(FREE|PLUS|PREMIUM), name*:string, annualPrice*:number, maxMembers*:number, storageLimit*:number, featureAccess:object, isActive:boolean
+- **UpdateSubscriptionPlanDto**: planCode:enum(FREE|PLUS|PREMIUM), name:string, annualPrice:number, maxMembers:number, storageLimit:number, featureAccess:object, isActive:boolean
+- **AdminUpdateUserDto**: accountStatus:enum(ACTIVE|INACTIVE|SUSPENDED), userType:enum(NORMAL_USER|SYSTEM_ADMIN), verificationStatus:enum(UNVERIFIED|VERIFIED), fullName:string, phone:string, avatarUrl:string
+- **AdminUpdateFamilyDto**: name:string, description:string, avatarUrl:string, status:enum(ACTIVE|PENDING|SUSPENDED|EXPIRED), activationStatus:enum(ACTIVE|PENDING|FAILED)
+- **AdminUpdateInvitationDto**: status*:enum(PENDING|ACCEPTED|EXPIRED|CANCELED)
+- **AdminUpdateMemberDto**: familyRole:enum(FAMILY_MANAGER|DEPUTY_MEMBER|FAMILY_MEMBER), relationship:enum(FATHER|MOTHER|SPOUSE|CHILD|SISTER|BROTHER|GRANDPARENT|OTHER), status:enum(ACTIVE|INACTIVE|REMOVED), displayName:string

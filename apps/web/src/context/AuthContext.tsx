@@ -12,7 +12,7 @@
  */
 
 import { createContext, useContext, useEffect, ReactNode } from 'react'
-import { useAuthStore, type AuthState } from '@/store/auth.store'
+import { useAuthStore, mapTeamUser, type AuthState } from '@/store/auth.store'
 import { api } from '@/lib/api'
 
 /**
@@ -44,8 +44,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Xác minh token và lấy thông tin người dùng từ server
     api.get('/auth/me')
       .then(({ data }) => {
-        store.setUser(data)
-        store.setAuth(data, token, localStorage.getItem('refreshToken') ?? '')
+        // `data` đã được api.ts bóc khỏi envelope → chính là user của API team.
+        const user = mapTeamUser(data)
+        store.setAuth(user, token, localStorage.getItem('refreshToken') ?? '')
       })
       .catch(() => {
         // Token không hợp lệ hoặc hết hạn: xóa auth, người dùng phải đăng nhập lại

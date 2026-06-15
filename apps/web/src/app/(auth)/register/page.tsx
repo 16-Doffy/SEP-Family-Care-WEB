@@ -11,7 +11,8 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import toast from 'react-hot-toast'
-import { api } from '@/lib/api'
+import { api, getApiErrorMessage } from '@/lib/api'
+import { mapTeamUser } from '@/store/auth.store'
 import { useAuth } from '@/context/AuthContext'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -49,15 +50,20 @@ function RegisterForm() {
 
   const onStep1 = async (data: Step1) => {
     if (inviteCode) {
+      // Luồng tham gia qua lời mời: đăng ký tài khoản rồi chấp nhận lời mời theo token.
       setLoading(true)
       try {
-        const { data: res } = await api.post('/auth/register', { ...data, inviteCode })
-        setAuth({ ...res.user, familyMember: res.user.familyMember }, res.accessToken, res.refreshToken)
+        const { data: res } = await api.post('/auth/register', {
+          email: data.email,
+          password: data.password,
+          fullName: data.displayName,
+        })
+        setAuth(mapTeamUser(res.user), res.accessToken, res.refreshToken)
+        await api.post(`/invitations/${inviteCode}/accept`)
         toast.success('Chào mừng đến với gia đình! 🎉')
         router.push('/dashboard')
       } catch (err: unknown) {
-        const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? 'Đăng ký thất bại'
-        toast.error(msg)
+        toast.error(getApiErrorMessage(err, 'Đăng ký thất bại'))
       } finally {
         setLoading(false)
       }
@@ -71,18 +77,20 @@ function RegisterForm() {
     if (!step1Data) return
     setLoading(true)
     try {
+      // 1) Đăng ký tài khoản (mặc định vai trò FAMILY_MANAGER).
       const { data: res } = await api.post('/auth/register', {
-        ...step1Data,
-        familyName: data.familyName,
-        role: 'PARENT',
+        email: step1Data.email,
+        password: step1Data.password,
+        fullName: step1Data.displayName,
       })
-      setAuth({ ...res.user, familyMember: res.user.familyMember }, res.accessToken, res.refreshToken)
+      setAuth(mapTeamUser(res.user), res.accessToken, res.refreshToken)
+      // 2) Tạo gia đình — người tạo trở thành MANAGER.
+      await api.post('/families', { name: data.familyName })
       toast.success('Đã tạo gia đình! Bước tiếp theo: chọn gói sử dụng 🎉')
       // Onboarding bước 2 → chuyển qua chọn gói trước khi vào app chính
       router.push('/onboarding')
     } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? 'Đăng ký thất bại'
-      toast.error(msg)
+      toast.error(getApiErrorMessage(err, 'Đăng ký thất bại'))
     } finally {
       setLoading(false)
     }

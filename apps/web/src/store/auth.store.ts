@@ -19,8 +19,10 @@ interface User {
   email: string
   displayName: string
   avatarUrl?: string | null
-  /** Vai trò trong hệ thống, ví dụ: `'USER'`, `'SUPER_ADMIN'` */
+  /** Vai trò trong hệ thống. Map từ `userType` của API team: `NORMAL_USER` | `SYSTEM_ADMIN`. */
   role: string
+  /** Số điện thoại (API team) */
+  phone?: string | null
   /** Thông tin thành viên gia đình; `null` nếu chưa tham gia gia đình nào */
   familyMember?: {
     id: string
@@ -32,6 +34,37 @@ interface User {
     isOwner?: boolean | null
     family?: { id: string; name: string; plan: string }
   } | null
+}
+
+/**
+ * Shape user trả về từ API team (`/auth/me`, `/auth/login`...).
+ * Khác với `User` nội bộ ở tên trường (`fullName`, `userType`).
+ */
+export interface TeamUser {
+  id: string
+  email: string
+  fullName: string
+  phone?: string | null
+  avatarUrl?: string | null
+  userType: string
+  accountStatus?: string
+  verificationStatus?: string
+}
+
+/**
+ * Chuyển user của API team về shape `User` nội bộ mà toàn bộ UI đang dùng.
+ * `familyMember` được lấy riêng qua `/families/my` nên ở đây để `null`.
+ */
+export function mapTeamUser(u: TeamUser): User {
+  return {
+    id: u.id,
+    email: u.email,
+    displayName: u.fullName,
+    avatarUrl: u.avatarUrl ?? null,
+    role: u.userType,
+    phone: u.phone ?? null,
+    familyMember: null,
+  }
 }
 
 /**

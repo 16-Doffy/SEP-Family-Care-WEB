@@ -10,8 +10,17 @@ import { Topbar } from '@/components/layout/Topbar'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
-import { formatCurrency, getFamilyRoleLabel, getInitials } from '@/lib/utils'
+import { formatCurrency, getInitials } from '@/lib/utils'
 import { Wallet, CheckSquare, Users, TrendingUp } from 'lucide-react'
+import { useActiveFamily } from '@/hooks/useFamily'
+import { useFinanceOverview } from '@/hooks/useTeamFinance'
+
+/** Nhãn vai trò thành viên theo enum của API team. */
+const FAMILY_ROLE_LABEL: Record<string, string> = {
+  FAMILY_MANAGER: 'Family Manager',
+  DEPUTY_MEMBER: 'Deputy Member',
+  FAMILY_MEMBER: 'Family Member',
+}
 
 /**
  * Trang Dashboard — điểm đến đầu tiên sau khi đăng nhập.
@@ -20,32 +29,20 @@ import { Wallet, CheckSquare, Users, TrendingUp } from 'lucide-react'
  */
 export default function DashboardPage() {
   const { user } = useAuth()
-  const isParent = user?.role === 'PARENT' || user?.role === 'SUPER_ADMIN'
+  const { family, familyId } = useActiveFamily()
+  const myRole = family?.members?.find((m) => m.userId === user?.id)?.familyRole
+  const isParent = myRole === 'FAMILY_MANAGER' || myRole === 'DEPUTY_MEMBER' || user?.role === 'SYSTEM_ADMIN'
 
-  // Load family details including the existing wallet data shown as internal ledger records.
-  const { data: family } = useQuery({
-    queryKey: ['family'],
-    queryFn: () => api.get('/family').then((r) => r.data),
-    enabled: !!user?.familyMember,
-  })
+  // Số dư sổ tài chính chung (API team).
+  const { data: overview } = useFinanceOverview(familyId)
 
-  // Lấy danh sách nhiệm vụ để tính số liệu tóm tắt
+  // Nhiệm vụ chưa có trên API team → query bị vô hiệu hóa, hiển thị rỗng.
   const { data: tasksData } = useQuery({
     queryKey: ['tasks-summary'],
     queryFn: () => api.get('/tasks').then((r) => r.data),
-    enabled: !!user?.familyMember,
+    enabled: false,
   })
 
-  const { data: wallets = [] } = useQuery({
-    queryKey: ['wallets-summary'],
-    queryFn: () => api.get('/wallets').then((r) => r.data),
-    enabled: !!user?.familyMember,
-  })
-
-  // Existing JOINT wallet is presented as the family ledger in the web-first alignment.
-  const jointWallet = wallets.find((w: { type: string }) => w.type === 'JOINT') ?? family?.wallets?.find?.((w: { type: string }) => w.type === 'JOINT') ?? family?.wallets?.[0]
-  const personalWallet = wallets.find((w: { type: string }) => w.type === 'PERSONAL') ?? wallets[0]
-  const ledgerSummary = isParent ? jointWallet : personalWallet
   const members = family?.members ?? []
   const tasks = tasksData ?? []
   // Count submitted tasks waiting for manager/deputy review.
@@ -73,9 +70,9 @@ export default function DashboardPage() {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">{isParent ? 'Sổ quỹ gia đình' : 'Sổ ghi nhận cá nhân'}</p>
+                  <p className="text-sm text-muted-foreground">Số dư sổ chung</p>
                   <p className="text-2xl font-bold text-blue-600">
-                    {ledgerSummary ? formatCurrency(Number(ledgerSummary.balance)) : '---'}
+                    {overview ? formatCurrency(Number(overview.balance)) : '---'}
                   </p>
                 </div>
                 <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
@@ -135,22 +132,25 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {members.map((member: { id: string; nickname?: string; isOwner?: boolean; user: { id: string; displayName: string; email: string; role: string; avatarUrl?: string } }) => (
-                <div key={member.id} className="flex items-center gap-3 p-3 rounded-lg border bg-white">
-                  <Avatar>
-                    <AvatarFallback className="bg-blue-100 text-blue-700">
-                      {getInitials(member.user.displayName)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm truncate">{member.user.displayName}</p>
-                    <p className="text-xs text-muted-foreground truncate">{member.user.email}</p>
+              {members.map((member) => {
+                const name = member.user?.fullName ?? member.displayName ?? 'Thành viên'
+                return (
+                  <div key={member.id} className="flex items-center gap-3 p-3 rounded-lg border bg-white">
+                    <Avatar>
+                      <AvatarFallback className="bg-blue-100 text-blue-700">
+                        {getInitials(name)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm truncate">{name}</p>
+                      <p className="text-xs text-muted-foreground truncate">{member.user?.email}</p>
+                    </div>
+                    <Badge variant={member.familyRole === 'FAMILY_MANAGER' ? 'default' : member.familyRole === 'DEPUTY_MEMBER' ? 'outline' : 'secondary'} className="text-xs">
+                      {FAMILY_ROLE_LABEL[member.familyRole] ?? 'Family Member'}
+                    </Badge>
                   </div>
-                  <Badge variant={member.isOwner ? 'default' : member.user.role === 'PARENT' ? 'outline' : 'secondary'} className="text-xs">
-                    {getFamilyRoleLabel(member)}
-                  </Badge>
-                </div>
-              ))}
+                )
+              })}
             </div>
           </CardContent>
         </Card>

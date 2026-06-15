@@ -10,12 +10,13 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import toast from 'react-hot-toast'
-import { api } from '@/lib/api'
+import { api, getApiErrorMessage } from '@/lib/api'
+import { mapTeamUser } from '@/store/auth.store'
 import { useAuth } from '@/context/AuthContext'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Loader2, Heart, Mail, Lock, Eye, EyeOff, Sparkles } from 'lucide-react'
+import { Loader2, Heart, Mail, Lock, Eye, EyeOff } from 'lucide-react'
 
 /** Schema Zod kiểm tra đầu vào form đăng nhập */
 const schema = z.object({
@@ -25,40 +26,30 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>
 
-const demoAccounts = [
-  { role: 'Family Manager', email: 'parent@demo.com', color: 'bg-blue-100 text-blue-700' },
-  { role: 'Con', email: 'minh@demo.com', color: 'bg-emerald-100 text-emerald-700' },
-]
-
 export default function LoginPage() {
   const router = useRouter()
   const { setAuth } = useAuth()
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
 
-  const { register, handleSubmit, setValue, formState: { errors } } = useForm<FormData>({
+  const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
   })
 
   const onSubmit = async (data: FormData) => {
     setLoading(true)
     try {
+      // Envelope đã được bóc ở api.ts → res = { user, accessToken, refreshToken }
       const { data: res } = await api.post('/auth/login', data)
-      setAuth(res.user, res.accessToken, res.refreshToken)
-      toast.success(`Chào mừng trở lại, ${res.user.displayName}!`)
-      router.push(res.user.role === 'SUPER_ADMIN' ? '/admin' : '/dashboard')
+      const user = mapTeamUser(res.user)
+      setAuth(user, res.accessToken, res.refreshToken)
+      toast.success(`Chào mừng trở lại, ${user.displayName}!`)
+      router.push(user.role === 'SYSTEM_ADMIN' ? '/admin' : '/dashboard')
     } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? 'Đăng nhập thất bại'
-      toast.error(msg)
+      toast.error(getApiErrorMessage(err, 'Đăng nhập thất bại'))
     } finally {
       setLoading(false)
     }
-  }
-
-  /** Điền nhanh tài khoản demo vào form (chỉ trong môi trường dev/demo) */
-  const fillDemo = (email: string) => {
-    setValue('email', email)
-    setValue('password', 'demo1234')
   }
 
   return (
@@ -131,30 +122,6 @@ export default function LoginPage() {
           Đăng nhập
         </Button>
       </form>
-
-      {/* Tài khoản demo */}
-      <div className="rounded-2xl border border-dashed border-blue-200 bg-blue-50/50 p-4 space-y-3">
-        <div className="flex items-center gap-2 text-sm font-medium text-blue-700">
-          <Sparkles className="w-4 h-4" />
-          Dùng thử nhanh với tài khoản demo
-        </div>
-        <div className="grid grid-cols-2 gap-2">
-          {demoAccounts.map((acc) => (
-            <button
-              key={acc.email}
-              type="button"
-              onClick={() => fillDemo(acc.email)}
-              className="text-left rounded-xl bg-white border border-blue-100 hover:border-blue-300 hover:shadow-sm p-3 transition-all"
-            >
-              <span className={`inline-block text-xs font-medium px-2 py-0.5 rounded-full ${acc.color}`}>
-                {acc.role}
-              </span>
-              <p className="text-xs text-slate-600 mt-1.5 truncate">{acc.email}</p>
-            </button>
-          ))}
-        </div>
-        <p className="text-xs text-slate-500">Mật khẩu: <span className="font-mono text-slate-700">demo1234</span></p>
-      </div>
 
       <p className="text-center text-sm text-slate-600">
         Chưa có tài khoản?{' '}
