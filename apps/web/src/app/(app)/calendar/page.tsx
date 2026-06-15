@@ -176,7 +176,7 @@ export default function CalendarPage() {
               <Button variant="outline" size="icon" onClick={prevMonth}><ChevronLeft className="w-4 h-4" /></Button>
               <div>
                 <h2 className="text-xl font-semibold min-w-48 text-center">{formatMonth(currentDate)}</h2>
-                <p className="text-xs text-muted-foreground text-center">{isParent ? 'Phụ huynh tạo và xóa sự kiện' : 'Bạn chỉ xem lịch và nhận nhắc nhở'}</p>
+                <p className="text-xs text-muted-foreground text-center">{isParent ? 'Family Manager/Deputy tạo và xóa sự kiện' : 'Bạn chỉ xem lịch và nhận nhắc nhở'}</p>
               </div>
               <Button variant="outline" size="icon" onClick={nextMonth}><ChevronRight className="w-4 h-4" /></Button>
               <Button variant="ghost" size="sm" onClick={() => setCurrentDate(new Date())} className="text-blue-600">Hôm nay</Button>

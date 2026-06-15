@@ -33,7 +33,7 @@ interface HistoryResponse {
 
 /** Gợi ý câu hỏi nhanh hiển thị khi chưa có tin nhắn nào */
 const SUGGESTIONS = [
-  'Số dư ví của tôi là bao nhiêu?',
+  'Sổ quỹ của tôi đang ghi nhận bao nhiêu?',
   'Tôi có bao nhiêu nhiệm vụ chưa làm?',
   'Có sự kiện gì sắp tới không?',
   'Cho tôi vài mẹo tiết kiệm cho gia đình',

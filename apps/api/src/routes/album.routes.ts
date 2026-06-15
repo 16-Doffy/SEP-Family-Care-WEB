@@ -2,11 +2,11 @@
  * @module album.routes
  * Routes cho album gia đình: upload media, xem ảnh, category setup và xác nhận AI tag.
  */
-import { Router } from 'express'
+import { Router, type Router as ExpressRouter } from 'express'
 import * as ctrl from '../controllers/album.controller'
 import { authenticate, requireFamily, requireRole } from '../middleware/auth'
 
-const router = Router()
+const router: ExpressRouter = Router()
 router.use(authenticate, requireFamily)
 
 router.get('/stats', ctrl.getStats)

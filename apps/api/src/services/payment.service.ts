@@ -4,9 +4,8 @@
  *
  * Dịch vụ xử lý thanh toán cho ứng dụng Family Care.
  *
- * Hỗ trợ hai loại thanh toán:
+ * Hỗ trợ thanh toán:
  * - `SUBSCRIPTION`: Đăng ký / gia hạn gói thuê bao cho gia đình.
- * - `WALLET_TOPUP`: Nạp tiền vào ví trong ứng dụng.
  *
  * Chế độ hoạt động:
  * - **Mock mode** (mặc định): Khi `STRIPE_SECRET_KEY` chưa được cấu hình,
@@ -62,7 +61,6 @@ function nextExpiry(plan: { billingPeriod: string; durationDays: number | null }
  * Tạo một phiên thanh toán mới (checkout session).
  *
  * Với **SUBSCRIPTION**: lấy thông tin giá từ gói plan trong database.
- * Với **WALLET_TOPUP**: dùng số tiền do client gửi lên.
  *
  * Nếu đang ở mock mode, trả về `paymentId` để dùng cho `confirmMockPayment`.
  * Nếu đang ở Stripe mode (chưa implement), ném lỗi `BadRequest`.
@@ -70,10 +68,8 @@ function nextExpiry(plan: { billingPeriod: string; durationDays: number | null }
  * @param input - Thông tin tạo phiên thanh toán
  * @param input.userId - ID người dùng thực hiện thanh toán
  * @param input.familyId - ID gia đình liên quan
- * @param input.type - Loại thanh toán: `SUBSCRIPTION` hoặc `WALLET_TOPUP`
+ * @param input.type - Loại thanh toán: `SUBSCRIPTION`
  * @param input.planId - ID gói subscription (bắt buộc nếu type=SUBSCRIPTION)
- * @param input.amount - Số tiền nạp (bắt buộc nếu type=WALLET_TOPUP)
- * @param input.walletId - ID ví cần nạp (bắt buộc nếu type=WALLET_TOPUP)
  * @param input.description - Mô tả giao dịch (tùy chọn)
  * @returns Đối tượng chứa `paymentId`, `checkoutUrl` và `mode`
  * @throws BadRequest nếu thiếu tham số bắt buộc hoặc Stripe chưa tích hợp
@@ -82,13 +78,11 @@ function nextExpiry(plan: { billingPeriod: string; durationDays: number | null }
 export async function createCheckoutSession(input: {
   userId: string
   familyId: string
-  type: 'SUBSCRIPTION' | 'WALLET_TOPUP'
+  type: 'SUBSCRIPTION'
   planId?: string
-  amount?: number
-  walletId?: string
   description?: string
 }) {
-  let amount = input.amount ?? 0
+  let amount = 0
   let description = input.description ?? ''
 
   if (input.type === 'SUBSCRIPTION') {
@@ -105,10 +99,6 @@ export async function createCheckoutSession(input: {
           : plan.price,
     )
     description = `Đăng ký gói ${plan.name}`
-  } else if (input.type === 'WALLET_TOPUP') {
-    if (!input.amount || input.amount <= 0) throw Errors.BadRequest('amount must be positive')
-    if (!input.walletId) throw Errors.BadRequest('walletId is required for topup')
-    description = description || `Nạp ${input.amount.toLocaleString('vi-VN')} VND vào ví`
   }
 
   // Tạo bản ghi Payment trước, chưa SUCCEEDED — sẽ finalize sau khi thanh toán xong
@@ -116,14 +106,13 @@ export async function createCheckoutSession(input: {
     data: {
       familyId: input.familyId,
       userId: input.userId,
-      type: input.type,
+      type: 'SUBSCRIPTION',
       amount,
       status: 'PENDING',
       provider: MOCK_MODE ? 'MOCK' : 'STRIPE',
       planId: input.planId ?? null,
       description,
-      // Lưu walletId vào metadata JSON vì Payment không có cột walletId riêng
-      metadata: input.walletId ? { walletId: input.walletId } : undefined,
+      metadata: undefined,
     },
   })
 
@@ -175,7 +164,6 @@ export async function confirmMockPayment(paymentId: string, userId: string) {
  * Toàn bộ logic chạy trong một **database transaction** để đảm bảo tính nhất quán:
  * - Nếu là SUBSCRIPTION: cập nhật `planId`, `subscriptionStatus`, `subscriptionExpiresAt`
  *   của gia đình và gửi thông báo cho tất cả thành viên.
- * - Nếu là WALLET_TOPUP: cộng tiền vào ví, tạo bản ghi transaction, gửi thông báo.
  *
  * Thông báo được gửi bằng `setImmediate` bên ngoài transaction để:
  * 1. Không block transaction nếu gửi notification thất bại.
@@ -184,8 +172,6 @@ export async function confirmMockPayment(paymentId: string, userId: string) {
  * @param paymentId - ID payment cần finalize
  * @returns Bản ghi payment sau khi đã cập nhật
  * @throws NotFound nếu payment không tồn tại
- * @throws BadRequest nếu WALLET_TOPUP thiếu walletId trong metadata
- * @throws Forbidden nếu ví không thuộc gia đình của payment
  */
 export async function finalizePayment(paymentId: string) {
   return prisma.$transaction(async (tx) => {
@@ -271,40 +257,6 @@ export async function finalizePayment(paymentId: string) {
             metadata: { paymentId, planId: plan.id },
           }).catch(() => {}),
         )
-      })
-    } else if (payment.type === 'WALLET_TOPUP') {
-      // Đọc walletId từ metadata JSON (được lưu khi tạo payment)
-      const meta = (payment.metadata ?? {}) as { walletId?: string }
-      if (!meta.walletId) throw Errors.BadRequest('Topup payment missing walletId')
-
-      const wallet = await tx.wallet.findUniqueOrThrow({ where: { id: meta.walletId } })
-
-      // Kiểm tra ví thuộc đúng gia đình để tránh nạp nhầm ví
-      if (wallet.familyId !== payment.familyId) throw Errors.Forbidden()
-
-      // Tăng số dư ví và tạo bản ghi giao dịch để có lịch sử
-      await tx.wallet.update({
-        where: { id: wallet.id },
-        data: { balance: { increment: payment.amount } },
-      })
-      await tx.transaction.create({
-        data: {
-          toWalletId: wallet.id,
-          amount: payment.amount,
-          type: 'DEPOSIT',
-          description: payment.description ?? 'Nạp tiền qua thanh toán',
-        },
-      })
-
-      // Gửi thông báo nạp tiền thành công sau khi transaction commit
-      setImmediate(() => {
-        createNotification({
-          userId: payment.userId,
-          type: 'TRANSFER_RECEIVED',
-          title: '💰 Nạp tiền thành công',
-          body: `Đã nạp ${Number(payment.amount).toLocaleString('vi-VN')} ${payment.currency} vào ${wallet.name}`,
-          metadata: { paymentId, walletId: wallet.id },
-        }).catch(() => {})
       })
     }
 
@@ -429,7 +381,7 @@ export async function getRevenueStats() {
   const last12mStart = new Date(now.getFullYear(), now.getMonth() - 11, 1)
 
   // Thực hiện tất cả query song song để giảm thời gian phản hồi
-  const [totalRevenueRow, last30dRow, subRevenueRow, topupRevenueRow, activeSubs] = await Promise.all([
+  const [totalRevenueRow, last30dRow, subRevenueRow, activeSubs] = await Promise.all([
     prisma.payment.aggregate({
       where: { status: 'SUCCEEDED', type: 'SUBSCRIPTION' },
       _sum: { amount: true },
@@ -441,10 +393,6 @@ export async function getRevenueStats() {
     }),
     prisma.payment.aggregate({
       where: { status: 'SUCCEEDED', type: 'SUBSCRIPTION', createdAt: { gte: last30d } },
-      _sum: { amount: true },
-    }),
-    prisma.payment.aggregate({
-      where: { status: 'SUCCEEDED', type: 'WALLET_TOPUP', createdAt: { gte: last30d } },
       _sum: { amount: true },
     }),
     prisma.family.findMany({
@@ -485,7 +433,7 @@ export async function getRevenueStats() {
     last30dRevenue: Number(last30dRow._sum.amount ?? 0),
     last30dCount: last30dRow._count,
     last30dSubscriptionRevenue: Number(subRevenueRow._sum.amount ?? 0),
-    last30dTopupRevenue: Number(topupRevenueRow._sum.amount ?? 0),
+    last30dTopupRevenue: 0,
     mrr: Number(mrr),
     arr: Number(arr),
     activeSubscriptions: activeSubs.length,

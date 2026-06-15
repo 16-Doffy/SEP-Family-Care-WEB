@@ -18,11 +18,11 @@
  *   DELETE /families/members/:userId  — Xóa thành viên (PARENT / SUPER_ADMIN)
  */
 
-import { Router } from 'express'
+import { Router, type Router as ExpressRouter } from 'express'
 import * as ctrl from '../controllers/family.controller'
 import { authenticate, requireFamily, requireRole } from '../middleware/auth'
 
-const router = Router()
+const router: ExpressRouter = Router()
 
 // Áp dụng authenticate cho toàn bộ route trong module này
 router.use(authenticate)

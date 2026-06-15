@@ -18,7 +18,6 @@ import { prisma } from '../config/database'
 import { Errors } from '../utils/errors'
 import { TASK_TRANSITIONS } from '@family-care/shared'
 import type { TaskStatus } from '@family-care/shared'
-import { transfer } from './wallet.service'
 import { createNotification } from './notification.service'
 import { assertCanCreateTask } from './plan-limits.service'
 
@@ -271,32 +270,34 @@ export async function transitionTask(
   if (newStatus === 'APPROVED' && task.assignedTo?.userId) {
     // Chỉ thực hiện chuyển thưởng nếu task có gắn số tiền thưởng
     if (task.reward && Number(task.reward) > 0) {
-      // Tìm ví chung của gia đình (nguồn tiền thưởng)
-      const jointWallet = await prisma.wallet.findFirst({
-        where: { familyId, type: 'JOINT' },
+      await prisma.rewardSetting.upsert({
+        where: { taskId },
+        create: {
+          taskId,
+          rewardType: 'MONEY_RECORD',
+          amount: task.reward,
+          description: `Ghi nhan phan thuong: ${task.title}`,
+        },
+        update: {
+          rewardType: 'MONEY_RECORD',
+          amount: task.reward,
+        },
       })
-      // Tìm ví cá nhân của người được giao việc (ví đích nhận thưởng)
-      const personalWallet = await prisma.wallet.findFirst({
-        where: { ownerId: task.assignedToId ?? undefined },
+      await prisma.rewardSettlement.upsert({
+        where: { taskId_receiverId: { taskId, receiverId: task.assignedToId! } },
+        create: {
+          taskId,
+          receiverId: task.assignedToId!,
+          amount: task.reward,
+          rewardType: 'MONEY_RECORD',
+          status: 'PENDING_SETTLEMENT',
+          note: `Cho xu ly phan thuong ngoai he thong: ${task.title}`,
+        },
+        update: {
+          amount: task.reward,
+          status: 'PENDING_SETTLEMENT',
+        },
       })
-
-      if (jointWallet && personalWallet) {
-        try {
-          // Chuyển thưởng từ ví chung sang ví cá nhân
-          await transfer({
-            fromWalletId: jointWallet.id,
-            toWalletId: personalWallet.id,
-            amount: Number(task.reward),
-            description: `Thưởng task: ${task.title}`,
-            familyId,
-            type: 'TASK_REWARD',
-            taskId,
-          })
-        } catch {
-          // Nếu ví chung không đủ tiền (InsufficientFunds), vẫn duyệt task nhưng bỏ qua thưởng.
-          // Không ném lỗi lên để tránh rollback trạng thái task đã được phê duyệt.
-        }
-      }
     }
 
     // Gửi thông báo chúc mừng cho người được giao việc, kèm số tiền thưởng nếu có
@@ -305,7 +306,7 @@ export async function transitionTask(
       type: 'TASK_APPROVED',
       title: 'Nhiệm vụ được duyệt! 🎉',
       body: task.reward
-        ? `"${task.title}" được duyệt. Bạn nhận ${Number(task.reward).toLocaleString('vi-VN')}đ!`
+        ? `"${task.title}" da duoc duyet. Phan thuong ${Number(task.reward).toLocaleString('vi-VN')}d dang cho xu ly.`
         : `"${task.title}" đã được duyệt.`,
       metadata: { taskId, reward: task.reward },
     })

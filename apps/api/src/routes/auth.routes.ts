@@ -15,11 +15,11 @@
  * `Authorization: Bearer <token>` và gắn thông tin người dùng vào `req.user`.
  */
 
-import { Router } from 'express'
+import { Router, type Router as ExpressRouter } from 'express'
 import * as ctrl from '../controllers/auth.controller'
 import { authenticate } from '../middleware/auth'
 
-const router = Router()
+const router: ExpressRouter = Router()
 
 /** Đăng ký tài khoản mới (hoặc tham gia gia đình qua invite code) */
 router.post('/register', ctrl.register)

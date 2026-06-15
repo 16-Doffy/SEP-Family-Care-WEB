@@ -3,7 +3,7 @@
  * @description Tab "Tổng quan của tôi" cho FAMILY_MEMBER — chỉ hiển thị số
  * liệu của chính họ (thu, chi, dư, hạn mức), KHÔNG thấy của thành viên khác.
  *
- * Phụ huynh có FinanceOverview riêng (toàn gia đình).
+ * Family Manager/Deputy has FinanceOverview for the whole workspace.
  */
 'use client'
 
@@ -54,7 +54,7 @@ export function PersonalOverview({ summary, warnings, currentMemberId, personalW
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         <StatCard
-          label="Ví cá nhân của tôi"
+          label="Sổ ghi nhận cá nhân"
           value={formatCurrency(personalWalletBalance ?? 0)}
           hint={`Tháng ${summary.month}/${summary.year}`}
           icon={Wallet}

@@ -13,11 +13,11 @@
  *  DELETE /calendar/:id   - Xóa sự kiện
  */
 
-import { Router } from 'express'
+import { Router, type Router as ExpressRouter } from 'express'
 import * as ctrl from '../controllers/calendar.controller'
 import { authenticate, requireFamily, requireRole } from '../middleware/auth'
 
-const router = Router()
+const router: ExpressRouter = Router()
 
 // Áp dụng middleware xác thực và kiểm tra gia đình cho tất cả route trong module này
 router.use(authenticate, requireFamily)

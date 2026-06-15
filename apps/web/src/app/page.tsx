@@ -8,9 +8,9 @@ import { Wallet, CheckSquare, Bell, MapPin, Shield, Zap, Star, Check, ArrowRight
 
 /** Danh sách tính năng nổi bật hiển thị trong phần "Features" */
 const features = [
-  { icon: Wallet, title: 'Ví gia đình thông minh', desc: 'Quản lý tài chính gia đình, chuyển allowance cho con, theo dõi chi tiêu minh bạch.', color: 'bg-blue-100 text-blue-600' },
-  { icon: CheckSquare, title: 'Nhiệm vụ & Phần thưởng', desc: 'Giao việc cho con, gắn phần thưởng bằng tiền thật. Khuyến khích thói quen tốt.', color: 'bg-green-100 text-green-600' },
-  { icon: Bell, title: 'Thông báo realtime', desc: 'Nhận thông báo tức thì khi có nhiệm vụ mới, phê duyệt, chuyển tiền qua WebSocket.', color: 'bg-yellow-100 text-yellow-600' },
+  { icon: Wallet, title: 'Sổ quỹ gia đình', desc: 'Ghi nhận Family Fund Ledger nội bộ, lập kế hoạch ngân sách và theo dõi chi tiêu minh bạch.', color: 'bg-blue-100 text-blue-600' },
+  { icon: CheckSquare, title: 'Nhiệm vụ & Reward Settlement', desc: 'Giao việc, nộp bằng chứng và ghi nhận phần thưởng xử lý ngoài hệ thống.', color: 'bg-green-100 text-green-600' },
+  { icon: Bell, title: 'Thông báo realtime', desc: 'Nhận thông báo tức thì khi có nhiệm vụ, approval, SOS hoặc yêu cầu hỗ trợ chi tiêu.', color: 'bg-yellow-100 text-yellow-600' },
   { icon: MapPin, title: 'Theo dõi vị trí', desc: 'Biết con đang ở đâu, tạo vùng an toàn, nhận cảnh báo khi con ra khỏi vùng.', color: 'bg-purple-100 text-purple-600' },
   { icon: Shield, title: 'SOS khẩn cấp', desc: 'Nút SOS tức thì trên app và đồng hồ thông minh. Thông báo ngay đến toàn gia đình.', color: 'bg-red-100 text-red-600' },
   { icon: Zap, title: 'AI Assistant', desc: 'Hỏi AI về chi tiêu, thống kê nhiệm vụ, nhắc lịch và gợi ý tiết kiệm thông minh.', color: 'bg-orange-100 text-orange-600' },
@@ -21,15 +21,15 @@ const plans = [
   {
     name: 'Free',
     price: '0đ',
-    period: '/tháng',
-    features: ['5 thành viên', 'Ví gia đình', '10 nhiệm vụ/tháng', 'Chat nhóm'],
+    period: '/năm',
+    features: ['5 thành viên', 'Sổ quỹ nội bộ', '10 nhiệm vụ/tháng', 'Chat nhóm'],
     cta: 'Bắt đầu miễn phí',
     highlighted: false,
   },
   {
     name: 'Basic',
     price: '99.000đ',
-    period: '/tháng',
+    period: '/năm',
     features: ['10 thành viên', 'Tất cả tính năng Free', 'Theo dõi vị trí', 'SOS khẩn cấp', 'Lịch gia đình'],
     cta: 'Dùng thử 14 ngày',
     highlighted: true,
@@ -37,7 +37,7 @@ const plans = [
   {
     name: 'Premium',
     price: '199.000đ',
-    period: '/tháng',
+    period: '/năm',
     features: ['Không giới hạn thành viên', 'Tất cả tính năng Basic', 'AI Assistant', 'Wearable device', 'Album ảnh không giới hạn', 'Báo cáo nâng cao'],
     cta: 'Nâng cấp ngay',
     highlighted: false,

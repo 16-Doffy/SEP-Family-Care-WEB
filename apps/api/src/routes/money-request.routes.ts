@@ -18,11 +18,11 @@
  * Lưu ý: Route `/pending` phải đặt TRƯỚC `/:id` để tránh bị nhầm là tham số ID.
  */
 
-import { Router } from 'express'
+import { Router, type Router as ExpressRouter } from 'express'
 import * as ctrl from '../controllers/money-request.controller'
 import { authenticate, requireFamily, requireRole } from '../middleware/auth'
 
-const router = Router()
+const router: ExpressRouter = Router()
 
 // Áp dụng xác thực cơ bản cho toàn bộ module
 router.use(authenticate, requireFamily)

@@ -1,6 +1,6 @@
 /**
  * Trang tổng quan (Dashboard) của ứng dụng Family Care.
- * Hiển thị tóm tắt: số dư ví, nhiệm vụ, thành viên gia đình và nhiệm vụ gần đây.
+ * Hiển thị tóm tắt: sổ quỹ nội bộ, nhiệm vụ, thành viên gia đình và nhiệm vụ gần đây.
  */
 'use client'
 import { useQuery } from '@tanstack/react-query'
@@ -10,7 +10,7 @@ import { Topbar } from '@/components/layout/Topbar'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
-import { formatCurrency, getInitials } from '@/lib/utils'
+import { formatCurrency, getFamilyRoleLabel, getInitials } from '@/lib/utils'
 import { Wallet, CheckSquare, Users, TrendingUp } from 'lucide-react'
 
 /**
@@ -22,7 +22,7 @@ export default function DashboardPage() {
   const { user } = useAuth()
   const isParent = user?.role === 'PARENT' || user?.role === 'SUPER_ADMIN'
 
-  // Lấy thông tin gia đình bao gồm ví và danh sách thành viên
+  // Load family details including the existing wallet data shown as internal ledger records.
   const { data: family } = useQuery({
     queryKey: ['family'],
     queryFn: () => api.get('/family').then((r) => r.data),
@@ -42,20 +42,20 @@ export default function DashboardPage() {
     enabled: !!user?.familyMember,
   })
 
-  // Ví chung của gia đình thường là ví đầu tiên trong danh sách
+  // Existing JOINT wallet is presented as the family ledger in the web-first alignment.
   const jointWallet = wallets.find((w: { type: string }) => w.type === 'JOINT') ?? family?.wallets?.find?.((w: { type: string }) => w.type === 'JOINT') ?? family?.wallets?.[0]
   const personalWallet = wallets.find((w: { type: string }) => w.type === 'PERSONAL') ?? wallets[0]
-  const walletSummary = isParent ? jointWallet : personalWallet
+  const ledgerSummary = isParent ? jointWallet : personalWallet
   const members = family?.members ?? []
   const tasks = tasksData ?? []
-  // Đếm nhiệm vụ đang chờ phụ huynh duyệt
+  // Count submitted tasks waiting for manager/deputy review.
   const pendingApprovals = tasks.filter((t: { status: string }) => t.status === 'SUBMITTED').length
   // Đếm nhiệm vụ đang hoạt động (chưa làm hoặc đang làm)
   const activeTasks = tasks.filter((t: { status: string }) => ['PENDING', 'IN_PROGRESS'].includes(t.status)).length
 
   return (
     <div>
-      <Topbar title={isParent ? 'Tổng quan phụ huynh' : 'Tổng quan của tôi'} />
+      <Topbar title={isParent ? 'Family Manager Dashboard' : 'My Family Dashboard'} />
       <div className="p-6 space-y-6">
         {/* Welcome */}
         <div>
@@ -63,7 +63,7 @@ export default function DashboardPage() {
             Xin chào, {user?.displayName} 👋
           </h2>
           <p className="text-muted-foreground">
-            {isParent ? 'Quản lý hoạt động gia đình' : 'Theo dõi ví cá nhân, nhiệm vụ và thông báo của bạn'} · {family?.name ?? 'Đang tải...'}
+            {isParent ? 'Manage workspace activity, internal ledger records and approvals' : 'Track your tasks, support requests and family updates'} · {family?.name ?? 'Đang tải...'}
           </p>
         </div>
 
@@ -73,9 +73,9 @@ export default function DashboardPage() {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">{isParent ? 'Ví gia đình' : 'Ví cá nhân'}</p>
+                  <p className="text-sm text-muted-foreground">{isParent ? 'Sổ quỹ gia đình' : 'Sổ ghi nhận cá nhân'}</p>
                   <p className="text-2xl font-bold text-blue-600">
-                    {walletSummary ? formatCurrency(Number(walletSummary.balance)) : '---'}
+                    {ledgerSummary ? formatCurrency(Number(ledgerSummary.balance)) : '---'}
                   </p>
                 </div>
                 <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
@@ -135,7 +135,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {members.map((member: { id: string; nickname?: string; user: { id: string; displayName: string; email: string; role: string; avatarUrl?: string } }) => (
+              {members.map((member: { id: string; nickname?: string; isOwner?: boolean; user: { id: string; displayName: string; email: string; role: string; avatarUrl?: string } }) => (
                 <div key={member.id} className="flex items-center gap-3 p-3 rounded-lg border bg-white">
                   <Avatar>
                     <AvatarFallback className="bg-blue-100 text-blue-700">
@@ -146,8 +146,8 @@ export default function DashboardPage() {
                     <p className="font-medium text-sm truncate">{member.user.displayName}</p>
                     <p className="text-xs text-muted-foreground truncate">{member.user.email}</p>
                   </div>
-                  <Badge variant={member.user.role === 'PARENT' ? 'default' : 'secondary'} className="text-xs">
-                    {member.user.role === 'PARENT' ? 'Phụ huynh' : 'Con'}
+                  <Badge variant={member.isOwner ? 'default' : member.user.role === 'PARENT' ? 'outline' : 'secondary'} className="text-xs">
+                    {getFamilyRoleLabel(member)}
                   </Badge>
                 </div>
               ))}
@@ -174,7 +174,7 @@ export default function DashboardPage() {
                       )}
                     </div>
                     {task.reward && (
-                      <span className="text-xs font-medium text-green-600">+{formatCurrency(task.reward)}</span>
+                      <span className="text-xs font-medium text-green-600">Reward record: {formatCurrency(task.reward)}</span>
                     )}
                     <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
                       task.status === 'APPROVED' ? 'bg-green-100 text-green-700' :

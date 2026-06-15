@@ -10,7 +10,6 @@
 
 import { prisma } from '../config/database'
 import { Errors } from '../utils/errors'
-import { transfer } from './wallet.service'
 
 type MoneyRequestAccess = {
   role: string
@@ -133,31 +132,39 @@ export async function resolveMoneyRequest(input: {
   if (!request) throw Errors.NotFound('Yêu cầu không tồn tại hoặc đã được xử lý')
 
   if (input.status === 'APPROVED') {
-    // Tìm ví chung của gia đình để trừ tiền ra
-    const jointWallet = await prisma.wallet.findFirst({
-      where: { familyId: input.familyId, type: 'JOINT' },
+    const supportRequest = await prisma.spendingSupportRequest.create({
+      data: {
+        familyId: input.familyId,
+        requesterId: request.requesterId,
+        reviewedById: input.resolvedById,
+        amount: request.amount,
+        reason: request.reason,
+        status: 'APPROVED',
+        managerNote: input.note,
+        reviewedAt: new Date(),
+      },
     })
-    if (!jointWallet) throw Errors.NotFound('Ví chung')
 
-    const personalWallet = request.requester.wallet
-    if (!personalWallet) throw Errors.NotFound('Ví cá nhân của người yêu cầu')
-
-    // Chuyển về Number vì Prisma trả về Decimal cho trường tiền tệ
-    const balance = Number(jointWallet.balance)
-    const amount = Number(request.amount)
-    if (balance < amount) throw Errors.InsufficientFunds()
-
-    // Thực hiện chuyển khoản; hàm transfer xử lý ghi transaction log và cập nhật số dư
-    await transfer({
-      fromWalletId: jointWallet.id,
-      toWalletId: personalWallet.id,
-      amount,
-      description: `Duyệt yêu cầu: ${request.reason ?? 'Xin tiền'}`,
-      familyId: input.familyId,
-      type: 'MONEY_REQUEST_PAYOUT',
+    const ledger = await prisma.financeLedger.findFirst({
+      where: { familyId: input.familyId, type: 'FAMILY_SHARED', status: 'ACTIVE' },
+      orderBy: { createdAt: 'asc' },
     })
+
+    if (ledger) {
+      await prisma.ledgerEntry.create({
+        data: {
+          ledgerId: ledger.id,
+          recordedById: input.resolvedById,
+          supportRequestId: supportRequest.id,
+          type: 'SUPPORT',
+          amount: request.amount,
+          title: `Ho tro chi tieu: ${request.reason ?? 'Yeu cau ho tro'}`,
+          description: input.note,
+          sourceType: 'SUPPORT_REQUEST',
+        },
+      })
+    }
   }
-
   // Cập nhật trạng thái sau khi chuyển tiền thành công (hoặc khi từ chối)
   return prisma.moneyRequest.update({
     where: { id: input.id },

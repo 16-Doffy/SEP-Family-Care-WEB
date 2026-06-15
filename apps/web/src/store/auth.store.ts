@@ -29,6 +29,7 @@ interface User {
     relationship?: string | null
     birthDate?: string | null
     notes?: string | null
+    isOwner?: boolean | null
     family?: { id: string; name: string; plan: string }
   } | null
 }

@@ -66,9 +66,9 @@ function formatMb(mb: number | null): string {
 }
 
 function formatPrice(p: Plan): string {
-  const n = typeof p.price === 'string' ? Number(p.price) : p.price
+  const n = Number(p.priceYearly ?? p.price)
   if (n === 0) return 'Miễn phí'
-  return `${n.toLocaleString('vi-VN')} ${p.currency}`
+  return `${n.toLocaleString('vi-VN')} ${p.currency}/năm`
 }
 
 export default function OnboardingPage() {
@@ -219,7 +219,7 @@ export default function OnboardingPage() {
                           ? `Dùng thử ${p.durationDays ?? 14} ngày`
                           : p.billingPeriod === 'YEARLY'
                             ? 'Thanh toán theo năm'
-                            : `Thanh toán mỗi ${p.durationDays ?? 30} ngày`}
+                            : 'Paid plans trong MVP thanh toán theo năm'}
                       </p>
                     </div>
 

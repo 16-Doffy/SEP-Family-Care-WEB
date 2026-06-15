@@ -18,7 +18,7 @@ type NavItem = {
 
 const parentItems: NavItem[] = [
   { href: '/dashboard', label: 'Tổng quan', icon: Home },
-  { href: '/wallet', label: 'Ví gia đình', icon: Wallet },
+  { href: '/wallet', label: 'Sổ quỹ gia đình', icon: Wallet },
   { href: '/tasks', label: 'Quản lý nhiệm vụ', icon: CheckSquare },
   { href: '/chat', label: 'Trò chuyện', icon: MessageSquare },
   { href: '/ai-chat', label: 'Trợ lý AI', icon: Sparkles },
@@ -34,7 +34,7 @@ const parentItems: NavItem[] = [
 // Family Member: thành viên trong gia đình (con, ông bà, anh chị em, người thân).
 const familyMemberItems: NavItem[] = [
   { href: '/dashboard', label: 'Tổng quan', icon: Home },
-  { href: '/wallet', label: 'Ví cá nhân', icon: Wallet },
+  { href: '/wallet', label: 'Sổ ghi nhận cá nhân', icon: Wallet },
   { href: '/tasks', label: 'Nhiệm vụ của tôi', icon: CheckSquare },
   { href: '/chat', label: 'Trò chuyện', icon: MessageSquare },
   { href: '/ai-chat', label: 'Trợ lý AI', icon: Sparkles },
@@ -72,7 +72,7 @@ const roleTheme = {
     activeHover: 'hover:bg-blue-50 hover:text-blue-700',
     avatarBg: 'bg-blue-100 text-blue-700',
     badgeBg: 'bg-blue-100 text-blue-700',
-    badgeLabel: 'Phụ huynh',
+    badgeLabel: 'Deputy Member',
     BadgeIcon: Crown,
     sidebarBorder: 'border-blue-100',
   },
@@ -84,7 +84,7 @@ const roleTheme = {
     activeHover: 'hover:bg-emerald-50 hover:text-emerald-700',
     avatarBg: 'bg-emerald-100 text-emerald-700',
     badgeBg: 'bg-emerald-100 text-emerald-700',
-    badgeLabel: 'Thành viên',
+    badgeLabel: 'Family Member',
     BadgeIcon: UserRound,
     sidebarBorder: 'border-emerald-100',
   },

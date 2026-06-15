@@ -1,6 +1,7 @@
 /**
  * Trang quản lý nhiệm vụ gia đình theo dạng bảng Kanban.
- * Phụ huynh có thể tạo, giao và duyệt nhiệm vụ; con cái có thể bắt đầu và nộp bằng chứng.
+ * Family Manager/Deputy can create, assign and review tasks; members submit proof.
+ * Reward values are internal settlement records, not in-app money transfers.
  */
 'use client'
 import { useState } from 'react'
@@ -96,7 +97,7 @@ export default function TasksPage() {
     onError: (e: unknown) => toast.error((e as { response?: { data?: { error?: string } } })?.response?.data?.error ?? 'Thất bại'),
   })
 
-  // SUPER_ADMIN được coi là phụ huynh để có đầy đủ quyền quản lý nhiệm vụ
+  // SUPER_ADMIN is treated as a workspace manager for demo/admin flows.
   const isParent = user?.role === 'PARENT' || user?.role === 'SUPER_ADMIN'
   const pageTitle = isParent ? 'Quản lý nhiệm vụ' : 'Nhiệm vụ của tôi'
   const members = family?.members ?? []
@@ -111,7 +112,7 @@ export default function TasksPage() {
           <div>
             <h2 className="text-xl font-semibold">{isParent ? 'Bảng nhiệm vụ gia đình' : 'Việc được giao cho tôi'}</h2>
             <p className="text-sm text-muted-foreground">
-              {isParent ? 'Tạo việc, giao cho thành viên, duyệt bằng chứng và thưởng tiền.' : 'Bắt đầu việc được giao, nộp bằng chứng và theo dõi tiền thưởng.'}
+              {isParent ? 'Tạo việc, giao cho thành viên, duyệt bằng chứng và tạo ghi nhận reward settlement ngoài hệ thống.' : 'Bắt đầu việc được giao, nộp bằng chứng và theo dõi ghi nhận reward settlement.'}
             </p>
           </div>
           {isParent && tab === 'oneoff' && (
@@ -191,7 +192,7 @@ export default function TasksPage() {
                           <div className="flex items-center gap-2 mt-2 flex-wrap">
                             {task.reward && (
                               <span className="flex items-center gap-1 text-xs text-green-600 font-medium">
-                                <Trophy className="w-3 h-3" />{formatCurrency(task.reward)}
+                                <Trophy className="w-3 h-3" />Reward record {formatCurrency(task.reward)}
                               </span>
                             )}
                             {task.dueDate && (
@@ -224,7 +225,7 @@ export default function TasksPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Tạo nhiệm vụ mới</DialogTitle>
-            <DialogDescription>Phụ huynh tạo việc nhà, đặt thưởng và giao cho thành viên</DialogDescription>
+            <DialogDescription>Family Manager/Deputy tạo việc nhà, đặt reward settlement dự kiến và giao cho thành viên</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
@@ -237,7 +238,7 @@ export default function TasksPage() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
-                <Label>Phần thưởng (VND)</Label>
+                <Label>Reward settlement dự kiến (VND)</Label>
                 <Input type="number" placeholder="20000" value={form.reward} onChange={(e) => setForm({ ...form, reward: e.target.value })} />
               </div>
               <div className="space-y-2">
@@ -254,7 +255,7 @@ export default function TasksPage() {
                     .filter((m: { user: { role: string } }) => m.user.role !== 'SUPER_ADMIN')
                     .map((m: { id: string; user: { displayName: string; role: string } }) => (
                       <SelectItem key={m.id} value={m.id}>
-                        {m.user.displayName} ({m.user.role === 'PARENT' ? 'Chủ hộ' : 'Thành viên'})
+                        {m.user.displayName} ({m.user.role === 'PARENT' ? 'Deputy Member' : 'Family Member'})
                       </SelectItem>
                     ))}
                 </SelectContent>
@@ -282,7 +283,7 @@ export default function TasksPage() {
               <div className="space-y-4">
                 {detailTask.description && <p className="text-sm text-muted-foreground">{detailTask.description}</p>}
                 <div className="grid grid-cols-2 gap-3 text-sm">
-                  {detailTask.reward && <div><span className="text-muted-foreground">Phần thưởng:</span> <span className="font-medium text-green-600">{formatCurrency(detailTask.reward)}</span></div>}
+                  {detailTask.reward && <div><span className="text-muted-foreground">Reward settlement:</span> <span className="font-medium text-green-600">{formatCurrency(detailTask.reward)}</span></div>}
                   {detailTask.dueDate && <div><span className="text-muted-foreground">Hạn:</span> <span className="font-medium">{formatDate(detailTask.dueDate)}</span></div>}
                   {detailTask.assignedTo && <div><span className="text-muted-foreground">Giao cho:</span> <span className="font-medium">{detailTask.assignedTo.user.displayName}</span></div>}
                 </div>
@@ -317,7 +318,7 @@ export default function TasksPage() {
                   {isParent && detailTask.status === 'SUBMITTED' && (
                     <>
                       <Button onClick={() => actionMut.mutate({ id: detailTask.id, action: 'approve' })} disabled={actionMut.isPending} className="bg-green-600 hover:bg-green-700">
-                        <CheckCircle className="w-4 h-4 mr-2" />Duyệt
+                        <CheckCircle className="w-4 h-4 mr-2" />Duyệt, chờ settlement
                       </Button>
                       <Button variant="destructive" onClick={() => actionMut.mutate({ id: detailTask.id, action: 'reject' })} disabled={actionMut.isPending}>
                         <XCircle className="w-4 h-4 mr-2" />Từ chối

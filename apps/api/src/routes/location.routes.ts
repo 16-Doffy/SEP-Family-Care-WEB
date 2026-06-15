@@ -13,11 +13,11 @@
  * - POST   /location/update   - Cập nhật tọa độ GPS mới nhất
  */
 
-import { Router } from 'express'
+import { Router, type Router as ExpressRouter } from 'express'
 import * as ctrl from '../controllers/location.controller'
 import { authenticate, requireFamily } from '../middleware/auth'
 
-const router = Router()
+const router: ExpressRouter = Router()
 
 // Áp dụng middleware xác thực cho tất cả các route trong module này
 router.use(authenticate, requireFamily)

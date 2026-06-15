@@ -16,11 +16,11 @@
  *  PATCH  /conversations/:id/read           - Đánh dấu đã đọc
  */
 
-import { Router } from 'express'
+import { Router, type Router as ExpressRouter } from 'express'
 import * as ctrl from '../controllers/chat.controller'
 import { authenticate, requireFamily } from '../middleware/auth'
 
-const router = Router()
+const router: ExpressRouter = Router()
 
 // Áp dụng middleware xác thực và kiểm tra gia đình cho tất cả route trong module này
 router.use(authenticate, requireFamily)

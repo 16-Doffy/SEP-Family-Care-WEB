@@ -1,6 +1,6 @@
 /**
  * Trang quản lý gia đình: xem danh sách thành viên, mời người mới và nâng cấp gói.
- * Chỉ phụ huynh mới có thể tạo link mời và nâng cấp gói đăng ký.
+ * Only Family Manager/Deputy users can create invites and manage annual plan access.
  */
 'use client'
 import { useState } from 'react'
@@ -16,7 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
-import { getInitials } from '@/lib/utils'
+import { getFamilyRoleLabel, getInitials } from '@/lib/utils'
 import { UserPlus, Copy, Loader2, Crown, Trash2, Wallet, Save } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { UpgradePlanDialog } from '@/components/payment/UpgradePlanDialog'
@@ -65,7 +65,7 @@ export default function FamilyPage() {
   const { user } = useAuth()
   const qc = useQueryClient()
   const [inviteOpen, setInviteOpen] = useState(false)
-  // Code mời được trả về từ API sau khi phụ huynh nhấn "Tạo link mời"
+  // Invite code returned by the API after a manager/deputy creates a link.
   const [inviteCode, setInviteCode] = useState('')
   const [inviteRole, setInviteRole] = useState<'PARENT' | 'FAMILY_MEMBER'>('FAMILY_MEMBER')
   const [inviteRelationship, setInviteRelationship] = useState<FamilyRelationship>('CHILD')
@@ -115,7 +115,7 @@ export default function FamilyPage() {
 
   const isParent = user?.role === 'PARENT' || user?.role === 'SUPER_ADMIN'
   const members: FamilyMember[] = family?.members ?? []
-  const pageTitle = isParent ? 'Quản lý gia đình' : 'Thành viên gia đình'
+  const pageTitle = isParent ? 'Family Workspace Members' : 'Family Members'
 
   /**
    * Sao chép link mời vào clipboard.
@@ -136,7 +136,7 @@ export default function FamilyPage() {
             <h2 className="text-xl font-semibold">{family?.name ?? 'Gia đình của bạn'}</h2>
             <div className="flex items-center gap-2 mt-1">
               <p className="text-sm text-muted-foreground">
-                {isParent ? 'Quản lý thành viên, lời mời và gói sử dụng' : 'Xem thông tin các thành viên trong gia đình'} · Gói: {family?.subscriptionPlan?.name ?? family?.plan ?? 'FREE'}
+                {isParent ? 'Manage membership, delegated permissions and annual subscription access' : 'View family members and relationships'} · Plan: {family?.subscriptionPlan?.name ?? family?.plan ?? 'FREE'}
               </p>
               {family?.subscriptionExpiresAt && (
                 <span className="text-xs text-muted-foreground">
@@ -151,12 +151,12 @@ export default function FamilyPage() {
           <div className="flex gap-2">
             {isParent && (
               <Button variant="outline" onClick={() => setUpgradeOpen(true)} className="gap-2">
-                <Crown className="w-4 h-4 text-amber-500" />Nâng cấp gói
+                <Crown className="w-4 h-4 text-amber-500" />Upgrade annual plan
               </Button>
             )}
             {isParent && (
               <Button onClick={() => setInviteOpen(true)}>
-                <UserPlus className="w-4 h-4 mr-2" />Mời thành viên
+                <UserPlus className="w-4 h-4 mr-2" />Invite member
               </Button>
             )}
           </div>
@@ -194,10 +194,10 @@ export default function FamilyPage() {
                         Vai vế: {relationshipLabel(member.relationship)}
                       </Badge>
                       <Badge variant={member.user.role === 'PARENT' ? 'default' : 'secondary'}>
-                        Quyền: {member.user.role === 'PARENT' ? 'Phụ huynh' : 'Thành viên'}
+                        System role: {getFamilyRoleLabel(member)}
                       </Badge>
                       {member.isOwner && (
-                        <Badge variant="outline" className="text-xs">Chủ hộ</Badge>
+                        <Badge variant="outline" className="text-xs">Main manager</Badge>
                       )}
                       {member.user.id === user?.id && (
                         <Badge variant="outline" className="text-xs">Bạn</Badge>
@@ -221,8 +221,8 @@ export default function FamilyPage() {
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="PARENT">Chủ hộ / Phụ huynh</SelectItem>
-                              <SelectItem value="FAMILY_MEMBER">Thành viên</SelectItem>
+                              <SelectItem value="PARENT">Deputy Member</SelectItem>
+                              <SelectItem value="FAMILY_MEMBER">Family Member</SelectItem>
                             </SelectContent>
                           </Select>
                           <Button
@@ -337,22 +337,22 @@ export default function FamilyPage() {
       <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Mời thành viên mới</DialogTitle>
-            <DialogDescription>Tạo link mời và chia sẻ cho thành viên gia đình</DialogDescription>
+            <DialogTitle>Invite a family member</DialogTitle>
+            <DialogDescription>Create an invitation link with a delegated role and family relationship.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>Vai trò</Label>
+              <Label>System role</Label>
               <Select value={inviteRole} onValueChange={(v) => setInviteRole(v as 'PARENT' | 'FAMILY_MEMBER')}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="PARENT">Chủ hộ / Phụ huynh</SelectItem>
-                  <SelectItem value="FAMILY_MEMBER">Thành viên gia đình</SelectItem>
+                  <SelectItem value="PARENT">Deputy Member</SelectItem>
+                  <SelectItem value="FAMILY_MEMBER">Family Member</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Vai vế trong gia đình</Label>
+              <Label>Family relationship</Label>
               <Select value={inviteRelationship} onValueChange={(v) => setInviteRelationship(v as FamilyRelationship)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>

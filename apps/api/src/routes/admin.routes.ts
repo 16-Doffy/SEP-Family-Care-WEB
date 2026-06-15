@@ -30,13 +30,13 @@
  * - GET  /admin/revenue            - Báo cáo doanh thu từ các payment
  */
 
-import { Router } from 'express'
+import { Router, type Router as ExpressRouter } from 'express'
 import * as ctrl from '../controllers/admin.controller'
 import * as planCtrl from '../controllers/subscription-plan.controller'
 import * as paymentCtrl from '../controllers/payment.controller'
 import { authenticate, requireRole } from '../middleware/auth'
 
-const router = Router()
+const router: ExpressRouter = Router()
 
 // Áp dụng xác thực + kiểm tra quyền SUPER_ADMIN cho toàn bộ router admin
 router.use(authenticate, requireRole('SUPER_ADMIN'))

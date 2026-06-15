@@ -16,6 +16,36 @@ enum Role {
   FAMILY_MEMBER
 }
 
+enum UserType {
+  NORMAL_USER
+  SYSTEM_ADMIN
+}
+
+enum AccountStatus {
+  ACTIVE
+  LOCKED
+  SUSPENDED
+  DELETED
+}
+
+enum VerificationStatus {
+  UNVERIFIED
+  VERIFIED
+  PENDING
+}
+
+enum FamilyRole {
+  FAMILY_MANAGER
+  DEPUTY_MEMBER
+  FAMILY_MEMBER
+}
+
+enum MemberStatus {
+  ACTIVE
+  INACTIVE
+  REMOVED
+}
+
 enum FamilyRelationship {
   FATHER
   MOTHER
@@ -146,7 +176,198 @@ enum PaymentStatus {
 
 enum PaymentType {
   SUBSCRIPTION
-  WALLET_TOPUP
+}
+
+enum FinanceLedgerType {
+  FAMILY_SHARED
+  PERSONAL
+}
+
+enum FinanceLedgerStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum LedgerEntryType {
+  INCOME
+  EXPENSE
+  CONTRIBUTION
+  ALLOWANCE
+  REWARD
+  SUPPORT
+}
+
+enum LedgerEntryStatus {
+  ACTIVE
+  VOIDED
+}
+
+enum EssentialType {
+  ESSENTIAL
+  NON_ESSENTIAL
+  NA
+}
+
+enum FinanceEntrySourceType {
+  MANUAL
+  TASK_REWARD
+  SUPPORT_REQUEST
+  AI_OCR_SUGGESTION
+}
+
+enum FinanceModelType {
+  FIVE_JARS
+  EIGHTY_TWENTY
+  CUSTOM
+}
+
+enum FinanceModelStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum VisibilityScope {
+  FAMILY
+  MANAGER_ONLY
+  MEMBER_PRIVATE
+}
+
+enum FinanceCategoryType {
+  INCOME
+  EXPENSE
+}
+
+enum BudgetPeriodType {
+  MONTHLY
+  QUARTERLY
+  YEARLY
+}
+
+enum BudgetPlanStatus {
+  DRAFT
+  ACTIVE
+  CLOSED
+  ARCHIVED
+}
+
+enum FinancialGoalStatus {
+  ACTIVE
+  ACHIEVED
+  CANCELED
+  AT_RISK
+}
+
+enum SpendingSupportRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELED
+}
+
+enum BudgetAlertType {
+  OVER_BUDGET
+  GOAL_AT_RISK
+  NON_ESSENTIAL_TOO_HIGH
+}
+
+enum AlertSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum AlertStatus {
+  NEW
+  ACKNOWLEDGED
+  RESOLVED
+}
+
+enum TaskType {
+  AD_HOC
+  RECURRING
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum AssignmentStatus {
+  ASSIGNED
+  IN_PROGRESS
+  SUBMITTED
+  APPROVED
+  REJECTED
+  CANCELED
+}
+
+enum SubmissionStatus {
+  WAITING_REVIEW
+  APPROVED
+  REJECTED
+}
+
+enum ProofType {
+  IMAGE
+  VIDEO
+  NOTE
+  FILE
+}
+
+enum UnavailabilityStatus {
+  REPORTED
+  HANDLED
+  CANCELED
+}
+
+enum RewardType {
+  MONEY_RECORD
+  POINT
+  OTHER
+}
+
+enum RewardSettlementStatus {
+  PENDING_SETTLEMENT
+  WAITING_CONFIRMATION
+  SETTLED
+  DISPUTED
+  CANCELED
+}
+
+enum ExternalSettlementMethod {
+  CASH
+  BANK_TRANSFER
+  THIRD_PARTY_WALLET
+  OTHER
+}
+
+enum RewardDisputeStatus {
+  OPEN
+  RESOLVED
+  REJECTED
+}
+
+enum SosSettingResponseType {
+  VIEWED
+  CONFIRM_SAFE
+  NEED_HELP
+  RESOLVED
+  CANCELED
+}
+
+enum SensorEventType {
+  SOS_BUTTON_PRESSED
+  FALL_DETECTED
+  HARD_IMPACT
+  ABNORMAL_MOVEMENT
+}
+
+enum LocationSourceType {
+  MOBILE_GPS
+  WEARABLE_GPS
+  SIMULATED_GPS
 }
 
 enum DeviceType {
@@ -170,20 +391,135 @@ enum RouteSource {
   MOCK
 }
 
+// ─── ERD-completion enums (additive) ──────────────────────────────────────────
+
+enum MonthlyFinanceVisibility {
+  PRIVATE
+  SUMMARY_TO_MANAGER
+}
+
+enum TaskRepeatType {
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
+enum TaskScheduleStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum CalendarResponseStatus {
+  INVITED
+  ACCEPTED
+  DECLINED
+  MAYBE
+}
+
+enum CalendarEventStatus {
+  ACTIVE
+  CANCELED
+  DELETED
+}
+
+enum MediaType {
+  PHOTO
+  VIDEO
+}
+
+enum MediaModerationStatus {
+  PENDING
+  SAFE
+  FLAGGED
+}
+
+enum MediaCheckType {
+  SENSITIVE_CONTENT
+  FACE_GROUPING
+}
+
+enum MediaCheckResult {
+  SAFE
+  FLAGGED
+  NEED_REVIEW
+}
+
+enum SubscriptionPaymentType {
+  NEW_SUBSCRIPTION
+  UPGRADE
+  RENEWAL
+}
+
+enum ProvisioningActionType {
+  CREATE
+  ACTIVATE
+  RETRY
+  SUSPEND
+}
+
+enum NotificationPriority {
+  NORMAL
+  HIGH
+  CRITICAL
+}
+
+enum ConversationStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum ConversationParticipantStatus {
+  ACTIVE
+  LEFT
+  REMOVED
+}
+
+enum AiSenderType {
+  USER
+  AI
+}
+
+enum AiRelatedModule {
+  FINANCE
+  TASK
+  SOS
+  CALENDAR
+  GENERAL
+}
+
+enum WearableDeviceKind {
+  SMARTWATCH
+  GPS_TRACKER
+  BLE_DEVICE
+  SIMULATED_DEVICE
+}
+
+enum WearablePairingStatus {
+  PAIRED
+  UNPAIRED
+  LOST
+}
+
 // ─── Models ───────────────────────────────────────────────────────────────────
 
 model User {
   id           String   @id @default(cuid())
   email        String   @unique
+  phoneNumber  String?  @unique
   passwordHash String
   displayName  String
   avatarUrl    String?
   role         Role     @default(FAMILY_MEMBER)
+  userType     UserType @default(NORMAL_USER)
+  accountStatus AccountStatus @default(ACTIVE)
+  verificationStatus VerificationStatus @default(VERIFIED)
   isActive     Boolean  @default(true)
+  lastLoginAt  DateTime?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
   familyMember             FamilyMember?
+  createdFamilies          Family[]                  @relation("WorkspaceCreator")
   refreshTokens            RefreshToken[]
   passwordResetTokens      PasswordResetToken[]
   notifications            Notification[]
@@ -196,21 +532,30 @@ model User {
   aiConversation           AiConversation?
   ownedDevices             Device[]                  @relation("DeviceOwner")
   routePoints              DeviceRoutePoint[]
+  createdProvisioningLogs  WorkspaceProvisioningLog[] @relation("ProvisioningCreator")
 
   @@index([email])
 }
 
+// ERD `AuthSession` ≡ RefreshToken (enriched). Một phiên đăng nhập/refresh token.
 model RefreshToken {
-  id        String   @id @default(cuid())
-  token     String   @unique
-  userId    String
-  expiresAt DateTime
-  createdAt DateTime @default(now())
+  id         String    @id @default(cuid())
+  token      String    @unique
+  userId     String
+  // device_info / ip_address: bối cảnh phiên (mobile/browser/device).
+  deviceInfo Json?
+  ipAddress  String?
+  // is_revoked / revoked_at: thu hồi phiên trước khi hết hạn.
+  isRevoked  Boolean   @default(false)
+  expiresAt  DateTime
+  createdAt  DateTime  @default(now())
+  revokedAt  DateTime?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([token])
   @@index([userId])
+  @@index([isRevoked])
 }
 
 model PasswordResetToken {
@@ -230,9 +575,13 @@ model PasswordResetToken {
 model Family {
   id                    String             @id @default(cuid())
   name                  String
+  description           String?
+  avatarUrl             String?
+  createdByUserId       String?
   plan                  Plan               @default(FREE)
   planId                String?
   status                FamilyStatus       @default(ACTIVE)
+  activationStatus      FamilyProvisionStatus @default(READY)
   statusReason          String?
   lockedAt              DateTime?
   subscriptionStatus    SubscriptionStatus @default(ACTIVE)
@@ -246,10 +595,22 @@ model Family {
   createdAt             DateTime           @default(now())
   updatedAt             DateTime           @updatedAt
 
+  createdBy              User?                    @relation("WorkspaceCreator", fields: [createdByUserId], references: [id])
   subscriptionPlan       SubscriptionPlan?       @relation(fields: [planId], references: [id])
+  workspaceSubscriptions WorkspaceSubscription[]
+  subscriptionPayments   SubscriptionPayment[]
+  provisioningLogs       WorkspaceProvisioningLog[]
   members                FamilyMember[]
   wallets                Wallet[]
+  financeLedgers         FinanceLedger[]
+  financeModels          FinanceModel[]
+  financeCategories      FinanceCategory[]
+  budgetPlans            BudgetPlan[]
+  financialGoals         FinancialGoal[]
+  spendingSupportRequests SpendingSupportRequest[]
+  budgetAlerts           BudgetAlert[]
   tasks                  Task[]
+  taskCategories         TaskCategory[]
   conversations          Conversation[]
   events                 FamilyEvent[]
   sosAlerts              SosAlert[]
@@ -267,7 +628,16 @@ model Family {
   familyExpenses         FamilyExpense[]
   fundSnapshots          MonthlyFundSnapshot[]
   recurringTaskTemplates RecurringTaskTemplate[]
+  sosSetting             SOSSetting?
+  emergencyWearables     WearableDevice[]
+  memberLocationPoints   MemberLocationPoint[]
+  sosLocationPoints      SOSLocationPoint[]
+  sensorEvents           SensorEvent[]
+  sosResponses           SOSResponse[]
+  notifications          Notification[]
+  aiConversations        AiConversation[]
 
+  @@index([createdByUserId])
   @@index([planId])
   @@index([status])
   @@index([subscriptionStatus, subscriptionExpiresAt])
@@ -339,21 +709,94 @@ model SubscriptionPlan {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  families Family[]
+  families               Family[]
+  workspaceSubscriptions WorkspaceSubscription[]
+  subscriptionPayments   SubscriptionPayment[]
 
   @@index([isActive, sortOrder])
+}
+
+model WorkspaceSubscription {
+  id          String             @id @default(cuid())
+  familyId    String
+  planId      String
+  status      SubscriptionStatus @default(ACTIVE)
+  startedAt   DateTime          @default(now())
+  expiresAt   DateTime?
+  activatedAt DateTime?
+  canceledAt  DateTime?
+  metadata    Json?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  family   Family                @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  plan     SubscriptionPlan      @relation(fields: [planId], references: [id])
+  payments SubscriptionPayment[]
+
+  @@index([familyId, status])
+  @@index([planId])
+}
+
+model SubscriptionPayment {
+  id              String        @id @default(cuid())
+  familyId        String
+  subscriptionId  String?
+  planId          String?
+  paymentId       String?       @unique
+  amount          Decimal       @db.Decimal(15, 2)
+  currency        String        @default("VND")
+  status          PaymentStatus @default(PENDING)
+  paymentType     SubscriptionPaymentType @default(NEW_SUBSCRIPTION)
+  provider        String        @default("MOCK")
+  providerRef     String?
+  paidAt          DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  family       Family                 @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  subscription WorkspaceSubscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  plan         SubscriptionPlan?      @relation(fields: [planId], references: [id], onDelete: SetNull)
+  payment      Payment?               @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+
+  @@index([familyId, createdAt])
+  @@index([subscriptionId])
+  @@index([planId])
+}
+
+model WorkspaceProvisioningLog {
+  id              String                 @id @default(cuid())
+  familyId        String
+  actionType      ProvisioningActionType @default(CREATE)
+  status          FamilyProvisionStatus
+  message         String?
+  metadata        Json?
+  startedAt       DateTime?
+  finishedAt      DateTime?
+  createdByUserId String?
+  createdAt       DateTime               @default(now())
+
+  family    Family @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  createdBy User?  @relation("ProvisioningCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  @@index([familyId, createdAt])
+  @@index([status])
+  @@index([createdByUserId])
 }
 
 model FamilyMember {
   id           String             @id @default(cuid())
   userId       String             @unique
   familyId     String
+  displayName  String?
+  familyRole   FamilyRole         @default(FAMILY_MEMBER)
   nickname     String?
   relationship FamilyRelationship @default(OTHER)
+  memberStatus MemberStatus       @default(ACTIVE)
   birthDate    DateTime?
   notes        String?
   isOwner      Boolean            @default(false)
   joinedAt     DateTime           @default(now())
+  leftAt       DateTime?
 
   // Core flow 1 — quản lý tài chính cá nhân
   occupation             String?
@@ -365,6 +808,31 @@ model FamilyMember {
   user                      User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
   family                    Family                  @relation(fields: [familyId], references: [id], onDelete: Cascade)
   wallet                    Wallet?                 @relation("PersonalWallet")
+  financeLedgers            FinanceLedger[]
+  ledgerEntries             LedgerEntry[]           @relation("LedgerRecorder")
+  financeModelsCreated      FinanceModel[]          @relation("FinanceModelCreator")
+  goalsCreated              FinancialGoal[]         @relation("GoalCreator")
+  supportRequests           SpendingSupportRequest[] @relation("SupportRequester")
+  reviewedSupportRequests   SpendingSupportRequest[] @relation("SupportReviewer")
+  budgetPlansCreated        BudgetPlan[]            @relation("BudgetPlanCreator")
+  goalAllocations           GoalAllocation[]        @relation("GoalAllocationActor")
+  taskAssignments           TaskAssignment[]        @relation("TaskAssignedTo")
+  taskAssignmentsGiven      TaskAssignment[]        @relation("TaskAssignedBy")
+  taskSubmissions           TaskSubmission[]        @relation("TaskSubmittedBy")
+  taskReviews               TaskSubmission[]        @relation("TaskReviewedBy")
+  taskUnavailabilities      TaskUnavailability[]    @relation("TaskUnavailabilityReporter")
+  handledUnavailabilities   TaskUnavailability[]    @relation("TaskUnavailabilityHandler")
+  rewardSettlementsReceived RewardSettlement[]      @relation("RewardReceiver")
+  rewardSettlementsSettled  RewardSettlement[]      @relation("RewardSettler")
+  rewardAllocations         RewardAllocation[]      @relation("RewardAllocationActor")
+  rewardDisputesReported    RewardDispute[]         @relation("RewardDisputeReporter")
+  rewardDisputesResolved    RewardDispute[]         @relation("RewardDisputeResolver")
+  sosSettingsCreated        SOSSetting[]            @relation("SosSettingCreator")
+  emergencyWearables        WearableDevice[]
+  memberLocationPoints      MemberLocationPoint[]
+  sosAlertsTriggered        SosAlert[]              @relation("TriggeredSOSMember")
+  sosAlertsResolved         SosAlert[]              @relation("ResolvedSOSMember")
+  sosResponses              SOSResponse[]
   assignedTasks             Task[]                  @relation("AssignedTasks")
   createdTasks              Task[]                  @relation("CreatedTasks")
   originalAssignedTasks     Task[]                  @relation("OriginalAssignedTasks")
@@ -380,6 +848,13 @@ model FamilyMember {
   familyExpensePayments     FamilyExpense[]         @relation("ExpensePayer")
   recurringTemplatesDefault RecurringTaskTemplate[] @relation("RecurringDefaultAssignee")
   recurringTemplatesCreated RecurringTaskTemplate[] @relation("RecurringCreator")
+  monthlyFinances           MemberMonthlyFinance[]
+  notifications             Notification[]
+  conversationsCreated      Conversation[]          @relation("ConversationCreator")
+  calendarParticipations    CalendarEventParticipant[]
+  albumTagsReceived         AlbumMediaTag[]         @relation("AlbumTagSubject")
+  albumTagsGiven            AlbumMediaTag[]         @relation("AlbumTagAuthor")
+  aiConversations           AiConversation[]
 
   @@index([familyId])
 }
@@ -425,11 +900,324 @@ model Transaction {
   @@index([createdAt])
 }
 
+model FinanceLedger {
+  id            String              @id @default(cuid())
+  familyId      String
+  ownerMemberId String?
+  name          String
+  type          FinanceLedgerType   @default(FAMILY_SHARED)
+  status        FinanceLedgerStatus @default(ACTIVE)
+  currency      String              @default("VND")
+  openingAmount Decimal             @default(0) @db.Decimal(15, 2)
+  note          String?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  family      Family         @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  ownerMember FamilyMember?  @relation(fields: [ownerMemberId], references: [id], onDelete: SetNull)
+  entries     LedgerEntry[]
+  jars        FinanceJar[]
+  goals       FinancialGoal[]
+
+  @@index([familyId, type])
+  @@index([ownerMemberId])
+}
+
+model LedgerEntry {
+  id                String                 @id @default(cuid())
+  ledgerId          String
+  recordedById      String?
+  categoryId        String?
+  budgetLineId      String?
+  goalId            String?
+  jarId             String?
+  supportRequestId  String?
+  rewardSettlementId String?
+  type              LedgerEntryType
+  amount            Decimal                @db.Decimal(15, 2)
+  currency          String                 @default("VND")
+  title             String
+  description       String?
+  // entryDate ≡ ERD `occurred_at` (ngày phát sinh).
+  entryDate         DateTime               @default(now())
+  status            LedgerEntryStatus      @default(ACTIVE)
+  essentialType     EssentialType          @default(NA)
+  sourceType        FinanceEntrySourceType @default(MANUAL)
+  // source_id: liên kết polymorphic (support_request / reward_settlement / AI-OCR). Không FK cứng.
+  sourceId          String?
+  metadata          Json?
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+
+  ledger           FinanceLedger          @relation(fields: [ledgerId], references: [id], onDelete: Cascade)
+  recordedBy       FamilyMember?          @relation("LedgerRecorder", fields: [recordedById], references: [id], onDelete: SetNull)
+  category         FinanceCategory?       @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  budgetLine       BudgetLine?            @relation(fields: [budgetLineId], references: [id], onDelete: SetNull)
+  goal             FinancialGoal?         @relation(fields: [goalId], references: [id], onDelete: SetNull)
+  jar              FinanceJar?            @relation(fields: [jarId], references: [id], onDelete: SetNull)
+  supportRequest   SpendingSupportRequest? @relation(fields: [supportRequestId], references: [id], onDelete: SetNull)
+  rewardSettlement RewardSettlement?      @relation(fields: [rewardSettlementId], references: [id], onDelete: SetNull)
+  goalAllocations  GoalAllocation[]
+  rewardAllocations RewardAllocation[]
+
+  @@index([ledgerId, entryDate])
+  @@index([recordedById])
+  @@index([categoryId])
+  @@index([jarId])
+  @@index([supportRequestId])
+  @@index([rewardSettlementId])
+  @@index([sourceType, sourceId])
+}
+
+model FinanceModel {
+  id          String             @id @default(cuid())
+  familyId    String
+  createdById String?
+  name        String
+  type        FinanceModelType   @default(CUSTOM)
+  status      FinanceModelStatus @default(ACTIVE)
+  description String?
+  metadata    Json?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  family    Family          @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  createdBy FamilyMember?   @relation("FinanceModelCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  jars      FinanceJar[]
+
+  @@index([familyId, status])
+  @@index([createdById])
+}
+
+model FinanceJar {
+  id              String             @id @default(cuid())
+  modelId         String
+  ledgerId        String?
+  name            String
+  description     String?
+  // purpose: mô tả mục đích lọ/quỹ (vd: thiết yếu, tiết kiệm, giáo dục...).
+  purpose         String?
+  // allocationRatio ≡ ERD `allocation_percent` (0–100).
+  allocationRatio Decimal            @default(0) @db.Decimal(5, 2)
+  targetAmount    Decimal?           @db.Decimal(15, 2)
+  thresholdAmount Decimal?           @db.Decimal(15, 2)
+  thresholdPercent Decimal?          @db.Decimal(5, 2)
+  visibilityScope VisibilityScope    @default(FAMILY)
+  status          FinanceModelStatus @default(ACTIVE)
+  color           String             @default("#2563eb")
+  sortOrder       Int                @default(0)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  model             FinanceModel       @relation(fields: [modelId], references: [id], onDelete: Cascade)
+  ledger            FinanceLedger?     @relation(fields: [ledgerId], references: [id], onDelete: SetNull)
+  ledgerEntries     LedgerEntry[]
+  budgetLines       BudgetLine[]
+  defaultForCategories FinanceCategory[] @relation("CategoryDefaultJar")
+  relatedGoals      FinancialGoal[]    @relation("GoalRelatedJar")
+  budgetAlerts      BudgetAlert[]
+  rewardAllocations RewardAllocation[]
+
+  @@index([modelId, sortOrder])
+  @@index([ledgerId])
+  @@index([status])
+}
+
+model FinanceCategory {
+  id                  String              @id @default(cuid())
+  familyId            String
+  name                String
+  type                FinanceCategoryType
+  defaultJarId        String?
+  defaultEssentialType EssentialType?
+  status              FinanceModelStatus  @default(ACTIVE)
+  color               String              @default("#64748b")
+  icon                String?
+  isSystem            Boolean             @default(false)
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+
+  family          Family                   @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  defaultJar      FinanceJar?              @relation("CategoryDefaultJar", fields: [defaultJarId], references: [id], onDelete: SetNull)
+  entries         LedgerEntry[]
+  budgetLines     BudgetLine[]
+  supportRequests SpendingSupportRequest[]
+  budgetAlerts    BudgetAlert[]
+
+  @@unique([familyId, name, type])
+  @@index([familyId, type])
+  @@index([defaultJarId])
+}
+
+model BudgetPlan {
+  id          String           @id @default(cuid())
+  familyId    String
+  createdById String?
+  name        String
+  periodType  BudgetPeriodType @default(MONTHLY)
+  startDate   DateTime
+  endDate     DateTime?
+  expectedSharedIncome  Decimal? @db.Decimal(15, 2)
+  expectedSharedExpense Decimal? @db.Decimal(15, 2)
+  status      BudgetPlanStatus @default(ACTIVE)
+  notes       String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  family    Family        @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  createdBy FamilyMember? @relation("BudgetPlanCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  lines     BudgetLine[]
+  alerts    BudgetAlert[]
+
+  @@index([familyId, status])
+  @@index([createdById])
+}
+
+model BudgetLine {
+  id             String       @id @default(cuid())
+  budgetPlanId   String
+  categoryId     String?
+  jarId          String?
+  name           String
+  plannedAmount  Decimal      @db.Decimal(15, 2)
+  actualAmount   Decimal      @default(0) @db.Decimal(15, 2)
+  thresholdAmount Decimal?    @db.Decimal(15, 2)
+  thresholdPercent Decimal?   @db.Decimal(5, 2)
+  essentialType  EssentialType @default(NA)
+  note           String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  budgetPlan BudgetPlan       @relation(fields: [budgetPlanId], references: [id], onDelete: Cascade)
+  category   FinanceCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  jar        FinanceJar?      @relation(fields: [jarId], references: [id], onDelete: SetNull)
+  entries    LedgerEntry[]
+
+  @@index([budgetPlanId])
+  @@index([categoryId])
+  @@index([jarId])
+}
+
+model FinancialGoal {
+  id              String              @id @default(cuid())
+  familyId        String
+  ledgerId        String?
+  createdById     String?
+  title           String
+  description     String?
+  targetAmount    Decimal             @db.Decimal(15, 2)
+  currentAmount   Decimal             @default(0) @db.Decimal(15, 2)
+  monthlyContributionTarget Decimal?  @db.Decimal(15, 2)
+  relatedJarId    String?
+  // targetDate ≡ ERD `deadline`.
+  targetDate      DateTime?
+  status          FinancialGoalStatus @default(ACTIVE)
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  family      Family           @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  ledger      FinanceLedger?   @relation(fields: [ledgerId], references: [id], onDelete: SetNull)
+  relatedJar  FinanceJar?      @relation("GoalRelatedJar", fields: [relatedJarId], references: [id], onDelete: SetNull)
+  createdBy   FamilyMember?    @relation("GoalCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  allocations GoalAllocation[]
+  entries     LedgerEntry[]
+  alerts      BudgetAlert[]
+  rewardAllocations RewardAllocation[]
+
+  @@index([familyId, status])
+  @@index([ledgerId])
+  @@index([relatedJarId])
+  @@index([createdById])
+}
+
+model GoalAllocation {
+  id            String   @id @default(cuid())
+  goalId        String
+  actorId       String?
+  ledgerEntryId String?
+  amount        Decimal  @db.Decimal(15, 2)
+  note          String?
+  allocatedAt   DateTime @default(now())
+  createdAt     DateTime @default(now())
+
+  goal        FinancialGoal @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  actor       FamilyMember? @relation("GoalAllocationActor", fields: [actorId], references: [id], onDelete: SetNull)
+  ledgerEntry LedgerEntry?  @relation(fields: [ledgerEntryId], references: [id], onDelete: SetNull)
+
+  @@index([goalId, allocatedAt])
+  @@index([actorId])
+  @@index([ledgerEntryId])
+}
+
+model SpendingSupportRequest {
+  id           String                       @id @default(cuid())
+  familyId     String
+  requesterId  String
+  reviewedById String?
+  categoryId   String?
+  amount       Decimal                      @db.Decimal(15, 2)
+  // reason giữ nguyên; purpose ≡ ERD `purpose` (mục đích chi tiêu).
+  reason       String?
+  purpose      String?
+  status       SpendingSupportRequestStatus @default(PENDING)
+  // managerNote giữ nguyên; decisionNote ≡ ERD `decision_note`.
+  managerNote  String?
+  decisionNote String?
+  reviewedAt   DateTime?
+  createdAt    DateTime                     @default(now())
+  updatedAt    DateTime                     @updatedAt
+
+  family     Family           @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  requester  FamilyMember     @relation("SupportRequester", fields: [requesterId], references: [id])
+  reviewedBy FamilyMember?    @relation("SupportReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  category   FinanceCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  entries    LedgerEntry[]
+
+  @@index([familyId, status])
+  @@index([requesterId])
+  @@index([reviewedById])
+  @@index([categoryId])
+}
+
+model BudgetAlert {
+  id             String          @id @default(cuid())
+  familyId       String
+  budgetPlanId   String?
+  goalId         String?
+  jarId          String?
+  categoryId     String?
+  type           BudgetAlertType
+  severity       AlertSeverity   @default(MEDIUM)
+  status         AlertStatus     @default(NEW)
+  title          String
+  message        String?
+  thresholdValue Decimal?        @db.Decimal(15, 2)
+  actualValue    Decimal?        @db.Decimal(15, 2)
+  metadata       Json?
+  createdAt      DateTime        @default(now())
+  resolvedAt     DateTime?
+
+  family     Family           @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  budgetPlan BudgetPlan?      @relation(fields: [budgetPlanId], references: [id], onDelete: SetNull)
+  goal       FinancialGoal?   @relation(fields: [goalId], references: [id], onDelete: SetNull)
+  jar        FinanceJar?      @relation(fields: [jarId], references: [id], onDelete: SetNull)
+  category   FinanceCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  @@index([familyId, status])
+  @@index([budgetPlanId])
+  @@index([goalId])
+  @@index([jarId])
+  @@index([categoryId])
+}
+
 model Task {
   id           String     @id @default(cuid())
   familyId     String
+  categoryId   String?
   title        String
   description  String?
+  taskType     TaskType   @default(AD_HOC)
+  priority     TaskPriority @default(MEDIUM)
   status       TaskStatus @default(PENDING)
   reward       Decimal?   @db.Decimal(15, 2)
   dueDate      DateTime?
@@ -445,14 +1233,21 @@ model Task {
   originalAssigneeId String?
 
   family           Family                 @relation(fields: [familyId], references: [id])
+  category         TaskCategory?          @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   createdBy        FamilyMember           @relation("CreatedTasks", fields: [createdById], references: [id])
   assignedTo       FamilyMember?          @relation("AssignedTasks", fields: [assignedToId], references: [id])
   originalAssignee FamilyMember?          @relation("OriginalAssignedTasks", fields: [originalAssigneeId], references: [id])
   template         RecurringTaskTemplate? @relation(fields: [templateId], references: [id])
   proofs           TaskProof[]
   transactions     Transaction[]
+  assignments      TaskAssignment[]
+  submissions      TaskSubmission[]
+  rewardSetting    RewardSetting?
+  rewardSettlements RewardSettlement[]
+  schedule         TaskSchedule?
 
   @@index([familyId, status])
+  @@index([categoryId])
   @@index([assignedToId])
   @@index([templateId, scheduledDate])
 }
@@ -460,54 +1255,261 @@ model Task {
 model TaskProof {
   id          String   @id @default(cuid())
   taskId      String
+  submissionId String?
   submittedBy String
+  proofType   ProofType @default(IMAGE)
   imageUrl    String?
+  fileUrl     String?
+  thumbnailUrl String?
   note        String?
   createdAt   DateTime @default(now())
 
-  task      Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  submitter User @relation(fields: [submittedBy], references: [id])
+  task       Task            @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  submission TaskSubmission? @relation(fields: [submissionId], references: [id], onDelete: SetNull)
+  submitter  User            @relation(fields: [submittedBy], references: [id])
 
   @@index([taskId])
+  @@index([submissionId])
+}
+
+model TaskCategory {
+  id          String   @id @default(cuid())
+  familyId    String
+  name        String
+  description String?
+  color       String   @default("#2563eb")
+  icon        String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  family Family @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  tasks  Task[]
+
+  @@unique([familyId, name])
+  @@index([familyId, isActive])
+}
+
+model TaskAssignment {
+  id           String           @id @default(cuid())
+  taskId       String
+  assignedToId String
+  assignedById String?
+  status       AssignmentStatus @default(ASSIGNED)
+  assignedAt   DateTime         @default(now())
+  dueAt        DateTime?
+  startedAt    DateTime?
+  completedAt  DateTime?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  task       Task          @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  assignedTo FamilyMember  @relation("TaskAssignedTo", fields: [assignedToId], references: [id])
+  assignedBy FamilyMember? @relation("TaskAssignedBy", fields: [assignedById], references: [id], onDelete: SetNull)
+  submissions TaskSubmission[]
+  unavailabilities TaskUnavailability[]
+
+  @@unique([taskId, assignedToId])
+  @@index([assignedToId, status])
+  @@index([assignedById])
+}
+
+model TaskSubmission {
+  id           String           @id @default(cuid())
+  taskId       String
+  assignmentId String?
+  submittedById String
+  reviewedById String?
+  status       SubmissionStatus @default(WAITING_REVIEW)
+  note         String?
+  reviewNote   String?
+  submittedAt  DateTime         @default(now())
+  reviewedAt   DateTime?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  task        Task            @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  assignment  TaskAssignment? @relation(fields: [assignmentId], references: [id], onDelete: SetNull)
+  submittedBy FamilyMember    @relation("TaskSubmittedBy", fields: [submittedById], references: [id])
+  reviewedBy  FamilyMember?   @relation("TaskReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
+  proofs      TaskProof[]
+  rewardSettlement RewardSettlement?
+
+  @@index([taskId, status])
+  @@index([assignmentId])
+  @@index([submittedById])
+  @@index([reviewedById])
+}
+
+model TaskUnavailability {
+  id           String                 @id @default(cuid())
+  assignmentId String?
+  memberId     String
+  handledById  String?
+  reason       String?
+  status       UnavailabilityStatus   @default(REPORTED)
+  reportedAt   DateTime               @default(now())
+  handledAt    DateTime?
+  createdAt    DateTime               @default(now())
+  updatedAt    DateTime               @updatedAt
+
+  assignment TaskAssignment? @relation(fields: [assignmentId], references: [id], onDelete: SetNull)
+  member     FamilyMember    @relation("TaskUnavailabilityReporter", fields: [memberId], references: [id])
+  handledBy  FamilyMember?   @relation("TaskUnavailabilityHandler", fields: [handledById], references: [id], onDelete: SetNull)
+
+  @@index([assignmentId])
+  @@index([memberId, status])
+  @@index([handledById])
+}
+
+model RewardSetting {
+  id                   String     @id @default(cuid())
+  taskId               String     @unique
+  rewardType           RewardType @default(MONEY_RECORD)
+  amount               Decimal?   @db.Decimal(15, 2)
+  pointValue           Int?
+  description          String?
+  autoCreateSettlement Boolean    @default(true)
+  createdAt            DateTime   @default(now())
+  updatedAt            DateTime   @updatedAt
+
+  task        Task               @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  settlements RewardSettlement[]
+}
+
+model RewardSettlement {
+  id               String                 @id @default(cuid())
+  taskId           String?
+  taskSubmissionId String?                @unique
+  rewardSettingId  String?
+  receiverId       String
+  settledById      String?
+  amount           Decimal?               @db.Decimal(15, 2)
+  rewardType       RewardType             @default(MONEY_RECORD)
+  status           RewardSettlementStatus @default(PENDING_SETTLEMENT)
+  externalMethod   ExternalSettlementMethod?
+  note             String?
+  externalNote     String?
+  dueAt            DateTime?
+  settledAt        DateTime?
+  confirmedAt      DateTime?
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+
+  task          Task?           @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  taskSubmission TaskSubmission? @relation(fields: [taskSubmissionId], references: [id], onDelete: SetNull)
+  rewardSetting RewardSetting?  @relation(fields: [rewardSettingId], references: [id], onDelete: SetNull)
+  receiver      FamilyMember    @relation("RewardReceiver", fields: [receiverId], references: [id])
+  settledBy     FamilyMember?   @relation("RewardSettler", fields: [settledById], references: [id], onDelete: SetNull)
+  allocations   RewardAllocation[]
+  disputes      RewardDispute[]
+  ledgerEntries LedgerEntry[]
+
+  @@unique([taskId, receiverId])
+  @@index([taskId])
+  @@index([rewardSettingId])
+  @@index([receiverId, status])
+  @@index([settledById])
+}
+
+model RewardAllocation {
+  id            String   @id @default(cuid())
+  settlementId  String
+  actorId       String?
+  jarId         String?
+  goalId        String?
+  ledgerEntryId String?
+  amount        Decimal? @db.Decimal(15, 2)
+  points        Int?
+  note          String?
+  createdAt     DateTime @default(now())
+
+  settlement  RewardSettlement @relation(fields: [settlementId], references: [id], onDelete: Cascade)
+  actor       FamilyMember?    @relation("RewardAllocationActor", fields: [actorId], references: [id], onDelete: SetNull)
+  jar         FinanceJar?      @relation(fields: [jarId], references: [id], onDelete: SetNull)
+  goal        FinancialGoal?   @relation(fields: [goalId], references: [id], onDelete: SetNull)
+  ledgerEntry LedgerEntry?     @relation(fields: [ledgerEntryId], references: [id], onDelete: SetNull)
+
+  @@index([settlementId])
+  @@index([actorId])
+  @@index([jarId])
+  @@index([goalId])
+  @@index([ledgerEntryId])
+}
+
+model RewardDispute {
+  id            String              @id @default(cuid())
+  settlementId  String
+  reportedById  String
+  resolvedById  String?
+  status        RewardDisputeStatus @default(OPEN)
+  reason        String?
+  resolution    String?
+  createdAt     DateTime            @default(now())
+  resolvedAt    DateTime?
+
+  settlement RewardSettlement @relation(fields: [settlementId], references: [id], onDelete: Cascade)
+  reportedBy FamilyMember     @relation("RewardDisputeReporter", fields: [reportedById], references: [id])
+  resolvedBy FamilyMember?    @relation("RewardDisputeResolver", fields: [resolvedById], references: [id], onDelete: SetNull)
+
+  @@index([settlementId, status])
+  @@index([reportedById])
+  @@index([resolvedById])
 }
 
 model Notification {
-  id        String           @id @default(cuid())
-  userId    String
-  type      NotificationType
-  title     String
-  body      String
-  isRead    Boolean          @default(false)
-  metadata  Json?
-  createdAt DateTime         @default(now())
+  id         String               @id @default(cuid())
+  userId     String
+  familyId   String?
+  memberId   String?
+  type       NotificationType
+  title      String
+  body       String
+  // source_type / source_id: liên kết polymorphic tới task/reward/finance/sos... (không FK cứng).
+  sourceType String?
+  sourceId   String?
+  priority   NotificationPriority @default(NORMAL)
+  isRead     Boolean              @default(false)
+  metadata   Json?
+  createdAt  DateTime             @default(now())
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user   User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  family Family?       @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  member FamilyMember? @relation(fields: [memberId], references: [id], onDelete: SetNull)
 
   @@index([userId, isRead])
+  @@index([familyId])
+  @@index([memberId])
   @@index([createdAt])
 }
 
 model Conversation {
-  id        String           @id @default(cuid())
-  familyId  String
-  type      ConversationType @default(GROUP)
-  name      String?
-  createdAt DateTime         @default(now())
-  updatedAt DateTime         @updatedAt
+  id                String             @id @default(cuid())
+  familyId          String
+  createdByMemberId String?
+  type              ConversationType   @default(GROUP)
+  name              String?
+  status            ConversationStatus @default(ACTIVE)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
 
   family       Family                    @relation(fields: [familyId], references: [id])
+  createdBy    FamilyMember?             @relation("ConversationCreator", fields: [createdByMemberId], references: [id], onDelete: SetNull)
   participants ConversationParticipant[]
   messages     Message[]
 
   @@index([familyId])
+  @@index([createdByMemberId])
 }
 
 model ConversationParticipant {
-  id             String   @id @default(cuid())
-  conversationId String
-  userId         String
-  lastReadAt     DateTime @default(now())
-  joinedAt       DateTime @default(now())
+  id                String                        @id @default(cuid())
+  conversationId    String
+  userId            String
+  participantStatus ConversationParticipantStatus @default(ACTIVE)
+  lastReadAt        DateTime                      @default(now())
+  joinedAt          DateTime                      @default(now())
+  leftAt            DateTime?
 
   conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -525,29 +1527,36 @@ model Message {
   content        String
   metadata       Json?
   createdAt      DateTime    @default(now())
+  editedAt       DateTime?
+  deletedAt      DateTime?
 
-  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  sender       User         @relation(fields: [senderId], references: [id])
+  conversation Conversation        @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User                @relation(fields: [senderId], references: [id])
+  attachments  MessageAttachment[]
 
   @@index([conversationId, createdAt])
 }
 
 model FamilyEvent {
-  id           String    @id @default(cuid())
+  id           String              @id @default(cuid())
   familyId     String
   createdById  String
   title        String
   description  String?
+  location     String?
   startDate    DateTime
   endDate      DateTime?
-  allDay       Boolean   @default(false)
-  color        String    @default("#3b82f6")
-  reminderSent Boolean   @default(false)
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  allDay       Boolean             @default(false)
+  isRecurring  Boolean             @default(false)
+  status       CalendarEventStatus @default(ACTIVE)
+  color        String              @default("#3b82f6")
+  reminderSent Boolean             @default(false)
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
 
-  family    Family       @relation(fields: [familyId], references: [id])
-  createdBy FamilyMember @relation(fields: [createdById], references: [id])
+  family       Family                     @relation(fields: [familyId], references: [id])
+  createdBy    FamilyMember               @relation(fields: [createdById], references: [id])
+  participants CalendarEventParticipant[]
 
   @@index([familyId, startDate])
 }
@@ -556,28 +1565,195 @@ model SosAlert {
   id           String    @id @default(cuid())
   familyId     String
   senderId     String
+  triggeredByMemberId String?
   latitude     Float?
   longitude    Float?
   address      String?
   message      String?
+  severity     AlertSeverity @default(HIGH)
   source       RouteSource @default(MOBILE_APP)
   deviceId     String?
+  wearableDeviceId String?
   fallDetected Boolean @default(false)
   status       SosStatus @default(ACTIVE)
+  triggeredAt  DateTime @default(now())
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
   resolvedAt   DateTime?
   resolvedById String?
+  resolvedByMemberId String?
+  resolutionNote String?
 
-  family     Family @relation(fields: [familyId], references: [id])
-  sender     User   @relation("SentSOS", fields: [senderId], references: [id])
-  resolvedBy User?  @relation("ResolvedSOS", fields: [resolvedById], references: [id])
-  device     Device? @relation(fields: [deviceId], references: [id])
+  family           Family          @relation(fields: [familyId], references: [id])
+  sender           User            @relation("SentSOS", fields: [senderId], references: [id])
+  resolvedBy       User?           @relation("ResolvedSOS", fields: [resolvedById], references: [id])
+  triggeredByMember FamilyMember?  @relation("TriggeredSOSMember", fields: [triggeredByMemberId], references: [id], onDelete: SetNull)
+  resolvedByMember FamilyMember?   @relation("ResolvedSOSMember", fields: [resolvedByMemberId], references: [id], onDelete: SetNull)
+  device           Device?         @relation(fields: [deviceId], references: [id])
+  wearableDevice   WearableDevice? @relation(fields: [wearableDeviceId], references: [id], onDelete: SetNull)
+  locationPoints   SOSLocationPoint[]
+  responses        SOSResponse[]
+  sensorEvents     SensorEvent[]     @relation("SensorEventAlert")
+  createdBySensorEvents SensorEvent[] @relation("SensorCreatedAlert")
 
   @@index([familyId, status])
   @@index([senderId])
+  @@index([triggeredByMemberId])
   @@index([deviceId])
+  @@index([wearableDeviceId])
   @@index([createdAt])
+}
+
+model SOSSetting {
+  id                    String   @id @default(cuid())
+  familyId              String   @unique
+  createdById           String?
+  autoNotifyEnabled     Boolean  @default(true)
+  fallDetectionEnabled  Boolean  @default(true)
+  locationTrackingEnabled Boolean @default(true)
+  emergencyMessage      String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  family            Family             @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  createdBy         FamilyMember?      @relation("SosSettingCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  emergencyContacts EmergencyContact[]
+
+  @@index([createdById])
+}
+
+model EmergencyContact {
+  id          String   @id @default(cuid())
+  settingId   String
+  name        String
+  phoneNumber String?
+  email       String?
+  relationship FamilyRelationship @default(OTHER)
+  priority    Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  setting SOSSetting @relation(fields: [settingId], references: [id], onDelete: Cascade)
+
+  @@index([settingId, priority])
+}
+
+model WearableDevice {
+  id               String                @id @default(cuid())
+  familyId         String
+  memberId         String?
+  legacyDeviceId   String?               @unique
+  name             String
+  deviceCode       String                @unique
+  deviceType       WearableDeviceKind    @default(SMARTWATCH)
+  deviceIdentifier String?
+  status           DeviceStatus          @default(PAIRED)
+  pairingStatus    WearablePairingStatus @default(PAIRED)
+  gpsEnabled       Boolean               @default(true)
+  sosEnabled       Boolean               @default(true)
+  batteryLevel     Int?
+  lastSeenAt       DateTime?
+  metadata         Json?
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+
+  family         Family                @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  member         FamilyMember?         @relation(fields: [memberId], references: [id], onDelete: SetNull)
+  legacyDevice   Device?               @relation(fields: [legacyDeviceId], references: [id], onDelete: SetNull)
+  sosAlerts      SosAlert[]
+  sensorEvents   SensorEvent[]
+  locationPoints MemberLocationPoint[]
+  sosLocations   SOSLocationPoint[]
+
+  @@index([familyId, status])
+  @@index([memberId])
+}
+
+model SensorEvent {
+  id               String          @id @default(cuid())
+  familyId         String
+  wearableDeviceId String?
+  sosAlertId       String?
+  // created_sos_alert_id: cảnh báo SOS được TẠO RA từ sự kiện cảm biến này (khác với sosAlertId — alert nó thuộc về).
+  createdSosAlertId String?
+  type             SensorEventType
+  severity         AlertSeverity   @default(MEDIUM)
+  // value ≡ ERD `raw_value` (dữ liệu cảm biến thô).
+  value            Json?
+  occurredAt       DateTime        @default(now())
+  createdAt        DateTime        @default(now())
+
+  family         Family          @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  wearableDevice WearableDevice? @relation(fields: [wearableDeviceId], references: [id], onDelete: SetNull)
+  sosAlert       SosAlert?       @relation("SensorEventAlert", fields: [sosAlertId], references: [id], onDelete: SetNull)
+  createdSosAlert SosAlert?      @relation("SensorCreatedAlert", fields: [createdSosAlertId], references: [id], onDelete: SetNull)
+
+  @@index([familyId, occurredAt])
+  @@index([wearableDeviceId, occurredAt])
+  @@index([sosAlertId])
+  @@index([createdSosAlertId])
+}
+
+model MemberLocationPoint {
+  id               String             @id @default(cuid())
+  familyId         String
+  memberId         String?
+  wearableDeviceId String?
+  latitude         Float
+  longitude        Float
+  accuracy         Float?
+  source           LocationSourceType @default(MOBILE_GPS)
+  recordedAt       DateTime           @default(now())
+  createdAt        DateTime           @default(now())
+
+  family         Family          @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  member         FamilyMember?   @relation(fields: [memberId], references: [id], onDelete: SetNull)
+  wearableDevice WearableDevice? @relation(fields: [wearableDeviceId], references: [id], onDelete: SetNull)
+
+  @@index([familyId, recordedAt])
+  @@index([memberId, recordedAt])
+  @@index([wearableDeviceId, recordedAt])
+}
+
+model SOSLocationPoint {
+  id               String             @id @default(cuid())
+  familyId         String
+  sosAlertId       String
+  wearableDeviceId String?
+  latitude         Float
+  longitude        Float
+  accuracy         Float?
+  address          String?
+  source           LocationSourceType @default(MOBILE_GPS)
+  recordedAt       DateTime           @default(now())
+  createdAt        DateTime           @default(now())
+
+  family         Family          @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  sosAlert       SosAlert        @relation(fields: [sosAlertId], references: [id], onDelete: Cascade)
+  wearableDevice WearableDevice? @relation(fields: [wearableDeviceId], references: [id], onDelete: SetNull)
+
+  @@index([familyId, recordedAt])
+  @@index([sosAlertId, recordedAt])
+  @@index([wearableDeviceId])
+}
+
+model SOSResponse {
+  id          String                 @id @default(cuid())
+  familyId    String
+  sosAlertId  String
+  responderId String?
+  type        SosSettingResponseType
+  note        String?
+  createdAt   DateTime               @default(now())
+
+  family    Family        @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  sosAlert  SosAlert      @relation(fields: [sosAlertId], references: [id], onDelete: Cascade)
+  responder FamilyMember? @relation(fields: [responderId], references: [id], onDelete: SetNull)
+
+  @@index([familyId, createdAt])
+  @@index([sosAlertId])
+  @@index([responderId])
 }
 
 model MoneyRequest {
@@ -605,25 +1781,38 @@ model MoneyRequest {
 model AiConversation {
   id        String   @id @default(cuid())
   userId    String   @unique
+  familyId  String?
+  memberId  String?
+  title     String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user     User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  family   Family?       @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  member   FamilyMember? @relation(fields: [memberId], references: [id], onDelete: SetNull)
   messages AiMessage[]
+
+  @@index([familyId])
+  @@index([memberId])
 }
 
 model AiMessage {
-  id             String   @id @default(cuid())
-  conversationId String
-  role           String
-  content        String
-  tokensUsed     Int?
-  model          String?
-  createdAt      DateTime @default(now())
+  id                String           @id @default(cuid())
+  conversationId    String
+  role              String
+  senderType        AiSenderType?
+  content           String
+  relatedModule     AiRelatedModule?
+  // permission_context: snapshot quyền user tại thời điểm AI trả lời.
+  permissionContext Json?
+  tokensUsed        Int?
+  model             String?
+  createdAt         DateTime         @default(now())
 
   conversation AiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
   @@index([conversationId, createdAt])
+  @@index([relatedModule])
 }
 
 model LocationShare {
@@ -659,7 +1848,8 @@ model Payment {
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
 
-  family Family @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  family              Family               @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  subscriptionPayment SubscriptionPayment?
 
   @@index([familyId, createdAt])
   @@index([status, type])
@@ -667,12 +1857,16 @@ model Payment {
 }
 
 model AlbumPhoto {
-  id         String   @id @default(cuid())
-  familyId   String
-  uploaderId String
-  categoryId String?
-  imageUrl   String
-  caption    String?
+  id              String                @id @default(cuid())
+  familyId        String
+  uploaderId      String
+  categoryId      String?
+  mediaType       MediaType             @default(PHOTO)
+  imageUrl        String
+  thumbnailUrl    String?
+  caption         String?
+  visibilityScope VisibilityScope       @default(FAMILY)
+  moderationStatus MediaModerationStatus @default(SAFE)
   // Người dùng xác nhận ảnh có thể hiển thị trong album chung hay chưa.
   isShared   Boolean  @default(true)
   // Danh sách tag do AI gợi ý hoặc người dùng xác nhận, ví dụ: ["Dad", "Trip 2026"].
@@ -682,9 +1876,11 @@ model AlbumPhoto {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  family   Family         @relation(fields: [familyId], references: [id])
-  uploader FamilyMember   @relation(fields: [uploaderId], references: [id])
-  category AlbumCategory? @relation(fields: [categoryId], references: [id])
+  family           Family                @relation(fields: [familyId], references: [id])
+  uploader         FamilyMember          @relation(fields: [uploaderId], references: [id])
+  category         AlbumCategory?        @relation(fields: [categoryId], references: [id])
+  mediaTags        AlbumMediaTag[]
+  moderationChecks MediaModerationCheck[]
 
   @@index([familyId, createdAt])
   @@index([familyId, categoryId])
@@ -734,6 +1930,7 @@ model Device {
   owner       User?              @relation("DeviceOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
   routePoints DeviceRoutePoint[]
   sosAlerts   SosAlert[]
+  wearableDevice WearableDevice?
 
   @@index([familyId, status])
   @@index([ownerUserId])
@@ -921,4 +2118,116 @@ model RecurringTaskTemplate {
   instances       Task[]
 
   @@index([familyId, isActive])
+}
+
+// ─── ERD-completion models (additive) ─────────────────────────────────────────
+
+/// ERD `MemberMonthlyFinance` — khai báo tài chính cá nhân theo tháng của member
+/// (thu nhập/chi tiêu dự kiến + thực tế). Là monthly summary, KHÔNG phải personal
+/// ledger ghi từng giao dịch.
+model MemberMonthlyFinance {
+  id                     String                   @id @default(cuid())
+  memberId               String
+  periodMonth            Int
+  periodYear             Int
+  expectedIncome         Decimal?                 @db.Decimal(15, 2)
+  actualIncome           Decimal?                 @db.Decimal(15, 2)
+  expectedPersonalExpense Decimal?                @db.Decimal(15, 2)
+  actualPersonalExpense  Decimal?                 @db.Decimal(15, 2)
+  incomeVisibility       MonthlyFinanceVisibility @default(PRIVATE)
+  expenseVisibility      MonthlyFinanceVisibility @default(PRIVATE)
+  note                   String?
+  createdAt              DateTime                 @default(now())
+  updatedAt              DateTime                 @updatedAt
+
+  member FamilyMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([memberId, periodMonth, periodYear])
+  @@index([memberId])
+  @@index([periodYear, periodMonth])
+}
+
+/// ERD `TaskSchedule` — lịch lặp cho recurring task (bổ sung cạnh RecurringTaskTemplate).
+model TaskSchedule {
+  id             String             @id @default(cuid())
+  taskId         String             @unique
+  repeatType     TaskRepeatType     @default(WEEKLY)
+  repeatInterval Int                @default(1)
+  startDate      DateTime
+  endDate        DateTime?
+  dayOfWeek      Int?
+  status         TaskScheduleStatus @default(ACTIVE)
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+}
+
+/// ERD `MessageAttachment` — file đính kèm của một message.
+model MessageAttachment {
+  id         String   @id @default(cuid())
+  messageId  String
+  fileType   String
+  fileUrl    String
+  fileName   String?
+  fileSize   Int?
+  uploadedAt DateTime @default(now())
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@index([messageId])
+}
+
+/// ERD `CalendarEventParticipant` — thành viên được mời/tham gia một calendar event.
+model CalendarEventParticipant {
+  id              String                 @id @default(cuid())
+  eventId         String
+  memberId        String
+  responseStatus  CalendarResponseStatus @default(INVITED)
+  reminderEnabled Boolean                @default(true)
+  createdAt       DateTime               @default(now())
+
+  event  FamilyEvent  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  member FamilyMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, memberId])
+  @@index([eventId])
+  @@index([memberId])
+}
+
+/// ERD `AlbumMediaTag` — gắn thẻ thủ công thành viên trong một media.
+model AlbumMediaTag {
+  id              String   @id @default(cuid())
+  mediaId         String
+  taggedMemberId  String
+  taggedByMemberId String
+  tagNote         String?
+  createdAt       DateTime @default(now())
+
+  media        AlbumPhoto   @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+  taggedMember FamilyMember @relation("AlbumTagSubject", fields: [taggedMemberId], references: [id], onDelete: Cascade)
+  taggedBy     FamilyMember @relation("AlbumTagAuthor", fields: [taggedByMemberId], references: [id], onDelete: Cascade)
+
+  @@unique([mediaId, taggedMemberId])
+  @@index([mediaId])
+  @@index([taggedMemberId])
+  @@index([taggedByMemberId])
+}
+
+/// ERD `MediaModerationCheck` — kết quả kiểm duyệt media (sensitive content / face grouping).
+model MediaModerationCheck {
+  id              String           @id @default(cuid())
+  mediaId         String
+  checkType       MediaCheckType
+  resultStatus    MediaCheckResult
+  confidenceScore Decimal?         @db.Decimal(5, 4)
+  checkedAt       DateTime         @default(now())
+
+  media AlbumPhoto @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+
+  @@index([mediaId])
+  @@index([checkType])
+  @@index([resultStatus])
 }

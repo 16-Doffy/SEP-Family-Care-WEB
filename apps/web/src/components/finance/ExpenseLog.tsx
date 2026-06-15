@@ -5,11 +5,11 @@
  *  - Chi cá nhân (mọi member)
  *  - Chi chung gia đình (PARENT)
  *
- * Mỗi form có checkbox "Trừ vào ví" / "Cộng vào ví" → nếu bật sẽ tạo Transaction
- * thật và cập nhật balance. Nếu tắt, chỉ ghi sổ phục vụ thống kê.
+ * Mỗi form có checkbox cập nhật sổ ghi nhận nội bộ. Đây là ledger demo,
+ * không phải ví điện tử thật hoặc giao dịch thanh toán.
  *
  * Danh sách nhật ký phía dưới gộp 3 loại theo `occurredAt` và badge phân biệt
- * (có/không trừ ví).
+ * (có/không cập nhật ledger).
  */
 'use client'
 
@@ -115,7 +115,7 @@ function ActualIncomeForm({ defaultDate }: { defaultDate?: string }) {
             className="rounded"
           />
           <ArrowDownToLine className="w-3.5 h-3.5 text-green-600" />
-          Cộng vào ví cá nhân của tôi
+          Cập nhật sổ ghi nhận cá nhân của tôi
         </label>
         <Button
           className="w-full bg-green-600 hover:bg-green-700"
@@ -129,7 +129,7 @@ function ActualIncomeForm({ defaultDate }: { defaultDate?: string }) {
                 creditToWallet,
                 occurredAt: defaultDate,
               })
-              toast.success(creditToWallet ? 'Đã ghi thu & cộng vào ví' : 'Đã ghi thu nhập')
+              toast.success(creditToWallet ? 'Đã ghi thu & cập nhật sổ cá nhân' : 'Đã ghi thu nhập')
               setAmount('')
               setNote('')
             } catch (e) {
@@ -187,7 +187,7 @@ function PersonalExpenseForm({ defaultDate }: { defaultDate?: string }) {
             onChange={(e) => setDeductFromWallet(e.target.checked)}
             className="rounded"
           />
-          Trừ vào ví cá nhân của tôi
+          Cập nhật sổ ghi nhận cá nhân của tôi
         </label>
         <Button
           className="w-full"
@@ -201,7 +201,7 @@ function PersonalExpenseForm({ defaultDate }: { defaultDate?: string }) {
                 deductFromWallet,
                 occurredAt: defaultDate,
               })
-              toast.success(deductFromWallet ? 'Đã ghi chi & trừ ví' : 'Đã ghi chi tiêu')
+              toast.success(deductFromWallet ? 'Đã ghi chi & cập nhật sổ cá nhân' : 'Đã ghi chi tiêu')
               setAmount('')
               setNote('')
             } catch (e) {
@@ -259,7 +259,7 @@ function FamilyExpenseForm({ defaultDate }: { defaultDate?: string }) {
             onChange={(e) => setDeductFromWallet(e.target.checked)}
             className="rounded"
           />
-          Trừ vào ví chung gia đình
+          Cập nhật sổ quỹ gia đình
         </label>
         <Button
           className="w-full bg-amber-600 hover:bg-amber-700"
@@ -273,7 +273,7 @@ function FamilyExpenseForm({ defaultDate }: { defaultDate?: string }) {
                 deductFromWallet,
                 occurredAt: defaultDate,
               })
-              toast.success(deductFromWallet ? 'Đã ghi chi & trừ ví chung' : 'Đã ghi chi chung')
+              toast.success(deductFromWallet ? 'Đã ghi chi & cập nhật sổ quỹ gia đình' : 'Đã ghi chi chung')
               setAmount('')
               setNote('')
             } catch (e) {
@@ -368,7 +368,7 @@ function LedgerList({ from, to, monthLabel }: { from: string; to: string; monthL
                         {r.who && ` · ${r.who}`}
                         {r.walletFlag && (
                           <span className="ml-1 text-gray-700">
-                            · {isIncome ? '+Ví' : '-Ví'}
+                            · Ledger
                           </span>
                         )}
                       </p>

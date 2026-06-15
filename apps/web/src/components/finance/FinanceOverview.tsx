@@ -45,7 +45,7 @@ export function FinanceOverview({ summary, forecast, warnings }: Props) {
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         <StatCard
-          label="Quỹ gia đình (ví chung)"
+          label="Sổ quỹ gia đình"
           value={formatCurrency(summary.jointWalletBalance)}
           hint={`Tháng ${summary.month}/${summary.year}`}
           icon={Wallet}
@@ -258,4 +258,3 @@ function WarningList({ warnings }: { warnings: FinanceWarning[] }) {
     </div>
   )
 }
-

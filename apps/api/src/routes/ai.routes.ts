@@ -14,11 +14,11 @@
  * - DELETE /ai/history   → Xóa toàn bộ lịch sử hội thoại
  */
 
-import { Router } from 'express'
+import { Router, type Router as ExpressRouter } from 'express'
 import * as ctrl from '../controllers/ai-chat.controller'
 import { authenticate } from '../middleware/auth'
 
-const router = Router()
+const router: ExpressRouter = Router()
 
 // Áp dụng xác thực cho tất cả route trong module này
 router.use(authenticate)

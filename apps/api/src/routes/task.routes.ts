@@ -18,7 +18,7 @@
  * Prefix được mount bởi app chính (thường là `/api/tasks`).
  */
 
-import { Router } from 'express'
+import { Router, type Router as ExpressRouter } from 'express'
 import * as ctrl from '../controllers/task.controller'
 import { authenticate, requireFamily, requireRole } from '../middleware/auth'
 import multer from 'multer'
@@ -59,7 +59,7 @@ const upload = multer({
   },
 })
 
-const router = Router()
+const router: ExpressRouter = Router()
 
 // Áp dụng xác thực và kiểm tra gia đình cho toàn bộ router này
 router.use(authenticate, requireFamily)

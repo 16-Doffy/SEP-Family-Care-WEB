@@ -15,11 +15,11 @@
  * thay vì nhầm "read-all" là một `:id`.
  */
 
-import { Router } from 'express'
+import { Router, type Router as ExpressRouter } from 'express'
 import * as ctrl from '../controllers/notification.controller'
 import { authenticate } from '../middleware/auth'
 
-const router = Router()
+const router: ExpressRouter = Router()
 
 // Tất cả các route thông báo đều yêu cầu xác thực người dùng
 router.use(authenticate)

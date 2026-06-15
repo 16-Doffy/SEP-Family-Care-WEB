@@ -26,7 +26,7 @@ import { cn } from '@/lib/utils'
 
 /**
  * Thông tin một gói thuê bao trả về từ API `/admin/plans`.
- * @property billingPeriod - Chu kỳ thanh toán: `'MONTHLY'`, `'YEARLY'`, `'LIFETIME'`, `'FREE'`
+ * @property billingPeriod - Current MVP treats paid plans as annual-only.
  * @property maxMembers - Giới hạn thành viên; `null` nghĩa là không giới hạn
  * @property maxTasksPerMonth - Giới hạn nhiệm vụ mỗi tháng; `null` nghĩa là không giới hạn
  * @property features - Danh sách tính năng hiển thị dạng bullet list
@@ -58,13 +58,13 @@ interface Plan {
  * Gói miễn phí (price = 0) trả về `'Miễn phí'`.
  *
  * @param p - Đối tượng gói thuê bao
- * @returns Chuỗi giá, ví dụ: `"99.000 VND/tháng"` hoặc `"Miễn phí"`
+ * @returns User-facing annual-first price string.
  */
 function formatPrice(p: Plan) {
   const n = typeof p.price === 'string' ? Number(p.price) : p.price
   if (n === 0) return 'Miễn phí'
-  const periodLabel: Record<string, string> = { MONTHLY: '/tháng', YEARLY: '/năm', LIFETIME: 'vĩnh viễn', FREE: '' }
-  return `${n.toLocaleString('vi-VN')} ${p.currency}${periodLabel[p.billingPeriod] ?? ''}`
+  const suffix = p.billingPeriod === 'LIFETIME' ? ' vĩnh viễn' : p.billingPeriod === 'FREE' ? '' : '/năm'
+  return `${n.toLocaleString('vi-VN')} ${p.currency}${suffix}`
 }
 
 /**
@@ -126,7 +126,7 @@ export function UpgradePlanDialog({
             Nâng cấp gói thuê bao
           </DialogTitle>
           <DialogDescription>
-            Chọn gói phù hợp để mở khóa tính năng cao cấp cho cả gia đình
+            Chọn gói annual phù hợp để mở khóa tính năng cao cấp cho Family Workspace.
           </DialogDescription>
         </DialogHeader>
 
@@ -197,7 +197,7 @@ export function UpgradePlanDialog({
 
         {/* Thông báo chế độ mock cho môi trường phát triển */}
         <p className="text-xs text-muted-foreground text-center pt-2">
-          💡 Đang ở chế độ mock — thanh toán sẽ tự động xác nhận. Cấu hình <code>STRIPE_SECRET_KEY</code> để bật Stripe thật.
+          Payment chỉ dùng cho subscription annual plan. Family Fund và reward settlement là ghi nhận nội bộ, không qua payment gateway.
         </p>
       </DialogContent>
     </Dialog>

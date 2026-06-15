@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { getInitials, formatDate } from '@/lib/utils'
+import { getFamilyRoleLabel, getInitials, formatDate } from '@/lib/utils'
 import { KeyRound, Save, ShieldCheck, Trash2 } from 'lucide-react'
 
 const relationshipLabel = (value?: string | null) => ({
@@ -24,12 +24,6 @@ const relationshipLabel = (value?: string | null) => ({
   RELATIVE: 'Nguoi than',
   OTHER: 'Chua dat',
 }[value ?? 'OTHER'] ?? 'Chua dat')
-
-const roleLabel = (value?: string) => {
-  if (value === 'SUPER_ADMIN') return 'Admin'
-  if (value === 'PARENT') return 'Phu huynh'
-  return 'Thanh vien'
-}
 
 interface SessionRow { id: string; createdAt: string; expiresAt: string }
 interface MyStats { completedTasks: number; totalReward: number; sosCount: number; moneyRequests: number }
@@ -104,7 +98,7 @@ export default function SettingsPage() {
                 <p className="text-xl font-semibold">{user?.displayName}</p>
                 <p className="text-muted-foreground">{user?.email}</p>
                 <div className="mt-2 flex flex-wrap gap-2">
-                  <Badge variant={user?.role === 'PARENT' ? 'default' : 'secondary'}>Quyen: {roleLabel(user?.role)}</Badge>
+                  <Badge variant={member?.isOwner ? 'default' : user?.role === 'PARENT' ? 'outline' : 'secondary'}>Quyen: {getFamilyRoleLabel({ user, isOwner: member?.isOwner })}</Badge>
                   {member && <Badge variant="outline">Vai ve: {relationshipLabel(member.relationship)}</Badge>}
                 </div>
               </div>
@@ -147,9 +141,9 @@ export default function SettingsPage() {
           </CardHeader>
           <CardContent className="grid gap-3 sm:grid-cols-4">
             <Stat label="Task da duyet" value={stats?.completedTasks ?? 0} />
-            <Stat label="Thuong da nhan" value={`${(stats?.totalReward ?? 0).toLocaleString('vi-VN')}d`} />
+            <Stat label="Reward record" value={`${(stats?.totalReward ?? 0).toLocaleString('vi-VN')}d`} />
             <Stat label="SOS da gui" value={stats?.sosCount ?? 0} />
-            <Stat label="Lan xin tien" value={stats?.moneyRequests ?? 0} />
+            <Stat label="Yeu cau ho tro" value={stats?.moneyRequests ?? 0} />
           </CardContent>
         </Card>
 

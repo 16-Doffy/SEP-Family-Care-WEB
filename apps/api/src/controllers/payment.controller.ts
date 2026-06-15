@@ -21,7 +21,6 @@ import * as paymentService from '../services/payment.service'
  *
  * Dùng `discriminatedUnion` theo trường `type` để:
  * - SUBSCRIPTION yêu cầu `planId`
- * - WALLET_TOPUP yêu cầu `amount` + `walletId` (và tùy chọn `description`)
  *
  * Phân biệt rõ ràng hai loại giúp tránh trường hợp client gửi thiếu tham số
  * bắt buộc mà không biết.
@@ -30,12 +29,6 @@ const checkoutSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('SUBSCRIPTION'),
     planId: z.string(),
-  }),
-  z.object({
-    type: z.literal('WALLET_TOPUP'),
-    amount: z.number().positive(),
-    walletId: z.string(),
-    description: z.string().optional(),
   }),
 ])
 

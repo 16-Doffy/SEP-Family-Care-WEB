@@ -103,7 +103,7 @@ export default function SOSPage() {
           <div className="text-sm text-red-700">
             <p className="font-semibold mb-0.5">{isParent ? 'Trung tâm xử lý SOS' : 'Nút cầu cứu khẩn cấp'}</p>
             <p className="text-red-600">
-              {isParent ? 'Phụ huynh theo dõi, xác nhận đang xử lý và đánh dấu an toàn cho các cảnh báo trong gia đình.' : 'Con bấm nút SOS đỏ ở góc màn hình khi cần giúp đỡ. Gia đình sẽ nhận cảnh báo ngay lập tức.'}
+              {isParent ? 'Family Manager/Deputy theo dõi, xác nhận đang xử lý và đánh dấu an toàn cho các cảnh báo trong gia đình.' : 'Thành viên bấm nút SOS đỏ ở góc màn hình khi cần giúp đỡ. Gia đình sẽ nhận cảnh báo ngay lập tức.'}
             </p>
           </div>
         </div>

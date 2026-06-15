@@ -1,7 +1,7 @@
 /**
  * Trang quản lý gói thuê bao (subscription plans) trong admin.
  * Admin có thể tạo, sửa, xóa các gói và xem số gia đình đang dùng từng gói.
- * Hỗ trợ cấu hình: giá theo tháng/năm, thời hạn, giới hạn thành viên/task,
+ * UI ưu tiên paid annual-only theo Use Case Tracker; trường giá phụ chỉ giữ để tương thích dữ liệu cũ.
  * dung lượng album & system, quyền AI và AI tài chính, bậc gói (tier).
  */
 'use client'
@@ -77,7 +77,7 @@ const EMPTY: PlanFormData = {
   priceMonthly: '',
   priceYearly: '',
   currency: 'VND',
-  billingPeriod: 'MONTHLY',
+  billingPeriod: 'YEARLY',
   durationDays: '',
   maxMembers: '',
   maxTasksPerMonth: '',
@@ -122,12 +122,12 @@ export default function PlansAdminPage() {
         code: data.code.toUpperCase().trim(),
         name: data.name.trim(),
         description: data.description.trim() || null,
-        price: Number(data.price),
+        price: Number(data.priceYearly || data.price),
         priceMonthly: data.priceMonthly === '' ? null : Number(data.priceMonthly),
         priceYearly: data.priceYearly === '' ? null : Number(data.priceYearly),
         currency: data.currency,
-        billingPeriod: data.billingPeriod,
-        durationDays: data.durationDays === '' ? null : Number(data.durationDays),
+        billingPeriod: Number(data.priceYearly || data.price) === 0 ? 'FREE' : 'YEARLY',
+        durationDays: data.durationDays === '' ? (Number(data.priceYearly || data.price) === 0 ? null : 365) : Number(data.durationDays),
         maxMembers: data.maxMembers === '' ? null : Number(data.maxMembers),
         maxTasksPerMonth: data.maxTasksPerMonth === '' ? null : Number(data.maxTasksPerMonth),
         albumStorageMb: data.albumStorageMb === '' ? null : Number(data.albumStorageMb),
@@ -222,7 +222,7 @@ export default function PlansAdminPage() {
       <div className="p-6 space-y-6">
         <div className="flex justify-between items-center">
           <p className="text-sm text-muted-foreground">
-            Tạo và cấu hình các gói theo bậc (tier), giá tháng/năm, dung lượng album/system, quyền AI. Giới hạn được áp dụng tự động cho từng gia đình.
+            Tạo và cấu hình Free, Plus Annual, Premium Annual. Paid plans được tính theo năm; payment chỉ dùng cho subscription, không dùng cho Family Fund Ledger.
           </p>
           <Button onClick={openCreate} className="gap-2">
             <Plus className="w-4 h-4" /> Tạo gói mới
@@ -260,8 +260,7 @@ export default function PlansAdminPage() {
                 <CardContent className="space-y-3">
                   <p className="text-2xl font-bold text-blue-600">{formatPrice(p)}</p>
                   <p className="text-xs text-muted-foreground">
-                    Tháng: {p.priceMonthly == null ? '-' : Number(p.priceMonthly).toLocaleString('vi-VN')} ·
-                    Năm: {p.priceYearly == null ? '-' : Number(p.priceYearly).toLocaleString('vi-VN')}
+                    Annual price: {p.priceYearly == null ? formatPrice(p) : `${Number(p.priceYearly).toLocaleString('vi-VN')} ${p.currency}`}
                   </p>
                   {p.description && <p className="text-sm text-muted-foreground">{p.description}</p>}
 
@@ -344,13 +343,13 @@ export default function PlansAdminPage() {
                 <Input
                   value={form.code}
                   onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })}
-                  placeholder="PRO_MONTHLY"
+                  placeholder="PLUS_ANNUAL"
                   disabled={!!editing}
                 />
               </div>
               <div>
                 <Label>Tên hiển thị</Label>
-                <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Pro tháng" />
+                <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Plus Annual" />
               </div>
             </div>
 
@@ -364,7 +363,7 @@ export default function PlansAdminPage() {
               <legend className="px-2 text-sm font-medium text-slate-700">Giá & thời hạn</legend>
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <Label>Giá hiển thị</Label>
+                  <Label>Giá hiển thị theo năm</Label>
                   <Input type="number" value={form.price} onChange={(e) => setForm({ ...form, price: Number(e.target.value) })} />
                 </div>
                 <div>
@@ -379,7 +378,6 @@ export default function PlansAdminPage() {
                     onChange={(e) => setForm({ ...form, billingPeriod: e.target.value })}
                   >
                     <option value="FREE">FREE</option>
-                    <option value="MONTHLY">MONTHLY</option>
                     <option value="YEARLY">YEARLY</option>
                     <option value="LIFETIME">LIFETIME</option>
                   </select>
@@ -388,12 +386,12 @@ export default function PlansAdminPage() {
 
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <Label>Giá theo tháng</Label>
+                  <Label>Giá phụ legacy (để trống)</Label>
                   <Input
                     type="number"
                     value={form.priceMonthly}
                     onChange={(e) => setForm({ ...form, priceMonthly: e.target.value })}
-                    placeholder="VD: 49000"
+                    placeholder="Không dùng trong MVP"
                   />
                 </div>
                 <div>
@@ -411,7 +409,7 @@ export default function PlansAdminPage() {
                     type="number"
                     value={form.durationDays}
                     onChange={(e) => setForm({ ...form, durationDays: e.target.value })}
-                    placeholder="30 / 365 / trống"
+                    placeholder="365 cho paid annual"
                   />
                 </div>
               </div>

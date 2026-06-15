@@ -6,11 +6,11 @@
  * Một số route nhạy cảm (sửa chi chung, đóng tháng) chỉ cho PARENT/SUPER_ADMIN.
  */
 
-import { Router } from 'express'
+import { Router, type Router as ExpressRouter } from 'express'
 import * as ctrl from '../controllers/finance.controller'
 import { authenticate, requireFamily, requireRole } from '../middleware/auth'
 
-const router = Router()
+const router: ExpressRouter = Router()
 router.use(authenticate, requireFamily)
 
 // Income sources — member tự sửa của mình; PARENT sửa cho mọi người

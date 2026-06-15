@@ -9,8 +9,8 @@ import { Heart, Calendar, Wallet, Siren, CheckSquare, MessageCircle } from 'luci
 
 const features = [
   { icon: Calendar, label: 'Lịch gia đình', desc: 'Theo dõi sự kiện chung' },
-  { icon: Wallet, label: 'Ví chung & cá nhân', desc: 'Quản lý chi tiêu minh bạch' },
-  { icon: CheckSquare, label: 'Nhiệm vụ cho con', desc: 'Giao việc kèm phần thưởng' },
+  { icon: Wallet, label: 'Sổ quỹ nội bộ', desc: 'Quản lý kế hoạch chi tiêu minh bạch' },
+  { icon: CheckSquare, label: 'Nhiệm vụ gia đình', desc: 'Giao việc kèm reward settlement' },
   { icon: Siren, label: 'SOS khẩn cấp', desc: 'Cảnh báo tức thì khi cần' },
   { icon: MessageCircle, label: 'Chat gia đình', desc: 'Trò chuyện realtime' },
 ]

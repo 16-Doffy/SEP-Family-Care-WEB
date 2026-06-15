@@ -244,7 +244,7 @@ function TemplateRow({
             {template.reward && (
               <>
                 {' · '}
-                <span className="text-green-600 font-medium">{formatCurrency(Number(template.reward))}</span>
+                <span className="text-green-600 font-medium">Reward record {formatCurrency(Number(template.reward))}</span>
               </>
             )}
           </p>
@@ -502,7 +502,7 @@ function CreateTemplateDialog({
           )}
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1">
-              <Label>Phần thưởng (VND)</Label>
+              <Label>Reward settlement dự kiến (VND)</Label>
               <Input
                 type="number"
                 min={0}
@@ -688,7 +688,7 @@ function EditTemplateDialog({
           )}
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1">
-              <Label>Phần thưởng (VND)</Label>
+              <Label>Reward settlement dự kiến (VND)</Label>
               <Input
                 type="number"
                 min={0}

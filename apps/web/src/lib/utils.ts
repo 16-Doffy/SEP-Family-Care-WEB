@@ -125,3 +125,37 @@ export function getStatusLabel(status: string): string {
   }
   return map[status] ?? status
 }
+
+type RoleLabelInput = {
+  user?: { role?: string | null } | null
+  role?: string | null
+  isOwner?: boolean | null
+}
+
+/**
+ * Maps the current backend role model to the ERD/Use Case wording used by the web UI.
+ * PARENT is kept as the backend permission, while the user-facing label is Manager/Deputy.
+ */
+export function getFamilyRoleLabel(input?: RoleLabelInput | string | null): string {
+  const role = typeof input === 'string' ? input : input?.role ?? input?.user?.role
+  const isOwner = typeof input === 'object' ? Boolean(input?.isOwner) : false
+
+  if (role === 'SUPER_ADMIN') return 'System Admin'
+  if (isOwner) return 'Family Manager'
+  if (role === 'PARENT') return 'Deputy Member'
+  return 'Family Member'
+}
+
+export function getRelationshipLabel(value?: string | null): string {
+  const map: Record<string, string> = {
+    FATHER: 'Father',
+    MOTHER: 'Mother',
+    CHILD: 'Child',
+    GRANDPARENT: 'Grandparent',
+    SIBLING: 'Sibling',
+    SPOUSE: 'Spouse',
+    RELATIVE: 'Relative',
+    OTHER: 'Other',
+  }
+  return map[value ?? 'OTHER'] ?? 'Other'
+}

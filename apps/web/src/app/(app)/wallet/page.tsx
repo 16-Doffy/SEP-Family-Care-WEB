@@ -1,6 +1,6 @@
 /**
- * Trang quản lý ví tiền gia đình.
- * Cho phép xem số dư, lịch sử giao dịch, chuyển tiền, nạp tiền và xử lý yêu cầu xin tiền.
+ * Finance ledger page for internal family records.
+ * This UI does not present Family Fund as a real e-wallet or payment balance.
  */
 'use client'
 import { useState } from 'react'
@@ -15,10 +15,9 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
 import { formatCurrency, formatDateTime } from '@/lib/utils'
-import { Wallet, ArrowUpRight, ArrowDownLeft, ArrowLeftRight, Loader2, HandCoins, CheckCircle, XCircle, Clock, CreditCard } from 'lucide-react'
+import { Wallet, ArrowUpRight, ArrowDownLeft, ArrowLeftRight, Loader2, HandCoins, CheckCircle, XCircle, Clock } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import toast from 'react-hot-toast'
-import { TopupDialog } from '@/components/payment/TopupDialog'
 import { FinanceOverview } from '@/components/finance/FinanceOverview'
 import { PersonalOverview } from '@/components/finance/PersonalOverview'
 import { BudgetTable } from '@/components/finance/BudgetTable'
@@ -26,13 +25,13 @@ import { ExpenseLog } from '@/components/finance/ExpenseLog'
 import { MonthSelector } from '@/components/finance/MonthSelector'
 import { useMonthlySummary, usePrediction, useWarnings } from '@/hooks/useFinance'
 
-/** Thông tin ví tiền (ví gia đình JOINT hoặc ví cá nhân PERSONAL) */
+/** Backend wallet model shown as an internal ledger record. */
 interface WalletType { id: string; name: string; type: string; balance: number | string; currency: string; owner?: { user: { displayName: string } } | null }
 
-/** Thông tin một giao dịch trong lịch sử ví */
+/** Existing transaction model shown as an internal ledger entry. */
 interface Transaction { id: string; amount: number; type: string; description?: string; createdAt: string; fromWallet?: { name: string } | null; toWallet?: { name: string } | null }
 
-/** Yêu cầu xin tiền từ con cái gửi đến phụ huynh */
+/** Spending support request from a member to a manager/deputy. */
 interface MoneyRequest {
   id: string; amount: number; reason?: string | null; status: 'PENDING' | 'APPROVED' | 'REJECTED'; note?: string | null
   createdAt: string; resolvedAt?: string | null
@@ -40,7 +39,7 @@ interface MoneyRequest {
   resolvedBy?: { user: { displayName: string } } | null
 }
 
-/** Cấu hình hiển thị (nhãn, icon, màu sắc) theo trạng thái yêu cầu xin tiền */
+/** Display config for spending support request status. */
 const MR_STATUS = {
   PENDING: { label: 'Chờ duyệt', icon: Clock, color: 'text-yellow-600 bg-yellow-50 border-yellow-200' },
   APPROVED: { label: 'Đã duyệt', icon: CheckCircle, color: 'text-green-600 bg-green-50 border-green-200' },
@@ -48,14 +47,12 @@ const MR_STATUS = {
 }
 
 /**
- * Trang ví tiền — quản lý tài chính gia đình.
- * Có 2 tab: "Ví tiền" (xem số dư & lịch sử) và "Xin tiền" (quản lý yêu cầu).
+ * Finance page shown as internal ledger and planning records only.
  */
 export default function WalletPage() {
   const { user } = useAuth()
   const qc = useQueryClient()
   const [transferOpen, setTransferOpen] = useState(false)
-  const [topupOpen, setTopupOpen] = useState(false)
   const [requestOpen, setRequestOpen] = useState(false)
   const [rejectOpen, setRejectOpen] = useState<MoneyRequest | null>(null)
   const [selectedWallet, setSelectedWallet] = useState<WalletType | null>(null)
@@ -77,7 +74,7 @@ export default function WalletPage() {
     enabled: !!user?.familyMember,
   })
 
-  // Lấy chi tiết ví (bao gồm lịch sử giao dịch) khi người dùng chọn một ví cụ thể
+  // Load ledger-like detail from the existing wallet detail endpoint.
   const { data: walletDetail } = useQuery({
     queryKey: ['wallet-detail', selectedWallet?.id],
     queryFn: () => api.get(`/wallets/${selectedWallet!.id}`).then((r) => r.data),
@@ -90,7 +87,7 @@ export default function WalletPage() {
     enabled: !!user?.familyMember,
   })
   const moneyRequests = mrData?.requests ?? []
-  // Đếm yêu cầu đang chờ xử lý để hiển thị badge số đỏ trên tab "Xin tiền"
+  // Count pending spending support requests for the tab badge.
   const pendingCount = moneyRequests.filter((r) => r.status === 'PENDING').length
 
   const [transferForm, setTransferForm] = useState({ fromWalletId: '', toWalletId: '', amount: '', description: '' })
@@ -100,7 +97,7 @@ export default function WalletPage() {
   const transferMut = useMutation({
     mutationFn: (data: typeof transferForm) => api.post('/wallets/transfer', { ...data, amount: Number(data.amount) }),
     onSuccess: () => {
-      toast.success('Chuyển tiền thành công!')
+      toast.success('Đã ghi nhận phân bổ nội bộ')
       qc.invalidateQueries({ queryKey: ['wallets'] })
       qc.invalidateQueries({ queryKey: ['wallet-detail'] })
       setTransferOpen(false)
@@ -112,7 +109,7 @@ export default function WalletPage() {
   const requestMut = useMutation({
     mutationFn: (data: typeof requestForm) => api.post('/money-requests', { amount: Number(data.amount), reason: data.reason }),
     onSuccess: () => {
-      toast.success('Đã gửi yêu cầu đến phụ huynh!')
+      toast.success('Đã gửi yêu cầu hỗ trợ chi tiêu')
       qc.invalidateQueries({ queryKey: ['money-requests'] })
       setRequestOpen(false)
       setRequestForm({ amount: '', reason: '' })
@@ -134,10 +131,10 @@ export default function WalletPage() {
     onError: (e: unknown) => toast.error((e as { response?: { data?: { error?: string } } })?.response?.data?.error ?? 'Thất bại'),
   })
 
-  // SUPER_ADMIN được coi là phụ huynh để có quyền nạp tiền, chuyển tiền và duyệt yêu cầu
+  // SUPER_ADMIN is treated as a workspace manager for demo/admin flows.
   const isParent = user?.role === 'PARENT' || user?.role === 'SUPER_ADMIN'
-  const pageTitle = isParent ? 'Ví gia đình' : 'Ví cá nhân'
-  const requestTabLabel = isParent ? 'Yêu cầu xin tiền' : 'Yêu cầu xin tiền của tôi'
+  const pageTitle = 'Sổ quỹ & kế hoạch tài chính'
+  const requestTabLabel = isParent ? 'Yêu cầu hỗ trợ chi tiêu' : 'Yêu cầu hỗ trợ của tôi'
   const transactions: Transaction[] = walletDetail?.transactions ?? []
 
   return (
@@ -159,7 +156,7 @@ export default function WalletPage() {
                 onClick={() => setActiveTab('wallets')}
                 className={cn('px-4 py-1.5 rounded-md text-sm font-medium transition-colors', activeTab === 'wallets' ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700')}
               >
-                {isParent ? 'Ví gia đình' : 'Ví cá nhân'}
+                {isParent ? 'Sổ quỹ gia đình' : 'Sổ ghi nhận cá nhân'}
               </button>
               <button
                 onClick={() => setActiveTab('budget')}
@@ -171,7 +168,7 @@ export default function WalletPage() {
                 onClick={() => setActiveTab('log')}
                 className={cn('px-4 py-1.5 rounded-md text-sm font-medium transition-colors', activeTab === 'log' ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700')}
               >
-                {isParent ? 'Ghi thu / chi' : 'Thu/chi của tôi'}
+                {isParent ? 'Ghi nhận thu / chi' : 'Ghi nhận của tôi'}
               </button>
               <button
                 onClick={() => setActiveTab('requests')}
@@ -187,26 +184,21 @@ export default function WalletPage() {
             </div>
             <p className="text-xs text-muted-foreground mt-2">
               {isParent
-                ? 'Phụ huynh quản lý ví chung + xem ví mọi thành viên, lập ngân sách, ghi thu/chi cho cả nhà.'
-                : 'Bạn quản lý ví cá nhân, ghi thu/chi của mình và xin tiền khi cần.'}
+                ? 'Family Manager/Deputy quản lý sổ quỹ nội bộ, ngân sách và yêu cầu hỗ trợ chi tiêu. Đây không phải ví điện tử thật.'
+                : 'Bạn ghi nhận thu/chi cá nhân và gửi yêu cầu hỗ trợ chi tiêu khi cần. Không có giao dịch tiền thật trong hệ thống.'}
             </p>
           </div>
 
           <div className="flex gap-2">
             {!isParent && (
               <Button variant="outline" onClick={() => setRequestOpen(true)} className="gap-2 border-amber-300 text-amber-700 hover:bg-amber-50">
-                <HandCoins className="w-4 h-4" />Xin tiền
+                <HandCoins className="w-4 h-4" />Gửi yêu cầu hỗ trợ
               </Button>
             )}
             {isParent && (
-              <>
-                <Button variant="outline" onClick={() => setTopupOpen(true)} className="gap-2 border-blue-300 text-blue-700 hover:bg-blue-50">
-                  <CreditCard className="w-4 h-4" />Nạp qua cổng
-                </Button>
-                <Button onClick={() => setTransferOpen(true)}>
-                  <ArrowLeftRight className="w-4 h-4 mr-2" />Chuyển tiền
-                </Button>
-              </>
+              <Button onClick={() => setTransferOpen(true)}>
+                <ArrowLeftRight className="w-4 h-4 mr-2" />Phân bổ nội bộ
+              </Button>
             )}
           </div>
         </div>
@@ -323,7 +315,7 @@ export default function WalletPage() {
             {moneyRequests.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 gap-2 text-muted-foreground">
                 <HandCoins className="w-10 h-10 opacity-30" />
-                <p className="text-sm">{isParent ? 'Chưa có yêu cầu xin tiền nào từ thành viên' : 'Bạn chưa gửi yêu cầu xin tiền nào'}</p>
+                <p className="text-sm">{isParent ? 'Chưa có yêu cầu hỗ trợ chi tiêu nào từ thành viên' : 'Bạn chưa gửi yêu cầu hỗ trợ chi tiêu nào'}</p>
               </div>
             ) : (
               moneyRequests.map((mr) => {
@@ -396,12 +388,12 @@ export default function WalletPage() {
         )}
       </div>
 
-      {/* Transfer Modal */}
+      {/* Internal allocation modal */}
       <Dialog open={transferOpen} onOpenChange={setTransferOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Chuyển tiền</DialogTitle>
-            <DialogDescription>Chuyển tiền giữa các ví trong gia đình</DialogDescription>
+            <DialogTitle>Phân bổ nội bộ</DialogTitle>
+            <DialogDescription>Ghi nhận phân bổ giữa các sổ quỹ nội bộ. Không xử lý thanh toán thật.</DialogDescription>
           </DialogHeader>
           {(() => {
             const fromWallet = wallets.find((w) => w.id === transferForm.fromWalletId)
@@ -411,9 +403,9 @@ export default function WalletPage() {
             return (
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label>Từ ví</Label>
+                  <Label>Từ sổ quỹ</Label>
                   <Select value={transferForm.fromWalletId} onValueChange={(v) => setTransferForm({ ...transferForm, fromWalletId: v })}>
-                    <SelectTrigger><SelectValue placeholder="Chọn ví nguồn" /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder="Chọn sổ quỹ nguồn" /></SelectTrigger>
                     <SelectContent>
                       {wallets.map((w) => (
                         <SelectItem key={w.id} value={w.id}>{w.name} – {formatCurrency(Number(w.balance))}</SelectItem>
@@ -421,13 +413,13 @@ export default function WalletPage() {
                     </SelectContent>
                   </Select>
                   {fromWallet && (
-                    <p className="text-xs text-muted-foreground">Số dư hiện tại: <span className="font-medium text-gray-700">{formatCurrency(fromBalance)}</span></p>
+                    <p className="text-xs text-muted-foreground">Số liệu hiện tại: <span className="font-medium text-gray-700">{formatCurrency(fromBalance)}</span></p>
                   )}
                 </div>
                 <div className="space-y-2">
-                  <Label>Đến ví</Label>
+                  <Label>Đến sổ ghi nhận</Label>
                   <Select value={transferForm.toWalletId} onValueChange={(v) => setTransferForm({ ...transferForm, toWalletId: v })}>
-                    <SelectTrigger><SelectValue placeholder="Chọn ví đích" /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder="Chọn sổ ghi nhận đích" /></SelectTrigger>
                     <SelectContent>
                       {wallets.filter((w) => w.id !== transferForm.fromWalletId).map((w) => (
                         <SelectItem key={w.id} value={w.id}>{w.name} – {formatCurrency(Number(w.balance))}</SelectItem>
@@ -436,7 +428,7 @@ export default function WalletPage() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Số tiền (VND)</Label>
+                  <Label>Số tiền ghi nhận (VND)</Label>
                   <Input
                     type="number" min="1000" placeholder="100000"
                     value={transferForm.amount}
@@ -445,13 +437,13 @@ export default function WalletPage() {
                   />
                   {insufficient && (
                     <p className="text-xs text-red-500 flex items-center gap-1">
-                      ⚠ Số dư không đủ. Ví chỉ còn {formatCurrency(fromBalance)}.
+                      Số liệu nguồn không đủ. Sổ quỹ chỉ còn {formatCurrency(fromBalance)}.
                     </p>
                   )}
                 </div>
                 <div className="space-y-2">
                   <Label>Ghi chú</Label>
-                  <Input placeholder="Tiền tiêu vặt tuần này..." value={transferForm.description} onChange={(e) => setTransferForm({ ...transferForm, description: e.target.value })} />
+                  <Input placeholder="Phân bổ allowance tuần này, hỗ trợ học phí..." value={transferForm.description} onChange={(e) => setTransferForm({ ...transferForm, description: e.target.value })} />
                 </div>
                 <DialogFooter>
                   <Button variant="outline" onClick={() => setTransferOpen(false)}>Hủy</Button>
@@ -460,7 +452,7 @@ export default function WalletPage() {
                     disabled={transferMut.isPending || !transferForm.fromWalletId || !transferForm.toWalletId || !transferForm.amount || insufficient}
                   >
                     {transferMut.isPending && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
-                    Chuyển tiền
+                    Ghi nhận phân bổ
                   </Button>
                 </DialogFooter>
               </div>
@@ -469,12 +461,12 @@ export default function WalletPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Money Request Modal (child) */}
+      {/* Spending support request modal */}
       <Dialog open={requestOpen} onOpenChange={setRequestOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Xin tiền từ ví gia đình</DialogTitle>
-            <DialogDescription>Gửi yêu cầu đến phụ huynh để xin tiền</DialogDescription>
+            <DialogTitle>Yêu cầu hỗ trợ chi tiêu</DialogTitle>
+            <DialogDescription>Gửi yêu cầu để Family Manager/Deputy xem xét và ghi nhận nội bộ nếu được duyệt.</DialogDescription>
           </DialogHeader>
           {(() => {
             const jointBalance = summary?.jointWalletBalance ?? 0
@@ -483,13 +475,13 @@ export default function WalletPage() {
             return (
               <div className="space-y-4">
                 <div className="rounded-lg border bg-blue-50/40 px-3 py-2 text-xs">
-                  <p className="text-muted-foreground">Quỹ gia đình hiện có</p>
+                  <p className="text-muted-foreground">Sổ quỹ gia đình hiện ghi nhận</p>
                   <p className="font-semibold text-blue-700 text-base">
                     {formatCurrency(jointBalance)}
                   </p>
                 </div>
                 <div className="space-y-2">
-                  <Label>Số tiền cần xin (VND) *</Label>
+                  <Label>Số tiền cần hỗ trợ (VND) *</Label>
                   <Input
                     type="number" min="1000" placeholder="50000"
                     value={requestForm.amount}
@@ -498,7 +490,7 @@ export default function WalletPage() {
                   />
                   {exceedsFund && (
                     <p className="text-xs text-amber-600">
-                      ⚠ Số tiền xin lớn hơn quỹ chung. Phụ huynh có thể không duyệt được.
+                      Số tiền yêu cầu lớn hơn số liệu quỹ chung. Manager/Deputy có thể từ chối.
                     </p>
                   )}
                 </div>
@@ -526,9 +518,6 @@ export default function WalletPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* Topup via payment gateway */}
-      <TopupDialog open={topupOpen} onOpenChange={setTopupOpen} wallets={wallets} />
 
       {/* Reject with note modal */}
       <Dialog open={!!rejectOpen} onOpenChange={() => { setRejectOpen(null); setRejectNote('') }}>

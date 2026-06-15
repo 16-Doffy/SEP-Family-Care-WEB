@@ -5,11 +5,11 @@
  * Mount tại `/api/recurring-tasks`.
  */
 
-import { Router } from 'express'
+import { Router, type Router as ExpressRouter } from 'express'
 import * as ctrl from '../controllers/recurring-task.controller'
 import { authenticate, requireFamily, requireRole } from '../middleware/auth'
 
-const router = Router()
+const router: ExpressRouter = Router()
 router.use(authenticate, requireFamily)
 
 // Template CRUD — chỉ PARENT/SUPER_ADMIN mới tạo/sửa/vô hiệu hoá

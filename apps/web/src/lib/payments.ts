@@ -21,13 +21,10 @@ interface CheckoutResponse {
 }
 
 /**
- * Dữ liệu đầu vào cho hàm `startCheckout`, hỗ trợ hai loại giao dịch:
- * - `SUBSCRIPTION`: Nâng cấp gói thuê bao theo `planId`.
- * - `WALLET_TOPUP`: Nạp tiền vào ví theo `walletId` và `amount`.
+ * Checkout is intentionally limited to subscription payments.
+ * Family Fund and reward settlement are internal records, not payment flows.
  */
-type CheckoutInput =
-  | { type: 'SUBSCRIPTION'; planId: string }
-  | { type: 'WALLET_TOPUP'; amount: number; walletId: string; description?: string }
+type CheckoutInput = { type: 'SUBSCRIPTION'; planId: string }
 
 /**
  * Khởi tạo một phiên thanh toán và xử lý kết quả theo chế độ của backend.

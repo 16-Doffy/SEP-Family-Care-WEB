@@ -17,11 +17,11 @@
  * hiểu nhầm "active" là một ID động.
  */
 
-import { Router } from 'express'
+import { Router, type Router as ExpressRouter } from 'express'
 import * as ctrl from '../controllers/sos.controller'
 import { authenticate, requireRole } from '../middleware/auth'
 
-const router = Router()
+const router: ExpressRouter = Router()
 
 // Áp dụng middleware xác thực cho tất cả route trong module này
 router.use(authenticate)

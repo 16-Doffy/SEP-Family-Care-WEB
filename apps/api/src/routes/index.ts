@@ -28,7 +28,7 @@
  * - /devices            → Wearable/GPS device, SOS từ thiết bị và lộ trình di chuyển
  */
 
-import { Router } from 'express'
+import { Router, type Router as ExpressRouter } from 'express'
 import authRoutes from './auth.routes'
 import familyRoutes from './family.routes'
 import walletRoutes from './wallet.routes'
@@ -49,7 +49,7 @@ import financeRoutes from './finance.routes'
 import recurringTaskRoutes from './recurring-task.routes'
 import deviceRoutes from './device.routes'
 
-const router = Router()
+const router: ExpressRouter = Router()
 
 router.use('/auth', authRoutes)
 router.use('/family', familyRoutes)

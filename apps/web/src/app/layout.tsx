@@ -13,7 +13,7 @@ const inter = Inter({ subsets: ['latin'] })
 /** Metadata mặc định dùng cho SEO và tab trình duyệt */
 export const metadata: Metadata = {
   title: 'Family Care – Quản lý gia đình thông minh',
-  description: 'Nền tảng SaaS quản lý gia đình: ví tiền, nhiệm vụ, lịch, vị trí và nhiều hơn nữa.',
+  description: 'Nền tảng SaaS quản lý gia đình: sổ quỹ nội bộ, nhiệm vụ, lịch, vị trí và nhiều hơn nữa.',
 }
 
 /**

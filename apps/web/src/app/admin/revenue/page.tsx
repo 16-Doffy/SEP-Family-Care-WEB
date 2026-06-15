@@ -1,5 +1,5 @@
 /**
- * Trang thống kê doanh thu admin — xem MRR, ARR, doanh thu 30 ngày và biểu đồ theo tháng.
+ * Trang thống kê doanh thu admin — subscription revenue only.
  * Chỉ dành cho SUPER_ADMIN (được bảo vệ bởi AdminLayout).
  */
 'use client'
@@ -84,7 +84,7 @@ export default function RevenueAdminPage() {
                 icon={<DollarSign className="w-7 h-7 text-green-600" />}
                 label="MRR"
                 value={formatCurrency(data.mrr)}
-                hint="Monthly Recurring Revenue"
+                hint="Annual subscription normalized monthly"
               />
               <StatCard
                 icon={<TrendingUp className="w-7 h-7 text-blue-600" />}
@@ -111,7 +111,7 @@ export default function RevenueAdminPage() {
                 <CardHeader><CardTitle className="text-base">Doanh thu 30 ngày theo loại</CardTitle></CardHeader>
                 <CardContent className="space-y-3">
                   <Row label="Đăng ký gói" value={data.last30dSubscriptionRevenue} total={data.last30dRevenue} color="bg-blue-500" />
-                  <Row label="Nạp ví" value={data.last30dTopupRevenue} total={data.last30dRevenue} color="bg-emerald-500" />
+                  <Row label="Legacy wallet top-up (excluded from MVP scope)" value={0} total={data.last30dRevenue} color="bg-slate-300" />
                 </CardContent>
               </Card>
 

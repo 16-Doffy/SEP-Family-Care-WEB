@@ -1,9 +1,9 @@
 /** Routes cho module Wearable/GPS Device. */
-import { Router } from 'express'
+import { Router, type Router as ExpressRouter } from 'express'
 import * as ctrl from '../controllers/device.controller'
 import { authenticate, requireFamily, requireRole } from '../middleware/auth'
 
-const router = Router()
+const router: ExpressRouter = Router()
 router.use(authenticate, requireFamily)
 
 router.get('/', ctrl.listDevices)

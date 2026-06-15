@@ -77,8 +77,10 @@ docker-compose.override.yml
 apps/api/uploads/*
 !apps/api/uploads/.gitkeep
 
-# Prisma — using `db push` workflow, migrations not tracked
-apps/api/prisma/migrations/
+# Prisma — keep old local migrations ignored, but track the ERD alignment migration used by migrate deploy.
+apps/api/prisma/migrations/*
+!apps/api/prisma/migrations/20260614204100_core_erd_alignment/
+!apps/api/prisma/migrations/20260614204100_core_erd_alignment/migration.sql
 
 # Temp files
 *.tmp

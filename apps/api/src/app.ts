@@ -3,11 +3,12 @@
  * Đăng ký middleware bảo mật, CORS, rate limiting, static files, routes API và error handler.
  */
 import express from 'express'
+import type { Express } from 'express'
 import cors from 'cors'
 import helmet from 'helmet'
 import rateLimit from 'express-rate-limit'
 import path from 'path'
-import { createServer } from 'http'
+import { createServer, type Server } from 'http'
 import { initSocket } from './config/socket'
 import { errorHandler } from './middleware/errorHandler'
 import { apiRouter } from './routes'
@@ -42,7 +43,7 @@ function isAllowedCorsOrigin(origin?: string) {
  *
  * @returns Đối tượng chứa `app` (Express application) và `httpServer` (Node.js HTTP server)
  */
-export function createApp() {
+export function createApp(): { app: Express; httpServer: Server } {
   const app = express()
   // Tạo HTTP server bọc ngoài Express app để Socket.IO có thể chia sẻ cùng cổng
   const httpServer = createServer(app)

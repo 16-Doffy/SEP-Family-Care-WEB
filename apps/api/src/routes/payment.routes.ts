@@ -17,11 +17,11 @@
  * - GET  /payments/history           → Xem lịch sử thanh toán của gia đình
  */
 
-import { Router } from 'express'
+import { Router, type Router as ExpressRouter } from 'express'
 import * as ctrl from '../controllers/payment.controller'
 import { authenticate, requireFamily, requireRole } from '../middleware/auth'
 
-const router = Router()
+const router: ExpressRouter = Router()
 
 // Áp dụng xác thực và kiểm tra thành viên gia đình cho toàn bộ module
 router.use(authenticate, requireFamily)

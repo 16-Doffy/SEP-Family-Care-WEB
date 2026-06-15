@@ -98,7 +98,7 @@ export default function AdminFamiliesPage() {
     mutationFn: ({ familyId, months }: { familyId: string; months: number }) =>
       api.post(`/admin/families/${familyId}/renew`, { months }),
     onSuccess: (_, vars) => {
-      toast.success(`Đã gia hạn ${vars.months} tháng`)
+      toast.success(`Đã gia hạn ${vars.months / 12} năm`)
       qc.invalidateQueries({ queryKey: ['admin-families'] })
     },
     onError: () => toast.error('Gia hạn thất bại'),
@@ -219,7 +219,7 @@ export default function AdminFamiliesPage() {
                   </div>
 
                   <div>
-                    <label className="text-xs text-muted-foreground">Chủ hộ</label>
+                    <label className="text-xs text-muted-foreground">Family Manager</label>
                     <select
                       className="w-full text-sm border rounded px-2 py-1.5 bg-white mt-0.5"
                       value={f.members.find((m) => m.isOwner)?.userId ?? f.members[0]?.userId ?? ''}
@@ -257,7 +257,7 @@ export default function AdminFamiliesPage() {
                   </div>
 
                   <div>
-                    <label className="text-xs text-muted-foreground">Gia hạn nhanh</label>
+                    <label className="text-xs text-muted-foreground">Gia hạn annual plan</label>
                     <select
                       className="w-full text-sm border rounded px-2 py-1.5 bg-white mt-0.5"
                       value=""
@@ -267,11 +267,9 @@ export default function AdminFamiliesPage() {
                         e.target.value = ''
                       }}
                     >
-                      <option value="">— Chọn số tháng để gia hạn —</option>
-                      <option value="1">+ 1 tháng</option>
-                      <option value="3">+ 3 tháng</option>
-                      <option value="6">+ 6 tháng</option>
-                      <option value="12">+ 12 tháng</option>
+                      <option value="">— Chọn số năm để gia hạn —</option>
+                      <option value="12">+ 1 năm</option>
+                      <option value="24">+ 2 năm</option>
                     </select>
                   </div>
 
@@ -297,7 +295,7 @@ export default function AdminFamiliesPage() {
               <table className="w-full text-sm">
                 <thead><tr className="border-b text-muted-foreground">
                   <th className="text-left py-2">Gia đình</th>
-                  <th className="text-left py-2">Chủ hộ</th>
+                  <th className="text-left py-2">Family Manager</th>
                   <th className="text-left py-2">Trạng thái</th>
                   <th className="text-left py-2">Hết hạn</th>
                   <th className="text-left py-2">Gia hạn</th>
@@ -349,11 +347,9 @@ export default function AdminFamiliesPage() {
                             e.target.value = ''
                           }}
                         >
-                          <option value="">+ tháng</option>
-                          <option value="1">+ 1</option>
-                          <option value="3">+ 3</option>
-                          <option value="6">+ 6</option>
-                          <option value="12">+ 12</option>
+                          <option value="">+ năm</option>
+                          <option value="12">+ 1</option>
+                          <option value="24">+ 2</option>
                         </select>
                       </td>
                       <td className="py-2">

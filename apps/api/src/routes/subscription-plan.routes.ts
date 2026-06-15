@@ -16,11 +16,11 @@
  * - GET /subscription-plans/   → Xem danh sách gói đang active
  */
 
-import { Router } from 'express'
+import { Router, type Router as ExpressRouter } from 'express'
 import * as planCtrl from '../controllers/subscription-plan.controller'
 import { authenticate } from '../middleware/auth'
 
-const router = Router()
+const router: ExpressRouter = Router()
 
 // Yêu cầu đăng nhập để xem danh sách gói
 router.use(authenticate)
