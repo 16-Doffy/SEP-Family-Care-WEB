@@ -1,12 +1,20 @@
 /**
- * Trang quản lý gia đình: xem danh sách thành viên, mời người mới và nâng cấp gói.
- * Only Family Manager/Deputy users can create invites and manage annual plan access.
+ * Trang quản lý gia đình — theo API team (Family Care API).
+ *
+ * - Xem thành viên (`/families/my` → members).
+ * - Family Manager mời thành viên: POST `/families/{id}/invitations` (email + vai trò + quan hệ)
+ *   → trả về token để tạo link mời `/register?invite={token}`.
+ * - Family Manager xóa thành viên: DELETE `/families/{id}/members/{userId}`.
+ *
+ * Lưu ý: API team chưa hỗ trợ đổi vai trò / sửa hồ sơ thành viên ở cấp gia đình
+ * (chỉ có ở khu vực admin), nên các thao tác đó không hiển thị ở đây.
  */
 'use client'
 import { useState } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { api } from '@/lib/api'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { api, getApiErrorMessage } from '@/lib/api'
 import { useAuth } from '@/context/AuthContext'
+import { useActiveFamily } from '@/hooks/useFamily'
 import { Topbar } from '@/components/layout/Topbar'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -16,150 +24,112 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
-import { getFamilyRoleLabel, getInitials } from '@/lib/utils'
-import { UserPlus, Copy, Loader2, Crown, Trash2, Wallet, Save } from 'lucide-react'
+import { getInitials } from '@/lib/utils'
+import { UserPlus, Copy, Loader2, Trash2 } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { UpgradePlanDialog } from '@/components/payment/UpgradePlanDialog'
-import { IncomeSourceManager } from '@/components/finance/IncomeSourceManager'
 
-type FamilyMember = {
-  id: string
-  nickname?: string
-  relationship?: FamilyRelationship
-  birthDate?: string | null
-  notes?: string | null
-  isOwner?: boolean
-  user: { id: string; displayName: string; email: string; role: string }
+type FamilyRole = 'FAMILY_MANAGER' | 'DEPUTY_MEMBER' | 'FAMILY_MEMBER'
+type Relationship = 'FATHER' | 'MOTHER' | 'SPOUSE' | 'CHILD' | 'SISTER' | 'BROTHER' | 'GRANDPARENT' | 'OTHER'
+
+const ROLE_LABEL: Record<FamilyRole, string> = {
+  FAMILY_MANAGER: 'Family Manager',
+  DEPUTY_MEMBER: 'Deputy Member',
+  FAMILY_MEMBER: 'Family Member',
 }
 
-type FamilyRelationship =
-  | 'FATHER'
-  | 'MOTHER'
-  | 'CHILD'
-  | 'GRANDPARENT'
-  | 'SIBLING'
-  | 'SPOUSE'
-  | 'RELATIVE'
-  | 'OTHER'
-
-const RELATIONSHIP_OPTIONS: { value: FamilyRelationship; label: string }[] = [
+const RELATIONSHIP_OPTIONS: { value: Relationship; label: string }[] = [
   { value: 'CHILD', label: 'Con' },
   { value: 'FATHER', label: 'Bố' },
   { value: 'MOTHER', label: 'Mẹ' },
-  { value: 'GRANDPARENT', label: 'Ông/Bà' },
-  { value: 'SIBLING', label: 'Anh/Chị/Em' },
   { value: 'SPOUSE', label: 'Vợ/Chồng' },
-  { value: 'RELATIVE', label: 'Người thân' },
-  { value: 'OTHER', label: 'Chưa đặt' },
+  { value: 'BROTHER', label: 'Anh/Em trai' },
+  { value: 'SISTER', label: 'Chị/Em gái' },
+  { value: 'GRANDPARENT', label: 'Ông/Bà' },
+  { value: 'OTHER', label: 'Khác' },
 ]
-
-const relationshipLabel = (value?: string) =>
+const relationshipLabel = (value?: string | null) =>
   RELATIONSHIP_OPTIONS.find((item) => item.value === value)?.label ?? 'Chưa đặt'
 
-/**
- * Trang gia đình — quản lý thành viên và gói đăng ký.
- * inviteCode được lưu trong state để hiển thị link mời sau khi tạo,
- * thay vì gọi lại API mỗi lần mở dialog.
- */
 export default function FamilyPage() {
   const { user } = useAuth()
   const qc = useQueryClient()
-  const [inviteOpen, setInviteOpen] = useState(false)
-  // Invite code returned by the API after a manager/deputy creates a link.
-  const [inviteCode, setInviteCode] = useState('')
-  const [inviteRole, setInviteRole] = useState<'PARENT' | 'FAMILY_MEMBER'>('FAMILY_MEMBER')
-  const [inviteRelationship, setInviteRelationship] = useState<FamilyRelationship>('CHILD')
-  const [upgradeOpen, setUpgradeOpen] = useState(false)
-  const [expandedMember, setExpandedMember] = useState<string | null>(null)
-  const [profileForms, setProfileForms] = useState<Record<string, { nickname: string; relationship: FamilyRelationship; birthDate: string; notes: string }>>({})
+  const { family, familyId, isLoading } = useActiveFamily()
 
-  const { data: family } = useQuery({
-    queryKey: ['family'],
-    queryFn: () => api.get('/family').then((r) => r.data),
-    enabled: !!user?.familyMember,
-  })
+  const [inviteOpen, setInviteOpen] = useState(false)
+  const [inviteToken, setInviteToken] = useState('')
+  const [inviteEmail, setInviteEmail] = useState('')
+  const [inviteRole, setInviteRole] = useState<FamilyRole>('FAMILY_MEMBER')
+  const [inviteRelationship, setInviteRelationship] = useState<Relationship>('CHILD')
+
+  const members = family?.members ?? []
+  const myRole = members.find((m) => m.userId === user?.id)?.familyRole
+  const isManager = myRole === 'FAMILY_MANAGER' || user?.role === 'SYSTEM_ADMIN'
 
   const inviteMut = useMutation({
-    mutationFn: (data: { role: string; relationship: FamilyRelationship }) => api.post('/family/invite', data),
-    onSuccess: (res) => setInviteCode(res.data.code),
-  })
-
-  const profileMut = useMutation({
-    mutationFn: ({ memberId, data }: { memberId: string; data: { nickname: string; relationship: FamilyRelationship; birthDate: string | null; notes: string } }) =>
-      api.patch(`/family/members/${memberId}/profile`, data),
-    onSuccess: () => {
-      toast.success('Đã cập nhật hồ sơ thành viên')
-      qc.invalidateQueries({ queryKey: ['family'] })
-    },
-    onError: (e: unknown) => toast.error((e as { response?: { data?: { error?: string } } })?.response?.data?.error ?? 'Không thể cập nhật hồ sơ'),
-  })
-
-  const roleMut = useMutation({
-    mutationFn: ({ userId, role }: { userId: string; role: 'PARENT' | 'FAMILY_MEMBER' }) =>
-      api.patch(`/family/members/${userId}/role`, { role }),
-    onSuccess: () => {
-      toast.success('Đã cập nhật vai trò')
-      qc.invalidateQueries({ queryKey: ['family'] })
-    },
-    onError: (e: unknown) => toast.error((e as { response?: { data?: { error?: string } } })?.response?.data?.error ?? 'Không thể cập nhật vai trò'),
+    mutationFn: (data: { email: string; familyRole: FamilyRole; relationship: Relationship }) =>
+      api.post(`/families/${familyId}/invitations`, data).then((r) => r.data),
+    onSuccess: (data) => setInviteToken(data.token),
+    onError: (e) => toast.error(getApiErrorMessage(e, 'Không thể tạo lời mời')),
   })
 
   const removeMut = useMutation({
-    mutationFn: (userId: string) => api.delete(`/family/members/${userId}`),
+    mutationFn: (userId: string) => api.delete(`/families/${familyId}/members/${userId}`),
     onSuccess: () => {
       toast.success('Đã xóa thành viên')
-      qc.invalidateQueries({ queryKey: ['family'] })
+      qc.invalidateQueries({ queryKey: ['families', 'my'] })
     },
-    onError: (e: unknown) => toast.error((e as { response?: { data?: { error?: string } } })?.response?.data?.error ?? 'Không thể xóa thành viên'),
+    onError: (e) => toast.error(getApiErrorMessage(e, 'Không thể xóa thành viên')),
   })
 
-  const isParent = user?.role === 'PARENT' || user?.role === 'SUPER_ADMIN'
-  const members: FamilyMember[] = family?.members ?? []
-  const pageTitle = isParent ? 'Family Workspace Members' : 'Family Members'
-
-  /**
-   * Sao chép link mời vào clipboard.
-   * Link bao gồm invite code dạng query param để trang đăng ký tự nhận diện.
-   */
   const copyInviteLink = () => {
-    const link = `${window.location.origin}/register?invite=${inviteCode}`
-    navigator.clipboard.writeText(link)
+    navigator.clipboard.writeText(`${window.location.origin}/register?invite=${inviteToken}`)
     toast.success('Đã copy link mời!')
+  }
+
+  const resetInvite = () => {
+    setInviteToken('')
+    setInviteEmail('')
+    setInviteRole('FAMILY_MEMBER')
+    setInviteRelationship('CHILD')
+  }
+
+  if (isLoading) {
+    return (
+      <div>
+        <Topbar title="Gia đình" />
+        <div className="flex items-center justify-center py-24 text-muted-foreground"><Loader2 className="w-6 h-6 animate-spin" /></div>
+      </div>
+    )
+  }
+
+  if (!familyId) {
+    return (
+      <div>
+        <Topbar title="Gia đình" />
+        <div className="flex flex-col items-center justify-center py-24 gap-2 text-muted-foreground">
+          <UserPlus className="w-10 h-10 opacity-30" />
+          <p className="text-sm">Bạn chưa thuộc gia đình nào.</p>
+        </div>
+      </div>
+    )
   }
 
   return (
     <div>
-      <Topbar title={pageTitle} />
+      <Topbar title="Thành viên gia đình" />
       <div className="p-6 space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-semibold">{family?.name ?? 'Gia đình của bạn'}</h2>
-            <div className="flex items-center gap-2 mt-1">
-              <p className="text-sm text-muted-foreground">
-                {isParent ? 'Manage membership, delegated permissions and annual subscription access' : 'View family members and relationships'} · Plan: {family?.subscriptionPlan?.name ?? family?.plan ?? 'FREE'}
-              </p>
-              {family?.subscriptionExpiresAt && (
-                <span className="text-xs text-muted-foreground">
-                  · Hết hạn: {new Date(family.subscriptionExpiresAt).toLocaleDateString('vi-VN')}
-                </span>
-              )}
-              {family?.subscriptionStatus === 'EXPIRED' && (
-                <Badge variant="destructive" className="text-[10px]">Đã hết hạn</Badge>
-              )}
-            </div>
+            <h2 className="text-xl font-semibold">{family?.name}</h2>
+            <p className="text-sm text-muted-foreground">
+              {isManager ? 'Quản lý thành viên và lời mời' : 'Xem thành viên gia đình'}
+            </p>
           </div>
-          <div className="flex gap-2">
-            {isParent && (
-              <Button variant="outline" onClick={() => setUpgradeOpen(true)} className="gap-2">
-                <Crown className="w-4 h-4 text-amber-500" />Upgrade annual plan
-              </Button>
-            )}
-            {isParent && (
-              <Button onClick={() => setInviteOpen(true)}>
-                <UserPlus className="w-4 h-4 mr-2" />Invite member
-              </Button>
-            )}
-          </div>
+          {isManager && (
+            <Button onClick={() => { resetInvite(); setInviteOpen(true) }}>
+              <UserPlus className="w-4 h-4 mr-2" />Mời thành viên
+            </Button>
+          )}
         </div>
 
         <Card>
@@ -169,162 +139,33 @@ export default function FamilyPage() {
           <CardContent>
             <div className="space-y-3">
               {members.map((member) => {
-                const canManageMember = isParent && member.user.id !== user?.id && !member.isOwner
-                const canEditFinance = isParent || member.user.id === user?.id
-                const expanded = expandedMember === member.id
-                const profileForm = profileForms[member.id] ?? {
-                  nickname: member.nickname ?? '',
-                  relationship: member.relationship ?? 'OTHER',
-                  birthDate: member.birthDate ? member.birthDate.slice(0, 10) : '',
-                  notes: member.notes ?? '',
-                }
+                const name = member.user?.fullName ?? member.displayName ?? 'Thành viên'
+                const canRemove = isManager && member.userId !== user?.id && member.familyRole !== 'FAMILY_MANAGER'
                 return (
-                  <div key={member.id} className="rounded-lg border">
-                    <div className="flex items-center gap-3 p-3">
-                      <Avatar>
-                        <AvatarFallback className="bg-blue-100 text-blue-700">{getInitials(member.user.displayName)}</AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium truncate">{member.user.displayName}</p>
-                        <p className="text-sm text-muted-foreground truncate">
-                          {member.nickname ? `${member.nickname} · ` : ''}{member.user.email}
-                        </p>
-                      </div>
-                      <Badge variant="outline" className="text-xs">
-                        Vai vế: {relationshipLabel(member.relationship)}
-                      </Badge>
-                      <Badge variant={member.user.role === 'PARENT' ? 'default' : 'secondary'}>
-                        System role: {getFamilyRoleLabel(member)}
-                      </Badge>
-                      {member.isOwner && (
-                        <Badge variant="outline" className="text-xs">Main manager</Badge>
-                      )}
-                      {member.user.id === user?.id && (
-                        <Badge variant="outline" className="text-xs">Bạn</Badge>
-                      )}
+                  <div key={member.id} className="flex items-center gap-3 p-3 rounded-lg border">
+                    <Avatar>
+                      <AvatarFallback className="bg-blue-100 text-blue-700">{getInitials(name)}</AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium truncate">{name}</p>
+                      <p className="text-sm text-muted-foreground truncate">{member.user?.email}</p>
+                    </div>
+                    <Badge variant="outline" className="text-xs">{relationshipLabel(member.relationship)}</Badge>
+                    <Badge variant={member.familyRole === 'FAMILY_MANAGER' ? 'default' : 'secondary'}>
+                      {ROLE_LABEL[member.familyRole]}
+                    </Badge>
+                    {member.userId === user?.id && <Badge variant="outline" className="text-xs">Bạn</Badge>}
+                    {canRemove && (
                       <Button
                         size="icon"
                         variant="ghost"
-                        onClick={() => setExpandedMember(expanded ? null : member.id)}
-                        title="Thông tin tài chính"
+                        disabled={removeMut.isPending}
+                        onClick={() => {
+                          if (window.confirm(`Xóa ${name} khỏi gia đình?`)) removeMut.mutate(member.userId)
+                        }}
                       >
-                        <Wallet className={`w-4 h-4 ${expanded ? 'text-blue-600' : 'text-gray-400'}`} />
+                        <Trash2 className="w-4 h-4 text-red-500" />
                       </Button>
-                      {canManageMember && (
-                        <div className="flex items-center gap-2">
-                          <Select
-                            value={member.user.role === 'PARENT' ? 'PARENT' : 'FAMILY_MEMBER'}
-                            onValueChange={(role) => roleMut.mutate({ userId: member.user.id, role: role as 'PARENT' | 'FAMILY_MEMBER' })}
-                            disabled={roleMut.isPending}
-                          >
-                            <SelectTrigger className="w-44 h-8">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="PARENT">Deputy Member</SelectItem>
-                              <SelectItem value="FAMILY_MEMBER">Family Member</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            disabled={removeMut.isPending}
-                            onClick={() => {
-                              if (window.confirm(`Xóa ${member.user.displayName} khỏi gia đình?`)) {
-                                removeMut.mutate(member.user.id)
-                              }
-                            }}
-                          >
-                            <Trash2 className="w-4 h-4 text-red-500" />
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                    {expanded && (
-                      <div className="border-t bg-gray-50 p-3 space-y-3">
-                        {isParent && (
-                          <div className="grid grid-cols-1 md:grid-cols-4 gap-3 rounded-md border bg-white p-3">
-                            <div className="space-y-1">
-                              <Label>Biệt danh</Label>
-                              <Input
-                                value={profileForm.nickname}
-                                onChange={(e) =>
-                                  setProfileForms((prev) => ({
-                                    ...prev,
-                                    [member.id]: { ...profileForm, nickname: e.target.value },
-                                  }))
-                                }
-                                placeholder="Ví dụ: Bé Lan"
-                              />
-                            </div>
-                            <div className="space-y-1">
-                              <Label>Vai vế</Label>
-                              <Select
-                                value={profileForm.relationship}
-                                onValueChange={(relationship) =>
-                                  setProfileForms((prev) => ({
-                                    ...prev,
-                                    [member.id]: { ...profileForm, relationship: relationship as FamilyRelationship },
-                                  }))
-                                }
-                              >
-                                <SelectTrigger><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                  {RELATIONSHIP_OPTIONS.map((item) => (
-                                    <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            <div className="space-y-1">
-                              <Label>Ngày sinh</Label>
-                              <Input
-                                type="date"
-                                value={profileForm.birthDate}
-                                onChange={(e) =>
-                                  setProfileForms((prev) => ({
-                                    ...prev,
-                                    [member.id]: { ...profileForm, birthDate: e.target.value },
-                                  }))
-                                }
-                              />
-                            </div>
-                            <div className="space-y-1">
-                              <Label>Ghi chú</Label>
-                              <div className="flex gap-2">
-                                <Input
-                                  value={profileForm.notes}
-                                  onChange={(e) =>
-                                    setProfileForms((prev) => ({
-                                      ...prev,
-                                      [member.id]: { ...profileForm, notes: e.target.value },
-                                    }))
-                                  }
-                                  placeholder="Học sinh, đã đi làm..."
-                                />
-                                <Button
-                                  size="icon"
-                                  disabled={profileMut.isPending}
-                                  onClick={() =>
-                                    profileMut.mutate({
-                                      memberId: member.id,
-                                      data: {
-                                        nickname: profileForm.nickname,
-                                        relationship: profileForm.relationship,
-                                        birthDate: profileForm.birthDate || null,
-                                        notes: profileForm.notes,
-                                      },
-                                    })
-                                  }
-                                >
-                                  <Save className="w-4 h-4" />
-                                </Button>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                        <IncomeSourceManager memberId={member.id} canEdit={canEditFinance} />
-                      </div>
                     )}
                   </div>
                 )
@@ -337,23 +178,27 @@ export default function FamilyPage() {
       <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Invite a family member</DialogTitle>
-            <DialogDescription>Create an invitation link with a delegated role and family relationship.</DialogDescription>
+            <DialogTitle>Mời thành viên</DialogTitle>
+            <DialogDescription>Tạo lời mời theo email kèm vai trò và quan hệ trong gia đình.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>System role</Label>
-              <Select value={inviteRole} onValueChange={(v) => setInviteRole(v as 'PARENT' | 'FAMILY_MEMBER')}>
+              <Label>Email người được mời *</Label>
+              <Input type="email" placeholder="email@example.com" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Vai trò</Label>
+              <Select value={inviteRole} onValueChange={(v) => setInviteRole(v as FamilyRole)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="PARENT">Deputy Member</SelectItem>
+                  <SelectItem value="DEPUTY_MEMBER">Deputy Member</SelectItem>
                   <SelectItem value="FAMILY_MEMBER">Family Member</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Family relationship</Label>
-              <Select value={inviteRelationship} onValueChange={(v) => setInviteRelationship(v as FamilyRelationship)}>
+              <Label>Quan hệ</Label>
+              <Select value={inviteRelationship} onValueChange={(v) => setInviteRelationship(v as Relationship)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {RELATIONSHIP_OPTIONS.map((item) => (
@@ -362,32 +207,27 @@ export default function FamilyPage() {
                 </SelectContent>
               </Select>
             </div>
-            {!inviteCode ? (
-              <Button className="w-full" onClick={() => inviteMut.mutate({ role: inviteRole, relationship: inviteRelationship })} disabled={inviteMut.isPending}>
-                {inviteMut.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                Tạo link mời
+            {!inviteToken ? (
+              <Button
+                className="w-full"
+                disabled={inviteMut.isPending || !inviteEmail}
+                onClick={() => inviteMut.mutate({ email: inviteEmail, familyRole: inviteRole, relationship: inviteRelationship })}
+              >
+                {inviteMut.isPending && <Loader2 className="w-4 h-4 animate-spin mr-2" />}Tạo link mời
               </Button>
             ) : (
               <div className="space-y-2">
-                <Label>Link mời (có hiệu lực 7 ngày)</Label>
+                <Label>Link mời (hiệu lực 7 ngày)</Label>
                 <div className="flex gap-2">
-                  <Input value={`${window.location.origin}/register?invite=${inviteCode}`} readOnly className="text-xs" />
-                  <Button size="icon" variant="outline" onClick={copyInviteLink}>
-                    <Copy className="w-4 h-4" />
-                  </Button>
+                  <Input value={`${window.location.origin}/register?invite=${inviteToken}`} readOnly className="text-xs" />
+                  <Button size="icon" variant="outline" onClick={copyInviteLink}><Copy className="w-4 h-4" /></Button>
                 </div>
-                <p className="text-xs text-muted-foreground">Chia sẻ link này cho thành viên muốn mời</p>
+                <p className="text-xs text-muted-foreground">Chia sẻ link này cho người được mời.</p>
               </div>
             )}
           </div>
         </DialogContent>
       </Dialog>
-
-      <UpgradePlanDialog
-        open={upgradeOpen}
-        onOpenChange={setUpgradeOpen}
-        currentPlanId={family?.subscriptionPlan?.id ?? null}
-      />
     </div>
   )
 }

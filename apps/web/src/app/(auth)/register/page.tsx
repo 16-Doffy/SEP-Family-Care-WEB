@@ -22,10 +22,19 @@ import {
   User, Mail, Lock, Home, Eye, EyeOff, Check,
 } from 'lucide-react'
 
+// Quy tắc mật khẩu khớp với chính sách của API team:
+// tối thiểu 8 ký tự, gồm chữ hoa, chữ thường, số và ký tự đặc biệt.
+// Kiểm tra ngay ở bước 1 để báo lỗi tại chỗ nhập, không để lọt sang bước 2.
 const step1Schema = z.object({
   displayName: z.string().min(2, 'Tên phải có ít nhất 2 ký tự'),
   email: z.string().email('Email không hợp lệ'),
-  password: z.string().min(6, 'Mật khẩu ít nhất 6 ký tự'),
+  password: z
+    .string()
+    .min(8, 'Mật khẩu phải có ít nhất 8 ký tự')
+    .regex(/[A-Z]/, 'Mật khẩu cần ít nhất 1 chữ hoa')
+    .regex(/[a-z]/, 'Mật khẩu cần ít nhất 1 chữ thường')
+    .regex(/[0-9]/, 'Mật khẩu cần ít nhất 1 chữ số')
+    .regex(/[^A-Za-z0-9]/, 'Mật khẩu cần ít nhất 1 ký tự đặc biệt'),
 })
 
 const step2Schema = z.object({
@@ -152,7 +161,7 @@ function RegisterForm() {
           <FieldWithIcon icon={Lock} label="Mật khẩu">
             <Input
               type={showPassword ? 'text' : 'password'}
-              placeholder="Tối thiểu 6 ký tự"
+              placeholder="≥8 ký tự, có hoa, thường, số, ký tự đặc biệt"
               className="pl-10 pr-10 h-11"
               {...form1.register('password')}
             />
