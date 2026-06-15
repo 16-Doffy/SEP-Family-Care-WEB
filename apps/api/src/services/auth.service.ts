@@ -202,7 +202,7 @@ export async function login(email: string, password: string) {
 export async function refreshTokens(oldRefreshToken: string) {
   // Kiểm tra sự tồn tại và thời hạn của token trong database trước
   // để phát hiện token đã bị thu hồi (logout) hoặc hết hạn
-  const record = await prisma.refreshToken.findUnique({ where: { token: oldRefreshToken } })
+  const record = await prisma.authSession.findUnique({ where: { token: oldRefreshToken } })
   if (!record || record.expiresAt < new Date()) {
     throw Errors.Unauthorized()
   }
@@ -223,8 +223,8 @@ export async function refreshTokens(oldRefreshToken: string) {
   // Rotation refresh token — dùng deleteMany thay vì delete để tránh lỗi P2025
   // trong trường hợp nhiều request gọi đồng thời (race condition)
   await prisma.$transaction([
-    prisma.refreshToken.deleteMany({ where: { token: oldRefreshToken } }),
-    prisma.refreshToken.create({
+    prisma.authSession.deleteMany({ where: { token: oldRefreshToken } }),
+    prisma.authSession.create({
       data: {
         token: tokens.refreshToken,
         userId: user.id,
@@ -247,7 +247,7 @@ export async function refreshTokens(oldRefreshToken: string) {
  */
 export async function logout(refreshToken: string) {
   // deleteMany không ném lỗi nếu token không tồn tại — đảm bảo idempotency
-  await prisma.refreshToken.deleteMany({ where: { token: refreshToken } })
+  await prisma.authSession.deleteMany({ where: { token: refreshToken } })
 }
 
 /**
@@ -292,12 +292,12 @@ export async function changePassword(userId: string, currentPassword: string, ne
   const passwordHash = await bcrypt.hash(newPassword, 10)
   await prisma.$transaction([
     prisma.user.update({ where: { id: userId }, data: { passwordHash } }),
-    prisma.refreshToken.deleteMany({ where: { userId } }),
+    prisma.authSession.deleteMany({ where: { userId } }),
   ])
 }
 
 export async function getSessions(userId: string) {
-  return prisma.refreshToken.findMany({
+  return prisma.authSession.findMany({
     where: { userId, expiresAt: { gt: new Date() } },
     select: { id: true, createdAt: true, expiresAt: true },
     orderBy: { createdAt: 'desc' },
@@ -305,7 +305,7 @@ export async function getSessions(userId: string) {
 }
 
 export async function revokeSession(userId: string, sessionId: string) {
-  await prisma.refreshToken.deleteMany({ where: { id: sessionId, userId } })
+  await prisma.authSession.deleteMany({ where: { id: sessionId, userId } })
 }
 
 export async function getMyStats(userId: string) {
@@ -372,10 +372,10 @@ function generateTokens(
 async function saveRefreshToken(userId: string, token: string) {
   await prisma.$transaction([
     // Xóa các token đã hết hạn của user này trước khi thêm mới
-    prisma.refreshToken.deleteMany({
+    prisma.authSession.deleteMany({
       where: { userId, expiresAt: { lt: new Date() } },
     }),
-    prisma.refreshToken.create({
+    prisma.authSession.create({
       data: {
         token,
         userId,
@@ -446,6 +446,6 @@ export async function resetPassword(token: string, newPassword: string) {
       data: { usedAt: new Date() },
     }),
     // Thu hồi toàn bộ refresh token — buộc user đăng nhập lại trên mọi thiết bị
-    prisma.refreshToken.deleteMany({ where: { userId: record.userId } }),
+    prisma.authSession.deleteMany({ where: { userId: record.userId } }),
   ])
 }

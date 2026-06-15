@@ -500,6 +500,19 @@ enum WearablePairingStatus {
   LOST
 }
 
+enum FamilyInvitationStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  CANCELED
+}
+
+enum AnnouncementStatus {
+  ACTIVE
+  ARCHIVED
+  DELETED
+}
+
 // ─── Models ───────────────────────────────────────────────────────────────────
 
 model User {
@@ -520,7 +533,8 @@ model User {
 
   familyMember             FamilyMember?
   createdFamilies          Family[]                  @relation("WorkspaceCreator")
-  refreshTokens            RefreshToken[]
+  authSessions             AuthSession[]
+  acceptedInvitations      FamilyInvite[]            @relation("InvitationAcceptedBy")
   passwordResetTokens      PasswordResetToken[]
   notifications            Notification[]
   taskProofs               TaskProof[]
@@ -537,8 +551,8 @@ model User {
   @@index([email])
 }
 
-// ERD `AuthSession` ≡ RefreshToken (enriched). Một phiên đăng nhập/refresh token.
-model RefreshToken {
+// ERD `AuthSession` — một phiên đăng nhập / refresh token của user.
+model AuthSession {
   id         String    @id @default(cuid())
   token      String    @unique
   userId     String
@@ -661,20 +675,34 @@ model FamilyProvision {
   @@index([status])
 }
 
+// ERD `family_invitations`. `code` ≡ invitation_token, `role` ≡ assigned_role,
+// `relationship` ≡ assigned_relationship, `expiresAt` ≡ expired_at.
 model FamilyInvite {
-  id           String             @id @default(cuid())
-  code         String             @unique
-  familyId     String
-  role         Role
-  relationship FamilyRelationship @default(OTHER)
-  usedAt       DateTime?
-  expiresAt    DateTime
-  createdAt    DateTime           @default(now())
+  id                String                 @id @default(cuid())
+  code              String                 @unique
+  familyId          String
+  invitedEmail      String?
+  invitedPhone      String?
+  role              Role
+  relationship      FamilyRelationship     @default(OTHER)
+  status            FamilyInvitationStatus @default(PENDING)
+  createdByMemberId String?
+  acceptedByUserId  String?
+  usedAt            DateTime?
+  acceptedAt        DateTime?
+  expiresAt         DateTime
+  createdAt         DateTime               @default(now())
 
-  family Family @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  family     Family        @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  createdBy  FamilyMember? @relation("InvitationCreatedBy", fields: [createdByMemberId], references: [id], onDelete: SetNull)
+  acceptedBy User?         @relation("InvitationAcceptedBy", fields: [acceptedByUserId], references: [id], onDelete: SetNull)
 
   @@index([familyId])
   @@index([code, expiresAt, usedAt])
+  @@index([status])
+  @@index([invitedEmail])
+  @@index([createdByMemberId])
+  @@index([acceptedByUserId])
 }
 
 model SubscriptionPlan {
@@ -855,6 +883,7 @@ model FamilyMember {
   albumTagsReceived         AlbumMediaTag[]         @relation("AlbumTagSubject")
   albumTagsGiven            AlbumMediaTag[]         @relation("AlbumTagAuthor")
   aiConversations           AiConversation[]
+  invitationsCreated        FamilyInvite[]          @relation("InvitationCreatedBy")
 
   @@index([familyId])
 }
@@ -1958,19 +1987,25 @@ model DeviceRoutePoint {
   @@index([userId, recordedAt])
 }
 
+// ERD `family_announcements`. `senderId` ≡ created_by_member_id.
+// title để nullable (additive) để không vỡ service tạo announcement hiện có.
 model Announcement {
-  id        String           @id @default(cuid())
+  id        String               @id @default(cuid())
   familyId  String
   senderId  String
-  type      AnnouncementType @default(ANNOUNCEMENT)
+  type      AnnouncementType     @default(ANNOUNCEMENT)
+  title     String?
   content   String
-  createdAt DateTime         @default(now())
+  priority  NotificationPriority @default(NORMAL)
+  status    AnnouncementStatus   @default(ACTIVE)
+  createdAt DateTime             @default(now())
 
   family Family       @relation(fields: [familyId], references: [id], onDelete: Cascade)
   sender FamilyMember @relation(fields: [senderId], references: [id])
 
   @@index([familyId, createdAt])
   @@index([senderId])
+  @@index([status])
 }
 
 // ─── Core flow 1: Family Finance ──────────────────────────────────────────────
