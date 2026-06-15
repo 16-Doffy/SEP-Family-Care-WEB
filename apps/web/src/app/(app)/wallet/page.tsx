@@ -21,6 +21,7 @@ import toast from 'react-hot-toast'
 import { FinanceOverview } from '@/components/finance/FinanceOverview'
 import { PersonalOverview } from '@/components/finance/PersonalOverview'
 import { BudgetTable } from '@/components/finance/BudgetTable'
+import { ErdFinancePanel } from '@/components/finance/ErdFinancePanel'
 import { ExpenseLog } from '@/components/finance/ExpenseLog'
 import { MonthSelector } from '@/components/finance/MonthSelector'
 import { useMonthlySummary, usePrediction, useWarnings } from '@/hooks/useFinance'
@@ -57,7 +58,7 @@ export default function WalletPage() {
   const [rejectOpen, setRejectOpen] = useState<MoneyRequest | null>(null)
   const [selectedWallet, setSelectedWallet] = useState<WalletType | null>(null)
   const isParentEarly = user?.role === 'PARENT' || user?.role === 'SUPER_ADMIN'
-  const [activeTab, setActiveTab] = useState<'overview' | 'wallets' | 'budget' | 'log' | 'requests'>(
+  const [activeTab, setActiveTab] = useState<'overview' | 'wallets' | 'budget' | 'jars' | 'log' | 'requests'>(
     isParentEarly ? 'overview' : 'overview',
   )
   const now = new Date()
@@ -165,6 +166,12 @@ export default function WalletPage() {
                 {isParent ? 'Ngân sách tháng' : 'Ngân sách cá nhân'}
               </button>
               <button
+                onClick={() => setActiveTab('jars')}
+                className={cn('px-4 py-1.5 rounded-md text-sm font-medium transition-colors', activeTab === 'jars' ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700')}
+              >
+                Sổ quỹ & Lọ
+              </button>
+              <button
                 onClick={() => setActiveTab('log')}
                 className={cn('px-4 py-1.5 rounded-md text-sm font-medium transition-colors', activeTab === 'log' ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700')}
               >
@@ -235,6 +242,9 @@ export default function WalletPage() {
         {activeTab === 'budget' && summary && (
           <BudgetTable summary={summary} isParent={isParent} currentMemberId={user?.familyMember?.id} />
         )}
+
+        {/* === TAB: SỔ QUỸ & LỌ (ERD ledger/jars/budget) === */}
+        {activeTab === 'jars' && <ErdFinancePanel isParent={isParent} />}
 
         {/* === TAB: EXPENSE LOG === */}
         {activeTab === 'log' && (

@@ -8,10 +8,21 @@
 
 import { Router, type Router as ExpressRouter } from 'express'
 import * as ctrl from '../controllers/finance.controller'
+import * as erd from '../controllers/finance-erd.controller'
 import { authenticate, requireFamily, requireRole } from '../middleware/auth'
 
 const router: ExpressRouter = Router()
 router.use(authenticate, requireFamily)
+
+// ─── ERD finance (internal ledger / jars / budget) ───────────────────────────
+// Đọc cho mọi member; cấu hình (model, category, budget) chỉ Manager/Deputy.
+router.get('/erd/overview', erd.getOverview)
+router.get('/erd/categories', erd.listCategories)
+router.post('/erd/categories', requireRole('PARENT', 'SUPER_ADMIN'), erd.createCategory)
+router.post('/erd/model', requireRole('PARENT', 'SUPER_ADMIN'), erd.setupModel)
+router.get('/erd/entries', erd.listEntries)
+router.post('/erd/entries', erd.createEntry)
+router.post('/erd/budget-plans', requireRole('PARENT', 'SUPER_ADMIN'), erd.createBudgetPlan)
 
 // Income sources — member tự sửa của mình; PARENT sửa cho mọi người
 router.get('/members/:memberId/income-sources', ctrl.listIncomeSources)
