@@ -18,6 +18,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
+import { CurrencyInput } from '@/components/ui/currency-input'
 import { formatCurrency, formatDateTime, cn } from '@/lib/utils'
 import { Wallet, ArrowDownLeft, ArrowUpRight, Loader2, PiggyBank, Tags, Plus, Sparkles } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -327,7 +328,7 @@ function LedgerTab({
     createEntry.mutate(
       {
         entryType: form.entryType,
-        amount: Number(form.amount),
+        amount: Number(form.amount.replace(/\D/g, '')),
         description: form.description,
         entryDate: form.entryDate,
         categoryId: form.categoryId || undefined,
@@ -396,7 +397,7 @@ function LedgerTab({
             </div>
             <div className="space-y-2">
               <Label>Số tiền (VND) *</Label>
-              <Input type="number" min="1000" placeholder="250000" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} />
+              <CurrencyInput value={form.amount} onChange={(v) => setForm({ ...form, amount: v })} placeholder="250.000" />
             </div>
             <div className="space-y-2">
               <Label>Mô tả *</Label>
