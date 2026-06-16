@@ -17,14 +17,16 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
+import { CurrencyInput } from '@/components/ui/currency-input'
 import { formatCurrency, formatDateTime, cn } from '@/lib/utils'
-import { Loader2, Plus, Target, HandCoins, AlertTriangle, RefreshCw, CheckCircle, XCircle } from 'lucide-react'
+import { Loader2, Plus, Target, HandCoins, AlertTriangle, RefreshCw, CheckCircle, XCircle, Trash2 } from 'lucide-react'
 import { getApiErrorMessage } from '@/lib/api'
 import {
   useBudgetPlans, useBudgetPlanReport, useCreateBudgetPlan, useBudgetPlanAction,
   useFinancialGoals, useCreateFinancialGoal, useCancelFinancialGoal,
   useSupportRequests, useCreateSupportRequest, useReviewSupportRequest, useCancelSupportRequest,
   useBudgetAlerts, useRecomputeAlerts, useAlertAction, useFinanceReportOverview,
+  useFinanceCategories,
   type BudgetPlan,
 } from '@/hooks/useTeamFinance'
 
@@ -37,10 +39,13 @@ const PLAN_STATUS: Record<string, { label: string; cls: string }> = {
 }
 
 /* ============================== Ngân sách ============================== */
+type BudgetLine = { plannedAmount: string; categoryId: string }
+
 export function BudgetTab({ familyId, isManager }: { familyId: string; isManager: boolean }) {
   const plans = useBudgetPlans(familyId)
   const createPlan = useCreateBudgetPlan(familyId)
   const action = useBudgetPlanAction(familyId)
+  const categories = useFinanceCategories(familyId)
   const [open, setOpen] = useState(false)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const report = useBudgetPlanReport(familyId, selectedId)
@@ -53,6 +58,11 @@ export function BudgetTab({ familyId, isManager }: { familyId: string; isManager
     periodEnd: monthEnd.toISOString().slice(0, 10),
     expectedSharedIncome: '', expectedSharedExpense: '',
   })
+  const [lines, setLines] = useState<BudgetLine[]>([{ plannedAmount: '', categoryId: '' }])
+  const addLine = () => setLines((prev) => [...prev, { plannedAmount: '', categoryId: '' }])
+  const removeLine = (i: number) => setLines((prev) => prev.filter((_, idx) => idx !== i))
+  const updateLine = (i: number, k: keyof BudgetLine, v: string) =>
+    setLines((prev) => prev.map((l, idx) => idx === i ? { ...l, [k]: v } : l))
 
   const submit = () => {
     createPlan.mutate(
@@ -61,9 +71,18 @@ export function BudgetTab({ familyId, isManager }: { familyId: string; isManager
         periodStart: form.periodStart, periodEnd: form.periodEnd,
         expectedSharedIncome: form.expectedSharedIncome ? Number(form.expectedSharedIncome) : undefined,
         expectedSharedExpense: form.expectedSharedExpense ? Number(form.expectedSharedExpense) : undefined,
+        lines: lines.filter((l) => l.plannedAmount).map((l) => ({
+          plannedAmount: Number(l.plannedAmount),
+          categoryId: l.categoryId || undefined,
+        })),
       },
       {
-        onSuccess: () => { toast.success('Đã tạo kế hoạch ngân sách (nháp)'); setOpen(false); setForm({ ...form, planName: '', expectedSharedIncome: '', expectedSharedExpense: '' }) },
+        onSuccess: () => {
+          toast.success('Đã tạo kế hoạch ngân sách (nháp)')
+          setOpen(false)
+          setForm({ ...form, planName: '', expectedSharedIncome: '', expectedSharedExpense: '' })
+          setLines([{ plannedAmount: '', categoryId: '' }])
+        },
         onError: (e) => toast.error(getApiErrorMessage(e, 'Tạo kế hoạch thất bại')),
       },
     )
@@ -174,13 +193,43 @@ export function BudgetTab({ familyId, isManager }: { familyId: string; isManager
               <div className="space-y-2"><Label>Đến ngày</Label><Input type="date" value={form.periodEnd} onChange={(e) => setForm({ ...form, periodEnd: e.target.value })} /></div>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2"><Label>Dự kiến thu</Label><Input type="number" value={form.expectedSharedIncome} onChange={(e) => setForm({ ...form, expectedSharedIncome: e.target.value })} placeholder="20000000" /></div>
-              <div className="space-y-2"><Label>Dự kiến chi</Label><Input type="number" value={form.expectedSharedExpense} onChange={(e) => setForm({ ...form, expectedSharedExpense: e.target.value })} placeholder="15000000" /></div>
+              <div className="space-y-2"><Label>Dự kiến thu</Label><CurrencyInput value={form.expectedSharedIncome} onChange={(v) => setForm({ ...form, expectedSharedIncome: v })} placeholder="20.000.000" /></div>
+              <div className="space-y-2"><Label>Dự kiến chi</Label><CurrencyInput value={form.expectedSharedExpense} onChange={(v) => setForm({ ...form, expectedSharedExpense: v })} placeholder="15.000.000" /></div>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label>Dòng ngân sách <span className="text-red-500">*</span></Label>
+                <Button type="button" size="sm" variant="outline" onClick={addLine} className="gap-1 h-7 text-xs px-2">
+                  <Plus className="w-3 h-3" />Thêm dòng
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">Cần ít nhất 1 dòng để kích hoạt kế hoạch.</p>
+              <div className="space-y-2 max-h-44 overflow-y-auto pr-1">
+                {lines.map((line, i) => (
+                  <div key={i} className="flex gap-2 items-center">
+                    <div className="flex-1">
+                      <CurrencyInput value={line.plannedAmount} onChange={(v) => updateLine(i, 'plannedAmount', v)} placeholder="Số tiền" />
+                    </div>
+                    {(categories.data?.length ?? 0) > 0 && (
+                      <Select value={line.categoryId || '__none__'} onValueChange={(v) => updateLine(i, 'categoryId', v === '__none__' ? '' : v)}>
+                        <SelectTrigger className="w-36 h-9 text-xs"><SelectValue placeholder="Danh mục" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__none__">— Không chọn —</SelectItem>
+                          {categories.data!.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    )}
+                    <Button type="button" size="icon" variant="ghost" className="h-9 w-9 text-red-500 shrink-0" onClick={() => removeLine(i)} disabled={lines.length === 1}>
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>Hủy</Button>
-            <Button onClick={submit} disabled={createPlan.isPending || !form.planName}>
+            <Button variant="outline" onClick={() => { setOpen(false); setLines([{ plannedAmount: '', categoryId: '' }]) }}>Hủy</Button>
+            <Button onClick={submit} disabled={createPlan.isPending || !form.planName || lines.every((l) => !l.plannedAmount)}>
               {createPlan.isPending && <Loader2 className="w-4 h-4 animate-spin mr-2" />}Tạo
             </Button>
           </DialogFooter>
@@ -210,9 +259,9 @@ export function GoalsTab({ familyId, isManager }: { familyId: string; isManager:
   const submit = () => {
     createGoal.mutate(
       {
-        goalName: form.goalName, targetAmount: Number(form.targetAmount),
+        goalName: form.goalName, targetAmount: Number(form.targetAmount.replace(/\D/g, '')),
         deadline: form.deadline || undefined,
-        monthlyContributionTarget: form.monthlyContributionTarget ? Number(form.monthlyContributionTarget) : undefined,
+        monthlyContributionTarget: form.monthlyContributionTarget ? Number(form.monthlyContributionTarget.replace(/\D/g, '')) : undefined,
       },
       {
         onSuccess: () => { toast.success('Đã tạo mục tiêu'); setOpen(false); setForm({ goalName: '', targetAmount: '', deadline: '', monthlyContributionTarget: '' }) },
@@ -259,9 +308,9 @@ export function GoalsTab({ familyId, isManager }: { familyId: string; isManager:
           <DialogHeader><DialogTitle>Tạo mục tiêu tài chính</DialogTitle><DialogDescription>Đặt số tiền mục tiêu và mức góp hàng tháng (tùy chọn).</DialogDescription></DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2"><Label>Tên mục tiêu *</Label><Input value={form.goalName} onChange={(e) => setForm({ ...form, goalName: e.target.value })} placeholder="Mua xe, quỹ dự phòng..." /></div>
-            <div className="space-y-2"><Label>Số tiền mục tiêu (VND) *</Label><Input type="number" value={form.targetAmount} onChange={(e) => setForm({ ...form, targetAmount: e.target.value })} placeholder="50000000" /></div>
+            <div className="space-y-2"><Label>Số tiền mục tiêu (VND) *</Label><CurrencyInput value={form.targetAmount} onChange={(v) => setForm({ ...form, targetAmount: v })} placeholder="50.000.000" /></div>
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2"><Label>Góp/tháng</Label><Input type="number" value={form.monthlyContributionTarget} onChange={(e) => setForm({ ...form, monthlyContributionTarget: e.target.value })} placeholder="2000000" /></div>
+              <div className="space-y-2"><Label>Góp/tháng</Label><CurrencyInput value={form.monthlyContributionTarget} onChange={(v) => setForm({ ...form, monthlyContributionTarget: v })} placeholder="2.000.000" /></div>
               <div className="space-y-2"><Label>Hạn (tùy chọn)</Label><Input type="date" value={form.deadline} onChange={(e) => setForm({ ...form, deadline: e.target.value })} /></div>
             </div>
           </div>
@@ -293,7 +342,7 @@ export function SupportTab({ familyId, isManager }: { familyId: string; isManage
   const [form, setForm] = useState({ amount: '', purpose: '' })
 
   const submit = () => {
-    createReq.mutate({ amount: Number(form.amount), purpose: form.purpose }, {
+    createReq.mutate({ amount: Number(form.amount.replace(/\D/g, '')), purpose: form.purpose }, {
       onSuccess: () => { toast.success('Đã gửi yêu cầu hỗ trợ'); setOpen(false); setForm({ amount: '', purpose: '' }) },
       onError: (e) => toast.error(getApiErrorMessage(e, 'Gửi yêu cầu thất bại')),
     })
@@ -353,7 +402,7 @@ export function SupportTab({ familyId, isManager }: { familyId: string; isManage
         <DialogContent>
           <DialogHeader><DialogTitle>Yêu cầu hỗ trợ chi tiêu</DialogTitle><DialogDescription>Gửi yêu cầu để Family Manager/Deputy xem xét.</DialogDescription></DialogHeader>
           <div className="space-y-4">
-            <div className="space-y-2"><Label>Số tiền (VND) *</Label><Input type="number" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} placeholder="300000" /></div>
+            <div className="space-y-2"><Label>Số tiền (VND) *</Label><CurrencyInput value={form.amount} onChange={(v) => setForm({ ...form, amount: v })} placeholder="300.000" /></div>
             <div className="space-y-2"><Label>Mục đích *</Label><Input value={form.purpose} onChange={(e) => setForm({ ...form, purpose: e.target.value })} placeholder="Mua sách, tiền xe bus..." /></div>
           </div>
           <DialogFooter>
