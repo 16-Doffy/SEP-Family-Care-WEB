@@ -137,6 +137,15 @@ export function useLedgerEntries(familyId: string | null, month?: number, year?:
   })
 }
 
+/** Tổng quan tài chính tháng (tùy chọn truyền month/year để xem tháng khác). */
+export function useFinanceOverviewMonth(familyId: string | null, month?: number, year?: number) {
+  return useQuery<FinanceOverview>({
+    queryKey: fkey(familyId ?? '', 'overview', month, year),
+    queryFn: () => api.get(`/families/${familyId}/finance/overview`, { params: month && year ? { month, year } : {} }).then((r) => r.data),
+    enabled: !!familyId,
+  })
+}
+
 /** Invalidate toàn bộ cache finance của một gia đình. */
 function useInvalidateFinance(familyId: string | null) {
   const qc = useQueryClient()
@@ -187,6 +196,8 @@ export function useCreateLedgerEntry(familyId: string | null) {
       entryDate: string
       categoryId?: string
       note?: string
+      sourceType?: string
+      sourceId?: string
     }) => api.post(`/families/${familyId}/finance/ledger/entries`, data).then((r) => r.data),
     onSuccess: invalidate,
   })
@@ -288,10 +299,13 @@ export interface BudgetAlert {
 
 /* ----------------------------- Budget plans ----------------------------- */
 
-export function useBudgetPlans(familyId: string | null) {
+export function useBudgetPlans(
+  familyId: string | null,
+  params?: { page?: number; limit?: number; status?: 'DRAFT' | 'ACTIVE' | 'CLOSED' | 'CANCELED'; periodType?: 'MONTHLY' | 'QUARTERLY' | 'YEARLY' },
+) {
   return useQuery<Paginated<BudgetPlan>>({
-    queryKey: fkey(familyId ?? '', 'budget-plans'),
-    queryFn: () => api.get(`/families/${familyId}/finance/budget-plans`).then((r) => r.data),
+    queryKey: fkey(familyId ?? '', 'budget-plans', params),
+    queryFn: () => api.get(`/families/${familyId}/finance/budget-plans`, { params }).then((r) => r.data),
     enabled: !!familyId,
   })
 }
@@ -335,10 +349,13 @@ export function useBudgetPlanAction(familyId: string | null) {
 
 /* ----------------------------- Financial goals ----------------------------- */
 
-export function useFinancialGoals(familyId: string | null) {
+export function useFinancialGoals(
+  familyId: string | null,
+  params?: { page?: number; limit?: number; status?: 'ACTIVE' | 'ACHIEVED' | 'CANCELED'; relatedJarId?: string; includeProgress?: boolean },
+) {
   return useQuery<Paginated<FinancialGoal>>({
-    queryKey: fkey(familyId ?? '', 'financial-goals'),
-    queryFn: () => api.get(`/families/${familyId}/finance/financial-goals`).then((r) => r.data),
+    queryKey: fkey(familyId ?? '', 'financial-goals', params),
+    queryFn: () => api.get(`/families/${familyId}/finance/financial-goals`, { params }).then((r) => r.data),
     enabled: !!familyId,
   })
 }
@@ -363,10 +380,13 @@ export function useCancelFinancialGoal(familyId: string | null) {
 
 /* ----------------------------- Support requests ----------------------------- */
 
-export function useSupportRequests(familyId: string | null) {
+export function useSupportRequests(
+  familyId: string | null,
+  params?: { page?: number; limit?: number; status?: 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELED'; requesterMemberId?: string; categoryId?: string; fromDate?: string; toDate?: string; mine?: boolean },
+) {
   return useQuery<Paginated<SupportRequest>>({
-    queryKey: fkey(familyId ?? '', 'support-requests'),
-    queryFn: () => api.get(`/families/${familyId}/finance/support-requests`).then((r) => r.data),
+    queryKey: fkey(familyId ?? '', 'support-requests', params),
+    queryFn: () => api.get(`/families/${familyId}/finance/support-requests`, { params }).then((r) => r.data),
     enabled: !!familyId,
   })
 }
@@ -383,8 +403,8 @@ export function useCreateSupportRequest(familyId: string | null) {
 export function useReviewSupportRequest(familyId: string | null) {
   const invalidate = useInvalidateFinance(familyId)
   return useMutation({
-    mutationFn: ({ requestId, decision, decisionNote }: { requestId: string; decision: 'APPROVE' | 'REJECT'; decisionNote?: string }) =>
-      api.patch(`/families/${familyId}/finance/support-requests/${requestId}/review`, { decision, decisionNote }).then((r) => r.data),
+    mutationFn: ({ requestId, decision, decisionNote, occurredAt }: { requestId: string; decision: 'APPROVE' | 'REJECT'; decisionNote?: string; occurredAt?: string }) =>
+      api.patch(`/families/${familyId}/finance/support-requests/${requestId}/review`, { decision, decisionNote, occurredAt }).then((r) => r.data),
     onSuccess: invalidate,
   })
 }
@@ -400,10 +420,13 @@ export function useCancelSupportRequest(familyId: string | null) {
 
 /* ----------------------------- Alerts ----------------------------- */
 
-export function useBudgetAlerts(familyId: string | null) {
+export function useBudgetAlerts(
+  familyId: string | null,
+  params?: { page?: number; limit?: number; status?: 'NEW' | 'ACKNOWLEDGED' | 'RESOLVED'; alertType?: string; severity?: 'LOW' | 'MEDIUM' | 'HIGH'; budgetPlanId?: string; goalId?: string; jarId?: string; categoryId?: string; fromDate?: string; toDate?: string },
+) {
   return useQuery<Paginated<BudgetAlert>>({
-    queryKey: fkey(familyId ?? '', 'alerts'),
-    queryFn: () => api.get(`/families/${familyId}/finance/alerts`).then((r) => r.data),
+    queryKey: fkey(familyId ?? '', 'alerts', params),
+    queryFn: () => api.get(`/families/${familyId}/finance/alerts`, { params }).then((r) => r.data),
     enabled: !!familyId,
   })
 }
@@ -411,7 +434,8 @@ export function useBudgetAlerts(familyId: string | null) {
 export function useRecomputeAlerts(familyId: string | null) {
   const invalidate = useInvalidateFinance(familyId)
   return useMutation({
-    mutationFn: () => api.post(`/families/${familyId}/finance/alerts/recompute`, { scope: 'ALL' }).then((r) => r.data),
+    mutationFn: (params?: { scope?: 'ALL' | 'BUDGET' | 'GOAL' | 'NON_ESSENTIAL'; budgetPlanId?: string; goalId?: string; periodStart?: string; periodEnd?: string }) =>
+      api.post(`/families/${familyId}/finance/alerts/recompute`, { scope: 'ALL', ...params }).then((r) => r.data),
     onSuccess: invalidate,
   })
 }
@@ -419,8 +443,8 @@ export function useRecomputeAlerts(familyId: string | null) {
 export function useAlertAction(familyId: string | null) {
   const invalidate = useInvalidateFinance(familyId)
   return useMutation({
-    mutationFn: ({ alertId, action }: { alertId: string; action: 'acknowledge' | 'resolve' }) =>
-      api.patch(`/families/${familyId}/finance/alerts/${alertId}/${action}`).then((r) => r.data),
+    mutationFn: ({ alertId, action, note }: { alertId: string; action: 'acknowledge' | 'resolve'; note?: string }) =>
+      api.patch(`/families/${familyId}/finance/alerts/${alertId}/${action}`, note ? { note } : undefined).then((r) => r.data),
     onSuccess: invalidate,
   })
 }
@@ -447,10 +471,288 @@ export interface FinanceReportOverview {
   alerts: { totalNew: number; totalAcknowledged: number; totalResolved: number; highCount: number; mediumCount: number; lowCount: number }
 }
 
-export function useFinanceReportOverview(familyId: string | null) {
+export function useFinanceReportOverview(
+  familyId: string | null,
+  params?: { periodStart?: string; periodEnd?: string; budgetPlanId?: string; includeAlerts?: boolean; includeGoals?: boolean; includeBreakdown?: boolean },
+) {
   return useQuery<FinanceReportOverview>({
-    queryKey: fkey(familyId ?? '', 'report-overview'),
-    queryFn: () => api.get(`/families/${familyId}/finance/reports/overview`).then((r) => r.data),
+    queryKey: fkey(familyId ?? '', 'report-overview', params),
+    queryFn: () => api.get(`/families/${familyId}/finance/reports/overview`, { params }).then((r) => r.data),
     enabled: !!familyId,
+  })
+}
+
+/* ----------------------------- Report: budget-goal ----------------------------- */
+
+export interface BudgetGoalReport {
+  period?: { periodStart: string; periodEnd: string }
+  budget?: {
+    budgetPlan: BudgetPlan | null
+    lines: { budgetLine: BudgetLine; actualAmount: Money; varianceAmount: Money; isOverBudget: boolean }[]
+    totals: { plannedExpense: Money; actualExpense: Money; varianceExpense: Money; overBudgetLineCount: number }
+  } | null
+  goals?: {
+    items: (FinancialGoal & { currentAmount?: Money; progressPercent?: Money })[]
+    summary: { totalGoals: number; activeGoals: number; achievedGoals: number; atRiskGoals: number; averageProgressPercent: Money }
+  } | null
+  alerts?: BudgetAlert[] | null
+}
+
+export function useReportBudgetGoal(
+  familyId: string | null,
+  params?: { periodStart?: string; periodEnd?: string; budgetPlanId?: string; includeAlerts?: boolean; includeGoals?: boolean; includeBreakdown?: boolean },
+) {
+  return useQuery<BudgetGoalReport>({
+    queryKey: fkey(familyId ?? '', 'report-budget-goal', params),
+    queryFn: () => api.get(`/families/${familyId}/finance/reports/budget-goal`, { params }).then((r) => r.data),
+    enabled: !!familyId,
+  })
+}
+
+/* ----------------------------- Report: non-essential spending ----------------------------- */
+
+export interface NonEssentialSpendingReport {
+  period?: { periodStart: string; periodEnd: string }
+  summary?: { totalExpense: Money; nonEssentialExpense: Money; nonEssentialRatio: Money; essentialExpense: Money }
+  byCategory?: { categoryId: string; name: string; amount: Money; ratio: Money }[]
+  breakdown?: { entryId: string; amount: Money; description: string; entryDate: string; category?: { name: string } | null }[]
+  alerts?: BudgetAlert[] | null
+}
+
+export function useReportNonEssential(
+  familyId: string | null,
+  params?: { periodStart?: string; periodEnd?: string; budgetPlanId?: string; includeAlerts?: boolean; includeBreakdown?: boolean },
+) {
+  return useQuery<NonEssentialSpendingReport>({
+    queryKey: fkey(familyId ?? '', 'report-non-essential', params),
+    queryFn: () => api.get(`/families/${familyId}/finance/reports/non-essential-spending`, { params }).then((r) => r.data),
+    enabled: !!familyId,
+  })
+}
+
+/* ----------------------------- Jars: tạo & sửa ----------------------------- */
+
+export function useCreateFinanceJar(familyId: string | null) {
+  const invalidate = useInvalidateFinance(familyId)
+  return useMutation({
+    mutationFn: (data: { financeModelId: string; name: string; jarCode: string; allocationPercentage: number; description?: string; isActive?: boolean }) =>
+      api.post(`/families/${familyId}/finance/jars`, data).then((r) => r.data),
+    onSuccess: invalidate,
+  })
+}
+
+export function useUpdateFinanceJar(familyId: string | null) {
+  const invalidate = useInvalidateFinance(familyId)
+  return useMutation({
+    mutationFn: ({ jarId, ...data }: { jarId: string; name?: string; jarCode?: string; allocationPercentage?: number; description?: string | null; isActive?: boolean }) =>
+      api.patch(`/families/${familyId}/finance/jars/${jarId}`, data).then((r) => r.data),
+    onSuccess: invalidate,
+  })
+}
+
+/* ----------------------------- Budget plan: chi tiết & sửa ----------------------------- */
+
+export function useBudgetPlan(familyId: string | null, planId: string | null) {
+  return useQuery<BudgetPlan & { lines: BudgetLine[] }>({
+    queryKey: fkey(familyId ?? '', 'budget-plan', planId),
+    queryFn: () => api.get(`/families/${familyId}/finance/budget-plans/${planId}`).then((r) => r.data),
+    enabled: !!familyId && !!planId,
+  })
+}
+
+export function useUpdateBudgetPlan(familyId: string | null) {
+  const invalidate = useInvalidateFinance(familyId)
+  return useMutation({
+    mutationFn: ({ planId, ...data }: { planId: string; planName?: string; periodType?: 'MONTHLY' | 'QUARTERLY' | 'YEARLY'; periodStart?: string; periodEnd?: string; expectedSharedIncome?: number | null; expectedSharedExpense?: number | null }) =>
+      api.patch(`/families/${familyId}/finance/budget-plans/${planId}`, data).then((r) => r.data),
+    onSuccess: invalidate,
+  })
+}
+
+/* ----------------------------- Budget lines: thêm / sửa / xóa ----------------------------- */
+
+export function useAddBudgetLine(familyId: string | null) {
+  const invalidate = useInvalidateFinance(familyId)
+  return useMutation({
+    mutationFn: ({ planId, ...data }: { planId: string; plannedAmount: number; categoryId?: string; jarId?: string; thresholdAmount?: number; thresholdPercent?: number; essentialType?: 'ESSENTIAL' | 'NON_ESSENTIAL' | 'NEUTRAL'; note?: string }) =>
+      api.post(`/families/${familyId}/finance/budget-plans/${planId}/lines`, data).then((r) => r.data),
+    onSuccess: invalidate,
+  })
+}
+
+export function useUpdateBudgetLine(familyId: string | null) {
+  const invalidate = useInvalidateFinance(familyId)
+  return useMutation({
+    mutationFn: ({ lineId, ...data }: { lineId: string; plannedAmount?: number; categoryId?: string | null; jarId?: string | null; thresholdAmount?: number | null; thresholdPercent?: number | null; essentialType?: 'ESSENTIAL' | 'NON_ESSENTIAL' | 'NEUTRAL'; note?: string | null }) =>
+      api.patch(`/families/${familyId}/finance/budget-lines/${lineId}`, data).then((r) => r.data),
+    onSuccess: invalidate,
+  })
+}
+
+export function useDeleteBudgetLine(familyId: string | null) {
+  const invalidate = useInvalidateFinance(familyId)
+  return useMutation({
+    mutationFn: (lineId: string) =>
+      api.delete(`/families/${familyId}/finance/budget-lines/${lineId}`).then((r) => r.data),
+    onSuccess: invalidate,
+  })
+}
+
+/* ----------------------------- Financial goal: chi tiết & sửa ----------------------------- */
+
+export interface GoalProgress {
+  goalId: string
+  goalName: string
+  targetAmount: Money
+  currentAmount: Money
+  progressPercent: Money
+  remainingAmount: Money
+  deadline: string | null
+  monthlyContributionTarget: Money | null
+  estimatedMonthsToComplete: number | null
+  isOnTrack: boolean
+}
+
+export interface GoalAllocation {
+  id: string
+  goalId: string
+  ledgerEntryId: string
+  amount: Money
+  createdAt: string
+  ledgerEntry?: LedgerEntry | null
+}
+
+export function useFinancialGoal(familyId: string | null, goalId: string | null) {
+  return useQuery<FinancialGoal>({
+    queryKey: fkey(familyId ?? '', 'financial-goal', goalId),
+    queryFn: () => api.get(`/families/${familyId}/finance/financial-goals/${goalId}`).then((r) => r.data),
+    enabled: !!familyId && !!goalId,
+  })
+}
+
+export function useUpdateFinancialGoal(familyId: string | null) {
+  const invalidate = useInvalidateFinance(familyId)
+  return useMutation({
+    mutationFn: ({ goalId, ...data }: { goalId: string; goalName?: string; targetAmount?: number; deadline?: string | null; monthlyContributionTarget?: number | null; relatedJarId?: string | null }) =>
+      api.patch(`/families/${familyId}/finance/financial-goals/${goalId}`, data).then((r) => r.data),
+    onSuccess: invalidate,
+  })
+}
+
+export function useGoalProgress(familyId: string | null, goalId: string | null) {
+  return useQuery<GoalProgress>({
+    queryKey: fkey(familyId ?? '', 'goal-progress', goalId),
+    queryFn: () => api.get(`/families/${familyId}/finance/financial-goals/${goalId}/progress`).then((r) => r.data),
+    enabled: !!familyId && !!goalId,
+  })
+}
+
+export function useGoalAllocations(familyId: string | null, goalId: string | null) {
+  return useQuery<GoalAllocation[]>({
+    queryKey: fkey(familyId ?? '', 'goal-allocations', goalId),
+    queryFn: () => api.get(`/families/${familyId}/finance/financial-goals/${goalId}/allocations`).then((r) => r.data),
+    enabled: !!familyId && !!goalId,
+  })
+}
+
+export function useAddGoalAllocation(familyId: string | null) {
+  const invalidate = useInvalidateFinance(familyId)
+  return useMutation({
+    mutationFn: ({ goalId, ledgerEntryId, amount }: { goalId: string; ledgerEntryId: string; amount: number }) =>
+      api.post(`/families/${familyId}/finance/financial-goals/${goalId}/allocations`, { ledgerEntryId, amount }).then((r) => r.data),
+    onSuccess: invalidate,
+  })
+}
+
+export function useUpdateGoalAllocation(familyId: string | null) {
+  const invalidate = useInvalidateFinance(familyId)
+  return useMutation({
+    mutationFn: ({ allocationId, amount }: { allocationId: string; amount: number }) =>
+      api.patch(`/families/${familyId}/finance/goal-allocations/${allocationId}`, { amount }).then((r) => r.data),
+    onSuccess: invalidate,
+  })
+}
+
+export function useDeleteGoalAllocation(familyId: string | null) {
+  const invalidate = useInvalidateFinance(familyId)
+  return useMutation({
+    mutationFn: (allocationId: string) =>
+      api.delete(`/families/${familyId}/finance/goal-allocations/${allocationId}`).then((r) => r.data),
+    onSuccess: invalidate,
+  })
+}
+
+/* ----------------------------- Monthly finances (tài chính tháng cá nhân) ----------------------------- */
+
+export interface MonthlyFinance {
+  id: string
+  familyMemberId: string
+  periodMonth: number
+  periodYear: number
+  expectedIncome: Money | null
+  actualIncome: Money | null
+  expectedPersonalExpense: Money | null
+  actualPersonalExpense: Money | null
+  incomeVisibility: 'PRIVATE' | 'FAMILY'
+  expenseVisibility: 'PRIVATE' | 'FAMILY'
+  note: string | null
+}
+
+export interface MonthlyFinanceInput {
+  periodMonth: number
+  periodYear: number
+  expectedIncome?: number | null
+  actualIncome?: number | null
+  expectedPersonalExpense?: number | null
+  actualPersonalExpense?: number | null
+  incomeVisibility?: 'PRIVATE' | 'FAMILY'
+  expenseVisibility?: 'PRIVATE' | 'FAMILY'
+  note?: string | null
+}
+
+/** Lấy tài chính tháng cá nhân (yêu cầu month + year). */
+export function useMonthlyFinance(familyId: string | null, month: number | null, year: number | null) {
+  return useQuery<MonthlyFinance>({
+    queryKey: fkey(familyId ?? '', 'monthly-finance', month, year),
+    queryFn: () => api.get(`/families/${familyId}/finance/monthly-finances/me`, { params: { month, year } }).then((r) => r.data),
+    enabled: !!familyId && !!month && !!year,
+  })
+}
+
+/** Tạo bản ghi tài chính tháng (lần đầu cho tháng/năm đó). */
+export function useCreateMonthlyFinance(familyId: string | null) {
+  const invalidate = useInvalidateFinance(familyId)
+  return useMutation({
+    mutationFn: (data: MonthlyFinanceInput) =>
+      api.post(`/families/${familyId}/finance/monthly-finances/me`, data).then((r) => r.data),
+    onSuccess: invalidate,
+  })
+}
+
+/** Cập nhật bản ghi tài chính tháng đã tồn tại. */
+export function useUpdateMonthlyFinance(familyId: string | null) {
+  const invalidate = useInvalidateFinance(familyId)
+  return useMutation({
+    mutationFn: (data: MonthlyFinanceInput) =>
+      api.put(`/families/${familyId}/finance/monthly-finances/me`, data).then((r) => r.data),
+    onSuccess: invalidate,
+  })
+}
+
+/* ----------------------------- Alert & SupportRequest: chi tiết ----------------------------- */
+
+export function useBudgetAlertDetail(familyId: string | null, alertId: string | null) {
+  return useQuery<BudgetAlert>({
+    queryKey: fkey(familyId ?? '', 'alert', alertId),
+    queryFn: () => api.get(`/families/${familyId}/finance/alerts/${alertId}`).then((r) => r.data),
+    enabled: !!familyId && !!alertId,
+  })
+}
+
+export function useSupportRequestDetail(familyId: string | null, requestId: string | null) {
+  return useQuery<SupportRequest>({
+    queryKey: fkey(familyId ?? '', 'support-request', requestId),
+    queryFn: () => api.get(`/families/${familyId}/finance/support-requests/${requestId}`).then((r) => r.data),
+    enabled: !!familyId && !!requestId,
   })
 }
