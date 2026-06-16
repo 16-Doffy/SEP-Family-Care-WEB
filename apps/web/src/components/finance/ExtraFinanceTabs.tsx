@@ -8,7 +8,7 @@
  * - AlertsTab: cảnh báo ngân sách (tính lại / xác nhận / giải quyết).
  * - ReportTab: báo cáo tổng quan tài chính.
  */
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import toast from 'react-hot-toast'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -23,11 +23,15 @@ import { Loader2, Plus, Target, HandCoins, AlertTriangle, RefreshCw, CheckCircle
 import { getApiErrorMessage } from '@/lib/api'
 import {
   useBudgetPlans, useBudgetPlanReport, useCreateBudgetPlan, useBudgetPlanAction,
+  useAddBudgetLine, useUpdateBudgetLine, useDeleteBudgetLine,
   useFinancialGoals, useCreateFinancialGoal, useCancelFinancialGoal,
+  useGoalProgress, useGoalAllocations, useAddGoalAllocation,
   useSupportRequests, useCreateSupportRequest, useReviewSupportRequest, useCancelSupportRequest,
-  useBudgetAlerts, useRecomputeAlerts, useAlertAction, useFinanceReportOverview,
-  useFinanceCategories,
-  type BudgetPlan,
+  useBudgetAlerts, useRecomputeAlerts, useAlertAction,
+  useFinanceReportOverview, useReportBudgetGoal, useReportNonEssential,
+  useFinanceCategories, useLedgerEntries,
+  useMonthlyFinance, useCreateMonthlyFinance, useUpdateMonthlyFinance,
+  type BudgetPlan, type BudgetLine, type FinancialGoal, type FinanceCategory, type MonthlyFinanceInput,
 } from '@/hooks/useTeamFinance'
 
 const n = (v: unknown) => Number(v ?? 0)
@@ -39,7 +43,7 @@ const PLAN_STATUS: Record<string, { label: string; cls: string }> = {
 }
 
 /* ============================== Ngân sách ============================== */
-type BudgetLine = { plannedAmount: string; categoryId: string }
+type DraftLine = { plannedAmount: string; categoryId: string }
 
 export function BudgetTab({ familyId, isManager }: { familyId: string; isManager: boolean }) {
   const plans = useBudgetPlans(familyId)
@@ -58,10 +62,10 @@ export function BudgetTab({ familyId, isManager }: { familyId: string; isManager
     periodEnd: monthEnd.toISOString().slice(0, 10),
     expectedSharedIncome: '', expectedSharedExpense: '',
   })
-  const [lines, setLines] = useState<BudgetLine[]>([{ plannedAmount: '', categoryId: '' }])
+  const [lines, setLines] = useState<DraftLine[]>([{ plannedAmount: '', categoryId: '' }])
   const addLine = () => setLines((prev) => [...prev, { plannedAmount: '', categoryId: '' }])
   const removeLine = (i: number) => setLines((prev) => prev.filter((_, idx) => idx !== i))
-  const updateLine = (i: number, k: keyof BudgetLine, v: string) =>
+  const updateLine = (i: number, k: keyof DraftLine, v: string) =>
     setLines((prev) => prev.map((l, idx) => idx === i ? { ...l, [k]: v } : l))
 
   const submit = () => {
@@ -159,6 +163,9 @@ export function BudgetTab({ familyId, isManager }: { familyId: string; isManager
                             </tbody>
                           </table>
                         </div>
+                        {isManager && (p.status === 'DRAFT' || p.status === 'ACTIVE') && (
+                          <BudgetLinesEditor familyId={familyId} planId={p.id} lines={report.data.budgetPlan.lines} categories={categories.data ?? []} />
+                        )}
                       </div>
                     ) : <p className="text-sm text-muted-foreground py-2">Không tải được báo cáo.</p>}
                   </div>
@@ -248,6 +255,79 @@ function Mini({ label, value, cls }: { label: string; value: string; cls?: strin
   )
 }
 
+/** Quản lý dòng ngân sách của một kế hoạch đã tồn tại: thêm / sửa / xóa. */
+function BudgetLinesEditor({
+  familyId, planId, lines, categories,
+}: { familyId: string; planId: string; lines: BudgetLine[]; categories: FinanceCategory[] }) {
+  const addLine = useAddBudgetLine(familyId)
+  const updateLine = useUpdateBudgetLine(familyId)
+  const deleteLine = useDeleteBudgetLine(familyId)
+  const [newLine, setNewLine] = useState({ plannedAmount: '', categoryId: '' })
+  const [editing, setEditing] = useState<Record<string, string>>({})
+
+  const submitAdd = () => {
+    if (!newLine.plannedAmount) return
+    addLine.mutate(
+      { planId, plannedAmount: Number(newLine.plannedAmount), categoryId: newLine.categoryId || undefined },
+      {
+        onSuccess: () => { toast.success('Đã thêm dòng ngân sách'); setNewLine({ plannedAmount: '', categoryId: '' }) },
+        onError: (e) => toast.error(getApiErrorMessage(e, 'Thêm dòng thất bại')),
+      },
+    )
+  }
+  const saveEdit = (lineId: string) => {
+    const val = editing[lineId]
+    if (val == null || !val) return
+    updateLine.mutate({ lineId, plannedAmount: Number(val) }, {
+      onSuccess: () => { toast.success('Đã cập nhật dòng'); setEditing((p) => { const c = { ...p }; delete c[lineId]; return c }) },
+      onError: (e) => toast.error(getApiErrorMessage(e, 'Cập nhật thất bại')),
+    })
+  }
+  const removeLine = (lineId: string) =>
+    deleteLine.mutate(lineId, {
+      onSuccess: () => toast.success('Đã xóa dòng'),
+      onError: (e) => toast.error(getApiErrorMessage(e, 'Xóa thất bại')),
+    })
+
+  return (
+    <div className="mt-3 border-t pt-3 space-y-2">
+      <p className="text-sm font-medium text-gray-700">Quản lý dòng ngân sách</p>
+      {lines.map((l) => (
+        <div key={l.id} className="flex items-center gap-2">
+          <span className="text-sm flex-1 truncate">{l.category?.name ?? l.jar?.name ?? '—'}</span>
+          <div className="w-32">
+            <CurrencyInput
+              value={editing[l.id] ?? String(n(l.plannedAmount))}
+              onChange={(v) => setEditing((p) => ({ ...p, [l.id]: v }))}
+            />
+          </div>
+          <Button size="sm" variant="outline" disabled={updateLine.isPending || editing[l.id] == null} onClick={() => saveEdit(l.id)}>Lưu</Button>
+          <Button size="sm" variant="ghost" className="text-red-600" disabled={deleteLine.isPending} onClick={() => removeLine(l.id)}>
+            <Trash2 className="w-4 h-4" />
+          </Button>
+        </div>
+      ))}
+      <div className="flex items-center gap-2 pt-2">
+        <div className="flex-1">
+          <CurrencyInput value={newLine.plannedAmount} onChange={(v) => setNewLine({ ...newLine, plannedAmount: v })} placeholder="Số tiền dòng mới" />
+        </div>
+        {categories.length > 0 && (
+          <Select value={newLine.categoryId || '__none__'} onValueChange={(v) => setNewLine({ ...newLine, categoryId: v === '__none__' ? '' : v })}>
+            <SelectTrigger className="w-36 h-9 text-xs"><SelectValue placeholder="Danh mục" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__none__">— Không chọn —</SelectItem>
+              {categories.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        )}
+        <Button size="sm" onClick={submitAdd} disabled={addLine.isPending || !newLine.plannedAmount} className="gap-1 shrink-0">
+          <Plus className="w-3.5 h-3.5" />Thêm dòng
+        </Button>
+      </div>
+    </div>
+  )
+}
+
 /* ============================== Mục tiêu ============================== */
 export function GoalsTab({ familyId, isManager }: { familyId: string; isManager: boolean }) {
   const goals = useFinancialGoals(familyId)
@@ -283,22 +363,7 @@ export function GoalsTab({ familyId, isManager }: { familyId: string; isManager:
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {items.map((g) => (
-            <Card key={g.id}>
-              <CardContent className="pt-6 space-y-2">
-                <div className="flex items-center justify-between">
-                  <p className="font-medium">{g.goalName}</p>
-                  <Badge variant={g.status === 'ACHIEVED' ? 'default' : g.status === 'CANCELED' ? 'destructive' : 'secondary'}>{g.status}</Badge>
-                </div>
-                <p className="text-2xl font-bold text-blue-600">{formatCurrency(n(g.targetAmount))}</p>
-                <div className="text-xs text-muted-foreground space-y-0.5">
-                  {g.monthlyContributionTarget && <p>Góp mỗi tháng: {formatCurrency(n(g.monthlyContributionTarget))}</p>}
-                  {g.deadline && <p>Hạn: {new Date(g.deadline).toLocaleDateString('vi-VN')}</p>}
-                </div>
-                {isManager && g.status === 'ACTIVE' && (
-                  <Button size="sm" variant="ghost" className="text-red-600 px-0" onClick={() => cancelGoal.mutate(g.id, { onSuccess: () => toast.success('Đã hủy mục tiêu'), onError: (e) => toast.error(getApiErrorMessage(e)) })}>Hủy mục tiêu</Button>
-                )}
-              </CardContent>
-            </Card>
+            <GoalCard key={g.id} familyId={familyId} goal={g} isManager={isManager} onCancel={() => cancelGoal.mutate(g.id, { onSuccess: () => toast.success('Đã hủy mục tiêu'), onError: (e) => toast.error(getApiErrorMessage(e)) })} />
           ))}
         </div>
       )}
@@ -323,6 +388,111 @@ export function GoalsTab({ familyId, isManager }: { familyId: string; isManager:
         </DialogContent>
       </Dialog>
     </div>
+  )
+}
+
+/** Thẻ mục tiêu: hiện tiến độ (useGoalProgress), lịch sử phân bổ và form phân bổ giao dịch. */
+function GoalCard({
+  familyId, goal, isManager, onCancel,
+}: { familyId: string; goal: FinancialGoal; isManager: boolean; onCancel: () => void }) {
+  const progress = useGoalProgress(familyId, goal.id)
+  const allocations = useGoalAllocations(familyId, goal.id)
+  const addAlloc = useAddGoalAllocation(familyId)
+  const entries = useLedgerEntries(familyId)
+  const [open, setOpen] = useState(false)
+  const [form, setForm] = useState({ ledgerEntryId: '', amount: '' })
+
+  const contributionEntries = (entries.data ?? []).filter((e) => e.entryType === 'CONTRIBUTION' || e.entryType === 'INCOME')
+  const pct = progress.data ? Math.min(100, n(progress.data.progressPercent)) : 0
+
+  const submit = () => {
+    if (!form.ledgerEntryId || !form.amount) return
+    addAlloc.mutate(
+      { goalId: goal.id, ledgerEntryId: form.ledgerEntryId, amount: Number(form.amount.replace(/\D/g, '')) },
+      {
+        onSuccess: () => { toast.success('Đã phân bổ vào mục tiêu'); setOpen(false); setForm({ ledgerEntryId: '', amount: '' }) },
+        onError: (e) => toast.error(getApiErrorMessage(e, 'Phân bổ thất bại')),
+      },
+    )
+  }
+
+  return (
+    <Card>
+      <CardContent className="pt-6 space-y-2">
+        <div className="flex items-center justify-between">
+          <p className="font-medium">{goal.goalName}</p>
+          <Badge variant={goal.status === 'ACHIEVED' ? 'default' : goal.status === 'CANCELED' ? 'destructive' : 'secondary'}>{goal.status}</Badge>
+        </div>
+        <p className="text-2xl font-bold text-blue-600">{formatCurrency(n(goal.targetAmount))}</p>
+
+        {progress.data && (
+          <div className="space-y-1">
+            <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
+              <div className="h-full bg-blue-500" style={{ width: `${pct}%` }} />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Đã góp {formatCurrency(n(progress.data.currentAmount))} ({pct.toFixed(0)}%)
+              {progress.data.estimatedMonthsToComplete != null && ` · còn ~${progress.data.estimatedMonthsToComplete} tháng`}
+              {!progress.data.isOnTrack && ' · chậm tiến độ'}
+            </p>
+          </div>
+        )}
+
+        <div className="text-xs text-muted-foreground space-y-0.5">
+          {goal.monthlyContributionTarget && <p>Góp mỗi tháng: {formatCurrency(n(goal.monthlyContributionTarget))}</p>}
+          {goal.deadline && <p>Hạn: {new Date(goal.deadline).toLocaleDateString('vi-VN')}</p>}
+        </div>
+
+        {(allocations.data?.length ?? 0) > 0 && (
+          <div className="text-xs text-muted-foreground border-t pt-2 space-y-0.5">
+            {allocations.data!.slice(0, 3).map((a) => (
+              <div key={a.id} className="flex justify-between">
+                <span className="truncate">{a.ledgerEntry?.description ?? 'Giao dịch'}</span>
+                <span className="shrink-0">{formatCurrency(n(a.amount))}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="flex gap-2 pt-1">
+          {goal.status === 'ACTIVE' && (
+            <Button size="sm" variant="outline" className="gap-1" onClick={() => setOpen(true)}><Plus className="w-3.5 h-3.5" />Phân bổ</Button>
+          )}
+          {isManager && goal.status === 'ACTIVE' && (
+            <Button size="sm" variant="ghost" className="text-red-600 px-0" onClick={onCancel}>Hủy mục tiêu</Button>
+          )}
+        </div>
+      </CardContent>
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Phân bổ giao dịch vào mục tiêu</DialogTitle>
+            <DialogDescription>Chọn một giao dịch thu/đóng góp trong sổ chung để gán vào mục tiêu này.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Giao dịch</Label>
+              <Select value={form.ledgerEntryId} onValueChange={(v) => setForm({ ...form, ledgerEntryId: v })}>
+                <SelectTrigger><SelectValue placeholder="Chọn giao dịch" /></SelectTrigger>
+                <SelectContent>
+                  {contributionEntries.map((e) => (
+                    <SelectItem key={e.id} value={e.id}>{e.description} · {formatCurrency(n(e.amount))}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2"><Label>Số tiền phân bổ (VND) *</Label><CurrencyInput value={form.amount} onChange={(v) => setForm({ ...form, amount: v })} /></div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpen(false)}>Hủy</Button>
+            <Button onClick={submit} disabled={addAlloc.isPending || !form.ledgerEntryId || !form.amount}>
+              {addAlloc.isPending && <Loader2 className="w-4 h-4 animate-spin mr-2" />}Phân bổ
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </Card>
   )
 }
 
@@ -472,7 +642,35 @@ export function AlertsTab({ familyId, isManager }: { familyId: string; isManager
 }
 
 /* ============================== Báo cáo ============================== */
+const REPORT_SUB_TABS = [
+  { id: 'overview', label: 'Tổng quan' },
+  { id: 'budget-goal', label: 'Ngân sách & Mục tiêu' },
+  { id: 'non-essential', label: 'Chi không thiết yếu' },
+] as const
+
 export function ReportTab({ familyId }: { familyId: string }) {
+  const [sub, setSub] = useState<typeof REPORT_SUB_TABS[number]['id']>('overview')
+  return (
+    <div className="space-y-4">
+      <div className="flex gap-1 p-1 bg-gray-100 rounded-lg w-fit">
+        {REPORT_SUB_TABS.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setSub(t.id)}
+            className={cn('px-3 py-1.5 rounded-md text-xs font-medium transition-colors', sub === t.id ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700')}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+      {sub === 'overview' && <ReportOverviewSection familyId={familyId} />}
+      {sub === 'budget-goal' && <ReportBudgetGoalSection familyId={familyId} />}
+      {sub === 'non-essential' && <ReportNonEssentialSection familyId={familyId} />}
+    </div>
+  )
+}
+
+function ReportOverviewSection({ familyId }: { familyId: string }) {
   const report = useFinanceReportOverview(familyId)
   if (report.isLoading) return <div className="py-10 text-center"><Loader2 className="w-6 h-6 animate-spin mx-auto text-muted-foreground" /></div>
   if (!report.data) return <Card><CardContent className="py-10 text-center text-sm text-muted-foreground">Không tải được báo cáo.</CardContent></Card>
@@ -531,4 +729,208 @@ export function ReportTab({ familyId }: { familyId: string }) {
 
 function Row({ label, value, cls }: { label: string; value: string; cls?: string }) {
   return <div className="flex justify-between"><span className="text-muted-foreground">{label}</span><span className={cn('font-medium', cls)}>{value}</span></div>
+}
+
+function ReportBudgetGoalSection({ familyId }: { familyId: string }) {
+  const report = useReportBudgetGoal(familyId, { includeGoals: true, includeAlerts: true })
+  if (report.isLoading) return <div className="py-10 text-center"><Loader2 className="w-6 h-6 animate-spin mx-auto text-muted-foreground" /></div>
+  if (!report.data) return <Card><CardContent className="py-10 text-center text-sm text-muted-foreground">Không tải được báo cáo.</CardContent></Card>
+  const d = report.data
+
+  return (
+    <div className="space-y-4">
+      {d.budget && (
+        <Card><CardContent className="pt-6">
+          <p className="text-sm text-muted-foreground mb-2">{d.budget.budgetPlan?.planName ?? 'Ngân sách'}</p>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+            <Mini label="Dự chi" value={formatCurrency(n(d.budget.totals.plannedExpense))} />
+            <Mini label="Thực chi" value={formatCurrency(n(d.budget.totals.actualExpense))} cls="text-red-600" />
+            <Mini label="Chênh lệch" value={formatCurrency(n(d.budget.totals.varianceExpense))} />
+            <Mini label="Dòng vượt NS" value={String(d.budget.totals.overBudgetLineCount)} />
+          </div>
+        </CardContent></Card>
+      )}
+
+      {d.goals && (
+        <Card><CardContent className="pt-6">
+          <p className="text-sm text-muted-foreground mb-2">Mục tiêu</p>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm mb-3">
+            <Mini label="Tổng" value={String(d.goals.summary.totalGoals)} />
+            <Mini label="Đang theo đuổi" value={String(d.goals.summary.activeGoals)} />
+            <Mini label="Đã đạt" value={String(d.goals.summary.achievedGoals)} />
+            <Mini label="Tiến độ TB" value={`${n(d.goals.summary.averageProgressPercent).toFixed(0)}%`} />
+          </div>
+          <div className="space-y-1">
+            {d.goals.items.map((g) => (
+              <div key={g.id} className="flex justify-between text-sm border-b last:border-0 py-1">
+                <span>{g.goalName}</span><span className="font-medium">{n(g.progressPercent).toFixed(0)}%</span>
+              </div>
+            ))}
+          </div>
+        </CardContent></Card>
+      )}
+
+      {(d.alerts?.length ?? 0) > 0 && (
+        <Card><CardContent className="pt-6">
+          <p className="text-sm text-muted-foreground mb-2">Cảnh báo liên quan</p>
+          <div className="space-y-1">
+            {d.alerts!.map((a) => <div key={a.id} className="text-sm border-b last:border-0 py-1">{a.message}</div>)}
+          </div>
+        </CardContent></Card>
+      )}
+    </div>
+  )
+}
+
+function ReportNonEssentialSection({ familyId }: { familyId: string }) {
+  const report = useReportNonEssential(familyId, { includeBreakdown: true })
+  if (report.isLoading) return <div className="py-10 text-center"><Loader2 className="w-6 h-6 animate-spin mx-auto text-muted-foreground" /></div>
+  if (!report.data) return <Card><CardContent className="py-10 text-center text-sm text-muted-foreground">Không tải được báo cáo.</CardContent></Card>
+  const d = report.data
+
+  return (
+    <div className="space-y-4">
+      {d.summary && (
+        <Card><CardContent className="pt-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+            <Mini label="Tổng chi" value={formatCurrency(n(d.summary.totalExpense))} />
+            <Mini label="Thiết yếu" value={formatCurrency(n(d.summary.essentialExpense))} />
+            <Mini label="Không thiết yếu" value={formatCurrency(n(d.summary.nonEssentialExpense))} cls="text-amber-600" />
+            <Mini label="Tỉ lệ" value={`${n(d.summary.nonEssentialRatio).toFixed(0)}%`} />
+          </div>
+        </CardContent></Card>
+      )}
+
+      {(d.byCategory?.length ?? 0) > 0 && (
+        <Card><CardContent className="pt-6">
+          <p className="text-sm text-muted-foreground mb-2">Theo danh mục</p>
+          <div className="space-y-1">
+            {d.byCategory!.map((c) => (
+              <div key={c.categoryId} className="flex justify-between text-sm border-b last:border-0 py-1">
+                <span>{c.name}</span><span className="font-medium">{formatCurrency(n(c.amount))} ({n(c.ratio).toFixed(0)}%)</span>
+              </div>
+            ))}
+          </div>
+        </CardContent></Card>
+      )}
+
+      {(d.breakdown?.length ?? 0) > 0 && (
+        <Card><CardContent className="pt-6">
+          <p className="text-sm text-muted-foreground mb-2">Chi tiết giao dịch không thiết yếu</p>
+          <div className="space-y-1">
+            {d.breakdown!.map((b) => (
+              <div key={b.entryId} className="flex justify-between text-sm border-b last:border-0 py-1">
+                <span>{b.description}{b.category && ` · ${b.category.name}`}</span><span className="font-medium">{formatCurrency(n(b.amount))}</span>
+              </div>
+            ))}
+          </div>
+        </CardContent></Card>
+      )}
+    </div>
+  )
+}
+
+/* ===================== Tài chính tháng cá nhân ===================== */
+const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1)
+
+function emptyMonthlyForm(month: number, year: number): MonthlyFinanceInput {
+  return {
+    periodMonth: month, periodYear: year,
+    expectedIncome: null, actualIncome: null,
+    expectedPersonalExpense: null, actualPersonalExpense: null,
+    incomeVisibility: 'PRIVATE', expenseVisibility: 'PRIVATE', note: '',
+  }
+}
+
+export function MonthlyFinanceTab({ familyId }: { familyId: string }) {
+  const now = new Date()
+  const [month, setMonth] = useState(now.getMonth() + 1)
+  const [year, setYear] = useState(now.getFullYear())
+  const mf = useMonthlyFinance(familyId, month, year)
+  const create = useCreateMonthlyFinance(familyId)
+  const update = useUpdateMonthlyFinance(familyId)
+  const [form, setForm] = useState<MonthlyFinanceInput>(emptyMonthlyForm(month, year))
+
+  useEffect(() => {
+    if (mf.data) {
+      setForm({
+        periodMonth: month, periodYear: year,
+        expectedIncome: mf.data.expectedIncome != null ? Number(mf.data.expectedIncome) : null,
+        actualIncome: mf.data.actualIncome != null ? Number(mf.data.actualIncome) : null,
+        expectedPersonalExpense: mf.data.expectedPersonalExpense != null ? Number(mf.data.expectedPersonalExpense) : null,
+        actualPersonalExpense: mf.data.actualPersonalExpense != null ? Number(mf.data.actualPersonalExpense) : null,
+        incomeVisibility: mf.data.incomeVisibility, expenseVisibility: mf.data.expenseVisibility,
+        note: mf.data.note ?? '',
+      })
+    } else {
+      setForm(emptyMonthlyForm(month, year))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mf.data, month, year])
+
+  const exists = !!mf.data
+  const pending = create.isPending || update.isPending
+  const moneyStr = (v: number | null) => (v != null ? String(v) : '')
+  const setMoney = (key: keyof MonthlyFinanceInput) => (v: string) =>
+    setForm((p) => ({ ...p, [key]: v ? Number(v) : null }))
+
+  const submit = () => {
+    const data: MonthlyFinanceInput = { ...form, periodMonth: month, periodYear: year }
+    const mutation = exists ? update : create
+    mutation.mutate(data, {
+      onSuccess: () => toast.success(exists ? 'Đã cập nhật tài chính tháng' : 'Đã khai báo tài chính tháng'),
+      onError: (e) => toast.error(getApiErrorMessage(e, 'Lưu thất bại')),
+    })
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <h3 className="font-semibold text-gray-800">Tài chính tháng cá nhân</h3>
+        <div className="flex gap-2">
+          <Select value={String(month)} onValueChange={(v) => setMonth(Number(v))}>
+            <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
+            <SelectContent>{MONTHS.map((m) => <SelectItem key={m} value={String(m)}>Tháng {m}</SelectItem>)}</SelectContent>
+          </Select>
+          <Input type="number" className="w-24" value={year} onChange={(e) => setYear(Number(e.target.value) || now.getFullYear())} />
+        </div>
+      </div>
+
+      {mf.isLoading ? (
+        <div className="py-10 text-center"><Loader2 className="w-6 h-6 animate-spin mx-auto text-muted-foreground" /></div>
+      ) : (
+        <Card><CardContent className="pt-6 space-y-4">
+          {!exists && <p className="text-sm text-muted-foreground">Chưa khai báo cho tháng {month}/{year}. Điền thông tin bên dưới để tạo mới.</p>}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2"><Label>Thu nhập dự kiến</Label><CurrencyInput value={moneyStr(form.expectedIncome ?? null)} onChange={setMoney('expectedIncome')} /></div>
+            <div className="space-y-2"><Label>Thu nhập thực tế</Label><CurrencyInput value={moneyStr(form.actualIncome ?? null)} onChange={setMoney('actualIncome')} /></div>
+            <div className="space-y-2"><Label>Chi tiêu cá nhân dự kiến</Label><CurrencyInput value={moneyStr(form.expectedPersonalExpense ?? null)} onChange={setMoney('expectedPersonalExpense')} /></div>
+            <div className="space-y-2"><Label>Chi tiêu cá nhân thực tế</Label><CurrencyInput value={moneyStr(form.actualPersonalExpense ?? null)} onChange={setMoney('actualPersonalExpense')} /></div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Hiển thị thu nhập</Label>
+              <Select value={form.incomeVisibility} onValueChange={(v) => setForm({ ...form, incomeVisibility: v as 'PRIVATE' | 'FAMILY' })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent><SelectItem value="PRIVATE">Riêng tư</SelectItem><SelectItem value="FAMILY">Cả nhà xem được</SelectItem></SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Hiển thị chi tiêu</Label>
+              <Select value={form.expenseVisibility} onValueChange={(v) => setForm({ ...form, expenseVisibility: v as 'PRIVATE' | 'FAMILY' })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent><SelectItem value="PRIVATE">Riêng tư</SelectItem><SelectItem value="FAMILY">Cả nhà xem được</SelectItem></SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="space-y-2"><Label>Ghi chú</Label><Input value={form.note ?? ''} onChange={(e) => setForm({ ...form, note: e.target.value })} placeholder="Tùy chọn" /></div>
+          <div className="flex justify-end">
+            <Button onClick={submit} disabled={pending}>
+              {pending && <Loader2 className="w-4 h-4 animate-spin mr-2" />}{exists ? 'Cập nhật' : 'Khai báo'}
+            </Button>
+          </div>
+        </CardContent></Card>
+      )}
+    </div>
+  )
 }

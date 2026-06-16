@@ -31,9 +31,9 @@ import {
   useCreateFinanceCategory, useCreateLedgerEntry,
   type FinanceModel, type FinanceJar, type LedgerEntryType,
 } from '@/hooks/useTeamFinance'
-import { BudgetTab, GoalsTab, SupportTab, AlertsTab, ReportTab } from '@/components/finance/ExtraFinanceTabs'
+import { BudgetTab, GoalsTab, SupportTab, AlertsTab, ReportTab, MonthlyFinanceTab } from '@/components/finance/ExtraFinanceTabs'
 
-type Tab = 'overview' | 'jars' | 'log' | 'categories' | 'budget' | 'goals' | 'support' | 'alerts' | 'report'
+type Tab = 'overview' | 'jars' | 'log' | 'categories' | 'monthly' | 'budget' | 'goals' | 'support' | 'alerts' | 'report'
 
 const ENTRY_TYPES: { value: LedgerEntryType; label: string; income: boolean }[] = [
   { value: 'INCOME', label: 'Thu nhập', income: true },
@@ -89,6 +89,7 @@ export default function FinancePage() {
     { id: 'jars', label: 'Mô hình & Lọ' },
     { id: 'log', label: 'Giao dịch' },
     { id: 'categories', label: 'Danh mục' },
+    { id: 'monthly', label: 'Tài chính tháng' },
     { id: 'budget', label: 'Ngân sách' },
     { id: 'goals', label: 'Mục tiêu' },
     { id: 'support', label: 'Hỗ trợ chi tiêu' },
@@ -124,6 +125,7 @@ export default function FinancePage() {
         {activeTab === 'jars' && <JarsTab familyId={familyId} models={models.data ?? []} jars={jars.data ?? []} />}
         {activeTab === 'log' && <LedgerTab familyId={familyId} entries={entries.data ?? []} categories={categories.data ?? []} />}
         {activeTab === 'categories' && <CategoriesTab familyId={familyId} />}
+        {activeTab === 'monthly' && <MonthlyFinanceTab familyId={familyId} />}
         {activeTab === 'budget' && <BudgetTab familyId={familyId} isManager={isManager} />}
         {activeTab === 'goals' && <GoalsTab familyId={familyId} isManager={isManager} />}
         {activeTab === 'support' && <SupportTab familyId={familyId} isManager={isManager} />}
