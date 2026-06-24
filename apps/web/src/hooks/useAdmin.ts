@@ -135,7 +135,7 @@ export interface SubscriptionPlan {
   planCode: 'FREE' | 'PLUS' | 'PREMIUM'
   name: string
   annualPrice: number | string
-  maxMembers: number
+  maxMembers: number | null
   storageLimit: number
   featureAccess?: Record<string, unknown> | null
   isActive: boolean
@@ -146,7 +146,7 @@ export interface SubscriptionPlanInput {
   planCode: 'FREE' | 'PLUS' | 'PREMIUM'
   name: string
   annualPrice: number
-  maxMembers: number
+  maxMembers?: number | null
   storageLimit: number
   featureAccess?: Record<string, unknown>
   isActive?: boolean
