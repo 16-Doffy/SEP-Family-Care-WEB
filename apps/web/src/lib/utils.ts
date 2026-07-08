@@ -140,7 +140,7 @@ export function getFamilyRoleLabel(input?: RoleLabelInput | string | null): stri
   const role = typeof input === 'string' ? input : input?.role ?? input?.user?.role
   const isOwner = typeof input === 'object' ? Boolean(input?.isOwner) : false
 
-  if (role === 'SUPER_ADMIN') return 'System Admin'
+  if (role === 'SYSTEM_ADMIN') return 'System Admin'
   if (isOwner) return 'Family Manager'
   if (role === 'PARENT') return 'Deputy Member'
   return 'Family Member'

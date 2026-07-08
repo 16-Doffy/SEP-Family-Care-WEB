@@ -68,7 +68,7 @@ function RegisterForm() {
           fullName: data.displayName,
         })
         setAuth(mapTeamUser(res.user), res.accessToken, res.refreshToken)
-        await api.post(`/invitations/${inviteCode}/accept`)
+        await api.post(`/invitations/${inviteCode}/claim`)
         toast.success('Chào mừng đến với gia đình! 🎉')
         router.push('/dashboard')
       } catch (err: unknown) {
