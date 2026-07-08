@@ -137,6 +137,7 @@ export interface SubscriptionPlan {
   annualPrice: number | string
   maxMembers: number | null
   storageLimit: number
+  stripePriceId?: string | null
   featureAccess?: Record<string, unknown> | null
   isActive: boolean
   _count?: { families: number }
@@ -187,7 +188,7 @@ export function useDeleteSubscriptionPlan() {
 export interface AdminInvitation {
   id: string
   email?: string | null
-  status: 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED' | string
+  status: 'PENDING' | 'CLAIMED' | 'APPROVED' | 'REJECTED' | 'ACCEPTED' | 'EXPIRED' | 'CANCELED' | string
   familyId: string
   createdAt?: string
 }
@@ -196,5 +197,50 @@ export function useAdminInvitations(params?: { page?: number; limit?: number; st
   return useQuery<Paginated<AdminInvitation>>({
     queryKey: ['admin', 'invitations', params],
     queryFn: () => api.get('/admin/invitations', { params }).then((r) => r.data),
+  })
+}
+
+export function useUpdateAdminInvitation() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, ...data }: { id: string; status: string }) =>
+      api.patch(`/admin/invitations/${id}`, data).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'invitations'] }),
+  })
+}
+
+export function useDeleteAdminInvitation() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/admin/invitations/${id}`).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'invitations'] }),
+  })
+}
+
+export function useDeleteAdminUser() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/admin/users/${id}`).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'users'] }),
+  })
+}
+
+export function useDeleteAdminFamily() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/admin/families/${id}`).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'families'] }),
+  })
+}
+
+export function useDeleteAdminFamilyMember() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/admin/family-members/${id}`).then((r) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'family-members'] })
+      qc.invalidateQueries({ queryKey: ['admin', 'family'] })
+      qc.invalidateQueries({ queryKey: ['admin', 'families'] })
+    },
   })
 }

@@ -30,13 +30,16 @@ interface FormState {
   planCode: typeof PLAN_CODES[number]
   name: string
   annualPrice: string
+  maxMembers: string
   storageLimit: string
+  stripePriceId: string
   features: Record<string, boolean>
   isActive: boolean
 }
 
 const EMPTY: FormState = {
-  planCode: 'FREE', name: '', annualPrice: '0', storageLimit: '',
+  planCode: 'FREE', name: '', annualPrice: '0', maxMembers: '', storageLimit: '',
+  stripePriceId: '',
   features: Object.fromEntries(FEATURES.map((f) => [f.key, false])),
   isActive: true,
 }
@@ -69,13 +72,14 @@ export default function PlansAdminPage() {
     if (editing) {
       const fa = (editing.featureAccess ?? {}) as Record<string, boolean>
       const features = Object.fromEntries(FEATURES.map((f) => [f.key, !!fa[f.key]]))
-      // giữ lại bất kỳ key lạ nào mà BE trả về nhưng không trong danh sách
       Object.entries(fa).forEach(([k, v]) => { if (!(k in features)) features[k] = !!v })
       setForm({
         planCode: editing.planCode,
         name: editing.name,
         annualPrice: String(editing.annualPrice),
+        maxMembers: editing.maxMembers != null ? String(editing.maxMembers) : '',
         storageLimit: String(editing.storageLimit),
+        stripePriceId: (editing as SubscriptionPlan & { stripePriceId?: string }).stripePriceId ?? '',
         features,
         isActive: editing.isActive,
       })
@@ -84,9 +88,8 @@ export default function PlansAdminPage() {
 
   const openCreate = () => {
     if (!canCreate) return
-    const firstAvailable = availableCodes[0]
     setEditing(null)
-    setForm({ ...EMPTY, planCode: firstAvailable })
+    setForm({ ...EMPTY, planCode: availableCodes[0] })
     setOpen(true)
   }
   const openEdit = (p: SubscriptionPlan) => { setEditing(p); setOpen(true) }
@@ -100,8 +103,9 @@ export default function PlansAdminPage() {
       planCode: form.planCode,
       name: form.name.trim(),
       annualPrice: Number(form.annualPrice) || 0,
-      maxMembers: 9999,
+      maxMembers: form.maxMembers ? Number(form.maxMembers) : null,
       storageLimit: Number(form.storageLimit) || 0,
+      stripePriceId: form.stripePriceId.trim() || undefined,
       featureAccess: form.features,
       isActive: form.isActive,
     }
@@ -204,8 +208,19 @@ export default function PlansAdminPage() {
                 <Input type="number" value={form.annualPrice} onChange={(e) => setForm({ ...form, annualPrice: e.target.value })} />
               </div>
               <div className="space-y-2">
+                <Label>Số thành viên tối đa</Label>
+                <Input type="number" placeholder="Để trống = không giới hạn" value={form.maxMembers} onChange={(e) => setForm({ ...form, maxMembers: e.target.value })} />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
                 <Label>Dung lượng (MB)</Label>
                 <Input type="number" value={form.storageLimit} onChange={(e) => setForm({ ...form, storageLimit: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <Label>Stripe Price ID</Label>
+                <Input placeholder="price_xxx (gói trả phí)" value={form.stripePriceId} onChange={(e) => setForm({ ...form, stripePriceId: e.target.value })} />
               </div>
             </div>
 

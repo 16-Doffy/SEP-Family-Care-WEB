@@ -3,12 +3,11 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useState } from 'react'
-import { Shield, Users, Crown, Menu, LogOut, Server, Download, BarChart3, UserCircle, Home } from 'lucide-react'
+import { Shield, Users, Crown, Menu, LogOut, UserCircle, Home, Mail } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/context/AuthContext'
 import { api } from '@/lib/api'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import toast from 'react-hot-toast'
 
 type Tab = {
   href: string
@@ -17,9 +16,9 @@ type Tab = {
 }
 
 const tabs: Tab[] = [
-  { href: '/admin', label: 'Tổng quan', icon: Shield },
-  { href: '/admin/families', label: 'Gia đình', icon: Users },
+  { href: '/admin', label: 'Dashboard', icon: Shield },
   { href: '/admin/users', label: 'Users', icon: UserCircle },
+  { href: '/admin/families', label: 'Gia đình', icon: Users },
   { href: '/admin/plans', label: 'Gói', icon: Crown },
 ]
 
@@ -36,22 +35,6 @@ export function MobileAdminNav() {
     }
     clearAuth()
     router.push('/login')
-  }
-
-  const exportBackup = async () => {
-    try {
-      const res = await api.get('/admin/backup/export', { responseType: 'blob' })
-      const url = URL.createObjectURL(res.data)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `family-care-backup-${new Date().toISOString().slice(0, 10)}.json`
-      a.click()
-      URL.revokeObjectURL(url)
-      toast.success('Đã xuất backup')
-      setMoreOpen(false)
-    } catch {
-      toast.error('Không thể xuất backup')
-    }
   }
 
   const isActive = (tab: Tab) => {
@@ -100,28 +83,13 @@ export function MobileAdminNav() {
             </div>
 
             <Link
-              href="/admin/revenue"
+              href="/admin/invitations"
               onClick={() => setMoreOpen(false)}
               className="flex items-center gap-3 w-full px-3 py-3 rounded-lg text-sm text-gray-700 hover:bg-gray-100"
             >
-              <BarChart3 className="w-5 h-5 text-green-600" />
-              Thống kê doanh thu
+              <Mail className="w-5 h-5 text-green-600" />
+              Quản lý lời mời
             </Link>
-            <Link
-              href="/admin/system"
-              onClick={() => setMoreOpen(false)}
-              className="flex items-center gap-3 w-full px-3 py-3 rounded-lg text-sm text-gray-700 hover:bg-gray-100"
-            >
-              <Server className="w-5 h-5 text-indigo-600" />
-              Hệ thống & Docker
-            </Link>
-            <button
-              onClick={exportBackup}
-              className="flex items-center gap-3 w-full px-3 py-3 rounded-lg text-sm text-gray-700 hover:bg-gray-100"
-            >
-              <Download className="w-5 h-5 text-blue-600" />
-              Xuất backup hệ thống
-            </button>
             <Link
               href="/dashboard"
               onClick={() => setMoreOpen(false)}
