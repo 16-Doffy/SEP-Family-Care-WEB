@@ -94,8 +94,8 @@ const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: { name
 }
 
 export default function AdminPage() {
-  const { data: usersData, isLoading: usersLoading } = useAdminUsers({ limit: 500 })
-  const { data: familiesData, isLoading: familiesLoading } = useAdminFamilies({ limit: 300 })
+  const { data: usersData, isLoading: usersLoading } = useAdminUsers({ limit: 100 })
+  const { data: familiesData, isLoading: familiesLoading } = useAdminFamilies({ limit: 100 })
   const { data: invitationsData } = useAdminInvitations({ limit: 1 })
   const { data: plansData } = useAdminSubscriptionPlans({ limit: 20 })
 

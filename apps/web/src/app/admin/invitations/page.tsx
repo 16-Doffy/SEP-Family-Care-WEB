@@ -30,7 +30,7 @@ export default function AdminInvitationsPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL')
 
   const { data, isLoading } = useAdminInvitations({
-    limit: 200,
+    limit: 100,
     status: statusFilter === 'ALL' ? undefined : statusFilter,
   })
   const updateInvitation = useUpdateAdminInvitation()
