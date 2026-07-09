@@ -132,7 +132,7 @@ export function useUpdateAdminFamilyMember() {
 
 export interface SubscriptionPlan {
   id: string
-  planCode: 'FREE' | 'PLUS' | 'PREMIUM'
+  planCode: string
   name: string
   annualPrice: number | string
   maxMembers: number | null
@@ -144,11 +144,12 @@ export interface SubscriptionPlan {
 }
 
 export interface SubscriptionPlanInput {
-  planCode: 'FREE' | 'PLUS' | 'PREMIUM'
+  planCode: string
   name: string
   annualPrice: number
-  maxMembers?: number | null
+  maxMembers?: number
   storageLimit: number
+  stripePriceId?: string
   featureAccess?: Record<string, unknown>
   isActive?: boolean
 }

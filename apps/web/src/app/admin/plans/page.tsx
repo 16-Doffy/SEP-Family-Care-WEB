@@ -6,9 +6,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
-import { Pencil, Trash2, Plus, HardDrive, Loader2 } from 'lucide-react'
+import { Pencil, Trash2, Plus, HardDrive, Users, Loader2, CreditCard } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { getApiErrorMessage } from '@/lib/api'
 import {
@@ -16,21 +15,27 @@ import {
   type SubscriptionPlan,
 } from '@/hooks/useAdmin'
 
-const PLAN_CODES = ['FREE', 'PLUS', 'PREMIUM'] as const
-
-/** Các tính năng được BE hỗ trợ trong featureAccess */
-const FEATURES: { key: string; label: string; description: string }[] = [
+/**
+ * Các key featureAccess được BE document trong swagger example.
+ * BE nhận bất kỳ key nào (generic map), nhưng FE chỉ hiển thị các key đã biết
+ * dưới dạng checkbox. Key lạ từ BE vẫn được giữ nguyên khi PATCH.
+ */
+const KNOWN_FEATURES: { key: string; label: string; description: string }[] = [
   { key: 'aiChatbot', label: 'AI Chatbot', description: 'Trợ lý AI trong ứng dụng' },
   { key: 'sos', label: 'SOS khẩn cấp', description: 'Gửi tín hiệu SOS cho thành viên gia đình' },
   { key: 'advancedReports', label: 'Báo cáo nâng cao', description: 'Thống kê tài chính chi tiết' },
   { key: 'unlimitedStorage', label: 'Lưu trữ không giới hạn', description: 'Dung lượng album ảnh không giới hạn' },
 ]
 
+function featureLabel(key: string) {
+  return KNOWN_FEATURES.find((f) => f.key === key)?.label ?? key
+}
+
 interface FormState {
-  planCode: typeof PLAN_CODES[number]
+  planCode: string
   name: string
   annualPrice: string
-  maxMembers: string
+  maxMembers: string   // required on CREATE per swagger
   storageLimit: string
   stripePriceId: string
   features: Record<string, boolean>
@@ -38,20 +43,18 @@ interface FormState {
 }
 
 const EMPTY: FormState = {
-  planCode: 'FREE', name: '', annualPrice: '0', maxMembers: '', storageLimit: '',
+  planCode: '', name: '', annualPrice: '0', maxMembers: '', storageLimit: '0',
   stripePriceId: '',
-  features: Object.fromEntries(FEATURES.map((f) => [f.key, false])),
+  features: Object.fromEntries(KNOWN_FEATURES.map((f) => [f.key, false])),
   isActive: true,
 }
+
+const PLAN_CODE_RE = /^[A-Z0-9_]+$/
 
 function formatPrice(p: SubscriptionPlan) {
   const n = typeof p.annualPrice === 'string' ? Number(p.annualPrice) : p.annualPrice
   if (!n) return 'Miễn phí'
   return `${n.toLocaleString('vi-VN')} VND / năm`
-}
-
-function featureLabel(key: string) {
-  return FEATURES.find((f) => f.key === key)?.label ?? key
 }
 
 export default function PlansAdminPage() {
@@ -63,116 +66,167 @@ export default function PlansAdminPage() {
   const [editing, setEditing] = useState<SubscriptionPlan | null>(null)
   const [open, setOpen] = useState(false)
   const [form, setForm] = useState<FormState>(EMPTY)
+  const [codeError, setCodeError] = useState('')
+
   const plans = data?.items ?? []
-  const usedCodes = plans.map((p) => p.planCode)
-  const availableCodes = PLAN_CODES.filter((c) => !usedCodes.includes(c))
-  const canCreate = availableCodes.length > 0
 
   useEffect(() => {
+    if (!open) return
     if (editing) {
+      // Giữ lại các key lạ từ BE (ngoài KNOWN_FEATURES) để không mất data khi PATCH
       const fa = (editing.featureAccess ?? {}) as Record<string, boolean>
-      const features = Object.fromEntries(FEATURES.map((f) => [f.key, !!fa[f.key]]))
+      const features: Record<string, boolean> = {}
+      KNOWN_FEATURES.forEach((f) => { features[f.key] = !!fa[f.key] })
       Object.entries(fa).forEach(([k, v]) => { if (!(k in features)) features[k] = !!v })
       setForm({
         planCode: editing.planCode,
         name: editing.name,
-        annualPrice: String(editing.annualPrice),
+        annualPrice: String(editing.annualPrice ?? 0),
         maxMembers: editing.maxMembers != null ? String(editing.maxMembers) : '',
-        storageLimit: String(editing.storageLimit),
-        stripePriceId: (editing as SubscriptionPlan & { stripePriceId?: string }).stripePriceId ?? '',
+        storageLimit: String(editing.storageLimit ?? 0),
+        stripePriceId: editing.stripePriceId ?? '',
         features,
         isActive: editing.isActive,
       })
+    } else {
+      setForm(EMPTY)
     }
-  }, [editing])
+    setCodeError('')
+  }, [editing, open])
 
-  const openCreate = () => {
-    if (!canCreate) return
-    setEditing(null)
-    setForm({ ...EMPTY, planCode: availableCodes[0] })
-    setOpen(true)
-  }
+  const openCreate = () => { setEditing(null); setOpen(true) }
   const openEdit = (p: SubscriptionPlan) => { setEditing(p); setOpen(true) }
-  const closeDialog = () => { setOpen(false); setEditing(null); setForm(EMPTY) }
+  const closeDialog = () => { setOpen(false); setEditing(null) }
+
+  const setCode = (v: string) => {
+    const upper = v.toUpperCase().replace(/[^A-Z0-9_]/g, '')
+    setForm((prev) => ({ ...prev, planCode: upper }))
+    setCodeError(upper && !PLAN_CODE_RE.test(upper) ? 'Chỉ dùng chữ HOA, số, dấu gạch dưới' : '')
+  }
 
   const toggleFeature = (key: string) =>
     setForm((prev) => ({ ...prev, features: { ...prev.features, [key]: !prev.features[key] } }))
 
+  const validate = (): boolean => {
+    if (!form.planCode.trim()) { toast.error('Mã gói không được để trống'); return false }
+    if (!PLAN_CODE_RE.test(form.planCode)) { toast.error('Mã gói chỉ dùng chữ HOA, số, dấu _'); return false }
+    if (!form.name.trim()) { toast.error('Tên hiển thị không được để trống'); return false }
+    if (!editing && !form.maxMembers) { toast.error('Số thành viên tối đa là bắt buộc'); return false }
+    return true
+  }
+
   const submit = () => {
+    if (!validate()) return
     const payload = {
       planCode: form.planCode,
       name: form.name.trim(),
       annualPrice: Number(form.annualPrice) || 0,
-      maxMembers: form.maxMembers ? Number(form.maxMembers) : null,
+      maxMembers: form.maxMembers ? Number(form.maxMembers) : undefined,
       storageLimit: Number(form.storageLimit) || 0,
       stripePriceId: form.stripePriceId.trim() || undefined,
       featureAccess: form.features,
       isActive: form.isActive,
     }
-    const onSettled = {
+    const callbacks = {
       onSuccess: () => { toast.success(editing ? 'Đã cập nhật gói' : 'Đã tạo gói mới'); closeDialog() },
       onError: (e: unknown) => toast.error(getApiErrorMessage(e, 'Lưu thất bại')),
     }
-    if (editing) updatePlan.mutate({ id: editing.id, ...payload }, onSettled)
-    else createPlan.mutate(payload as Parameters<typeof createPlan.mutate>[0], onSettled)
+    if (editing) {
+      const { planCode: _pc, ...updatePayload } = payload
+      updatePlan.mutate({ id: editing.id, ...updatePayload }, callbacks)
+    } else {
+      createPlan.mutate(payload as Parameters<typeof createPlan.mutate>[0], callbacks)
+    }
   }
 
   const handleDelete = (p: SubscriptionPlan) => {
     if (p._count && p._count.families > 0) {
-      toast.error(`Gói đang được ${p._count.families} gia đình sử dụng. Hãy gán gói khác trước.`)
+      toast.error(`Gói đang được ${p._count.families} gia đình sử dụng`)
       return
     }
-    if (!confirm(`Xoá gói "${p.name}"?`)) return
+    if (!confirm(`Xoá gói "${p.name}" (${p.planCode})?`)) return
     deletePlan.mutate(p.id, {
       onSuccess: () => toast.success('Đã xoá gói'),
       onError: (e) => toast.error(getApiErrorMessage(e, 'Không thể xoá')),
     })
   }
 
+  const isPending = createPlan.isPending || updatePlan.isPending
+
   return (
     <div>
       <Topbar title="Quản lý gói thuê bao" backHref="/admin" />
-      <div className="p-6 space-y-6">
+      <div className="p-4 md:p-6 space-y-4 md:space-y-6">
         <div className="flex justify-between items-center">
-          <p className="text-sm text-muted-foreground">Tạo và cấu hình các gói FREE / PLUS / PREMIUM.</p>
-          <Button onClick={openCreate} disabled={!canCreate} className="gap-2" title={!canCreate ? 'Đã có đủ 3 gói FREE / PLUS / PREMIUM' : undefined}>
+          <p className="text-sm text-muted-foreground">
+            planCode là chuỗi tự do (CHỮ HOA/số/_). Ví dụ: <code className="bg-muted px-1 rounded text-xs">FREE</code>, <code className="bg-muted px-1 rounded text-xs">MONTHLY</code>, <code className="bg-muted px-1 rounded text-xs">YEARLY</code>.
+          </p>
+          <Button onClick={openCreate} className="gap-2">
             <Plus className="w-4 h-4" />Tạo gói mới
           </Button>
         </div>
 
         {isLoading ? (
-          <p className="text-muted-foreground">Đang tải...</p>
+          <div className="flex items-center justify-center py-10">
+            <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+          </div>
+        ) : plans.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-10">Chưa có gói thuê bao nào</p>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {plans.map((p) => (
-              <Card key={p.id} className={!p.isActive ? 'opacity-60' : ''}>
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-2">
-                      <CardTitle className="text-lg">{p.name}</CardTitle>
-                      <Badge variant="outline" className="text-[10px]">{p.planCode}</Badge>
+              <Card key={p.id} className={!p.isActive ? 'opacity-55' : ''}>
+                <CardHeader className="pb-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <CardTitle className="text-base truncate">{p.name}</CardTitle>
+                      <Badge variant="outline" className="text-[10px] font-mono shrink-0">{p.planCode}</Badge>
                     </div>
-                    <div className="flex gap-1">
-                      <Button size="icon" variant="ghost" onClick={() => openEdit(p)}><Pencil className="w-4 h-4" /></Button>
-                      <Button size="icon" variant="ghost" onClick={() => handleDelete(p)}><Trash2 className="w-4 h-4 text-red-500" /></Button>
+                    <div className="flex gap-0.5 shrink-0">
+                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEdit(p)}>
+                        <Pencil className="w-3.5 h-3.5" />
+                      </Button>
+                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleDelete(p)}>
+                        <Trash2 className="w-3.5 h-3.5 text-red-500" />
+                      </Button>
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent className="space-y-3">
-                  <p className="text-2xl font-bold text-blue-600">{formatPrice(p)}</p>
-                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <HardDrive className="w-3.5 h-3.5" />{p.storageLimit} MB
+                <CardContent className="space-y-2.5">
+                  <p className="text-xl font-bold text-blue-600">{formatPrice(p)}</p>
+
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1">
+                      <HardDrive className="w-3 h-3" />{p.storageLimit} MB
+                    </span>
+                    {p.maxMembers != null && (
+                      <span className="flex items-center gap-1">
+                        <Users className="w-3 h-3" />tối đa {p.maxMembers} thành viên
+                      </span>
+                    )}
+                    {p.stripePriceId && (
+                      <span className="flex items-center gap-1">
+                        <CreditCard className="w-3 h-3" />
+                        <span className="font-mono truncate max-w-[120px]">{p.stripePriceId}</span>
+                      </span>
+                    )}
                   </div>
-                  {p.featureAccess && Object.keys(p.featureAccess).length > 0 && (
-                    <div className="flex flex-wrap gap-1.5 pt-1">
+
+                  {p.featureAccess && Object.entries(p.featureAccess).some(([, v]) => v) && (
+                    <div className="flex flex-wrap gap-1 pt-1">
                       {Object.entries(p.featureAccess).filter(([, v]) => v).map(([k]) => (
                         <Badge key={k} variant="secondary" className="text-[10px]">{featureLabel(k)}</Badge>
                       ))}
                     </div>
                   )}
+
                   <div className="flex justify-between items-center pt-2 border-t">
-                    <Badge variant={p.isActive ? 'default' : 'secondary'}>{p.isActive ? 'Đang hoạt động' : 'Tắt'}</Badge>
-                    {p._count && <span className="text-xs text-muted-foreground">{p._count.families} gia đình</span>}
+                    <Badge variant={p.isActive ? 'default' : 'secondary'} className="text-xs">
+                      {p.isActive ? 'Đang hoạt động' : 'Tắt'}
+                    </Badge>
+                    {p._count != null && (
+                      <span className="text-xs text-muted-foreground">{p._count.families} gia đình</span>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -181,79 +235,138 @@ export default function PlansAdminPage() {
         )}
       </div>
 
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog open={open} onOpenChange={(o) => { if (!o) closeDialog() }}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editing ? 'Sửa gói' : 'Tạo gói mới'}</DialogTitle>
-            <DialogDescription>planCode chỉ nhận FREE / PLUS / PREMIUM theo enum của BE.</DialogDescription>
+            <DialogTitle>{editing ? `Sửa gói: ${editing.planCode}` : 'Tạo gói mới'}</DialogTitle>
+            <DialogDescription>
+              {editing
+                ? 'planCode không thể thay đổi sau khi tạo.'
+                : 'planCode là định danh duy nhất — chỉ CHỮ HOA, số và dấu _ (VD: FREE, MONTHLY, YEARLY).'}
+            </DialogDescription>
           </DialogHeader>
+
           <div className="space-y-4">
+            {/* Row 1: planCode + name */}
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label>Mã gói</Label>
-                <Select value={form.planCode} onValueChange={(v) => setForm({ ...form, planCode: v as FormState['planCode'] })} disabled={!!editing}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{(editing ? PLAN_CODES : availableCodes).map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-                </Select>
+              <div className="space-y-1.5">
+                <Label>
+                  Mã gói <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  value={form.planCode}
+                  onChange={(e) => setCode(e.target.value)}
+                  placeholder="VD: MONTHLY"
+                  disabled={!!editing}
+                  className={`font-mono ${codeError ? 'border-red-400' : ''}`}
+                />
+                {codeError && <p className="text-xs text-red-500">{codeError}</p>}
               </div>
-              <div className="space-y-2">
-                <Label>Tên hiển thị</Label>
-                <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Gói Plus" />
+              <div className="space-y-1.5">
+                <Label>
+                  Tên hiển thị <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  placeholder="Gói tháng"
+                />
               </div>
             </div>
 
+            {/* Row 2: price + maxMembers */}
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 <Label>Giá / năm (VND)</Label>
-                <Input type="number" value={form.annualPrice} onChange={(e) => setForm({ ...form, annualPrice: e.target.value })} />
+                <Input
+                  type="number"
+                  min={0}
+                  value={form.annualPrice}
+                  onChange={(e) => setForm({ ...form, annualPrice: e.target.value })}
+                  placeholder="0 = miễn phí"
+                />
               </div>
-              <div className="space-y-2">
-                <Label>Số thành viên tối đa</Label>
-                <Input type="number" placeholder="Để trống = không giới hạn" value={form.maxMembers} onChange={(e) => setForm({ ...form, maxMembers: e.target.value })} />
+              <div className="space-y-1.5">
+                <Label>
+                  Số thành viên tối đa
+                  {!editing && <span className="text-red-500"> *</span>}
+                </Label>
+                <Input
+                  type="number"
+                  min={1}
+                  value={form.maxMembers}
+                  onChange={(e) => setForm({ ...form, maxMembers: e.target.value })}
+                  placeholder={editing ? 'Không đổi' : 'Bắt buộc'}
+                  className={!editing && !form.maxMembers ? 'border-amber-400' : ''}
+                />
               </div>
             </div>
 
+            {/* Row 3: storageLimit + stripePriceId */}
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 <Label>Dung lượng (MB)</Label>
-                <Input type="number" value={form.storageLimit} onChange={(e) => setForm({ ...form, storageLimit: e.target.value })} />
+                <Input
+                  type="number"
+                  min={0}
+                  value={form.storageLimit}
+                  onChange={(e) => setForm({ ...form, storageLimit: e.target.value })}
+                />
               </div>
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 <Label>Stripe Price ID</Label>
-                <Input placeholder="price_xxx (gói trả phí)" value={form.stripePriceId} onChange={(e) => setForm({ ...form, stripePriceId: e.target.value })} />
+                <Input
+                  value={form.stripePriceId}
+                  onChange={(e) => setForm({ ...form, stripePriceId: e.target.value })}
+                  placeholder="price_xxx (gói trả phí)"
+                  className="font-mono text-xs"
+                />
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label>Tính năng</Label>
+            {/* featureAccess checkboxes */}
+            <div className="space-y-1.5">
+              <Label>Tính năng bật/tắt</Label>
+              <p className="text-[11px] text-muted-foreground">
+                Key gửi lên BE: <code className="bg-muted px-1 rounded">featureAccess</code> — map key→boolean.
+              </p>
               <div className="border rounded-md divide-y">
-                {FEATURES.map((f) => (
-                  <label key={f.key} className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-muted/40 transition-colors">
+                {KNOWN_FEATURES.map((f) => (
+                  <label key={f.key} className="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-muted/40 transition-colors">
                     <input
                       type="checkbox"
-                      className="w-4 h-4 accent-violet-600"
+                      className="w-4 h-4 accent-violet-600 shrink-0"
                       checked={!!form.features[f.key]}
                       onChange={() => toggleFeature(f.key)}
                     />
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium">{f.label}</p>
-                      <p className="text-xs text-muted-foreground">{f.description}</p>
+                      <p className="text-sm font-medium leading-none">{f.label}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">{f.description}</p>
                     </div>
+                    <code className="text-[10px] text-muted-foreground bg-muted px-1 rounded shrink-0">{f.key}</code>
                   </label>
                 ))}
               </div>
             </div>
 
-            <label className="flex items-center gap-2">
-              <input type="checkbox" className="w-4 h-4 accent-violet-600" checked={form.isActive} onChange={(e) => setForm({ ...form, isActive: e.target.checked })} />
+            {/* isActive */}
+            <label className="flex items-center gap-2.5 cursor-pointer">
+              <input
+                type="checkbox"
+                className="w-4 h-4 accent-violet-600"
+                checked={form.isActive}
+                onChange={(e) => setForm({ ...form, isActive: e.target.checked })}
+              />
               <span className="text-sm font-medium">Đang hoạt động</span>
+              <span className="text-xs text-muted-foreground">(tắt để ẩn khỏi danh sách gói công khai)</span>
             </label>
           </div>
+
           <DialogFooter>
-            <Button variant="outline" onClick={closeDialog}>Huỷ</Button>
-            <Button onClick={submit} disabled={createPlan.isPending || updatePlan.isPending || !form.name}>
-              {(createPlan.isPending || updatePlan.isPending) && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
-              {editing ? 'Cập nhật' : 'Tạo'}
+            <Button variant="outline" onClick={closeDialog} disabled={isPending}>Huỷ</Button>
+            <Button onClick={submit} disabled={isPending || !!codeError}>
+              {isPending && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+              {editing ? 'Cập nhật' : 'Tạo gói'}
             </Button>
           </DialogFooter>
         </DialogContent>
