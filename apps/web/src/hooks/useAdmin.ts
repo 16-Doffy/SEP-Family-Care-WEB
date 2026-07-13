@@ -245,3 +245,323 @@ export function useDeleteAdminFamilyMember() {
     },
   })
 }
+
+// ─── Dashboard ───────────────────────────────────────────────────────────────
+
+export interface AdminDashboardSummary {
+  totalUsers?: number
+  activeUsers?: number
+  inactiveUsers?: number
+  suspendedUsers?: number
+  totalFamilies?: number
+  activeFamilies?: number
+  totalRevenue?: number
+  totalPayments?: number
+  [key: string]: unknown
+}
+
+export function useAdminDashboardSummary() {
+  return useQuery<AdminDashboardSummary>({
+    queryKey: ['admin', 'dashboard', 'summary'],
+    queryFn: () => api.get('/admin/dashboard/summary').then((r) => r.data),
+    staleTime: 30_000,
+  })
+}
+
+// ─── Revenue ─────────────────────────────────────────────────────────────────
+
+export interface AdminRevenueSummary {
+  totalRevenue?: number
+  totalPayments?: number
+  paidPayments?: number
+  failedPayments?: number
+  pendingPayments?: number
+  [key: string]: unknown
+}
+
+export interface AdminRevenueMonthlyItem {
+  month?: number
+  year?: number
+  revenue?: number
+  payments?: number
+  [key: string]: unknown
+}
+
+export function useAdminRevenueSummary() {
+  return useQuery<AdminRevenueSummary>({
+    queryKey: ['admin', 'revenue', 'summary'],
+    queryFn: () => api.get('/admin/revenue/summary').then((r) => r.data),
+  })
+}
+
+export function useAdminRevenueMonthly(params?: { year?: number }) {
+  return useQuery<AdminRevenueMonthlyItem[]>({
+    queryKey: ['admin', 'revenue', 'monthly', params],
+    queryFn: () => api.get('/admin/revenue/monthly', { params }).then((r) => r.data),
+  })
+}
+
+// ─── Payments ────────────────────────────────────────────────────────────────
+
+export interface AdminPayment {
+  id: string
+  familyId?: string
+  planCode?: string
+  amount?: number
+  status: 'PAID' | 'FAILED' | 'PENDING' | string
+  createdAt?: string
+  [key: string]: unknown
+}
+
+export function useAdminPayments(params?: { page?: number; limit?: number; status?: string; planCode?: string }) {
+  return useQuery<Paginated<AdminPayment>>({
+    queryKey: ['admin', 'payments', params],
+    queryFn: () => api.get('/admin/payments', { params }).then((r) => r.data),
+  })
+}
+
+// ─── Audit Logs ──────────────────────────────────────────────────────────────
+
+export interface AdminAuditLog {
+  id: string
+  adminUserId?: string
+  action: string
+  targetType?: string
+  targetId?: string
+  result: 'SUCCESS' | 'FAILED' | string
+  createdAt?: string
+  details?: Record<string, unknown>
+  adminUser?: { fullName?: string; email?: string }
+}
+
+export type AuditLogAction =
+  | 'ADMIN_USER_LOCK' | 'ADMIN_USER_UNLOCK'
+  | 'ADMIN_SUBSCRIPTION_MANUAL_RENEW' | 'ADMIN_SUBSCRIPTION_STATUS_UPDATE' | 'ADMIN_SUBSCRIPTION_STRIPE_SYNC'
+  | 'ADMIN_PROVISIONING_RETRY'
+  | 'ADMIN_CONTAINER_STATS_VIEW' | 'ADMIN_CONTAINER_LOGS_VIEW'
+  | 'ADMIN_BACKUP_CREATE' | 'ADMIN_RESTORE_REQUEST_CREATE' | 'ADMIN_RESTORE_CONFIRM'
+
+export type AuditLogTargetType = 'USER' | 'FAMILY' | 'SUBSCRIPTION' | 'PROVISIONING' | 'CONTAINER' | 'BACKUP' | 'RESTORE' | 'SYSTEM'
+
+export function useAdminAuditLogs(params?: {
+  page?: number; limit?: number
+  adminUserId?: string; action?: AuditLogAction; targetType?: AuditLogTargetType
+  targetId?: string; result?: 'SUCCESS' | 'FAILED'; from?: string; to?: string
+}) {
+  return useQuery<Paginated<AdminAuditLog>>({
+    queryKey: ['admin', 'audit-logs', params],
+    queryFn: () => api.get('/admin/audit-logs', { params }).then((r) => r.data),
+  })
+}
+
+// ─── System ───────────────────────────────────────────────────────────────────
+
+export interface AdminSystemHealth {
+  status?: string
+  database?: string | { status?: string; latency?: number }
+  nodeEnv?: string
+  platform?: string
+  uptimeSeconds?: number
+  cpu?: { cores?: number; loadAverage?: number[] }
+  memory?: { rss?: number; heapUsed?: number; heapTotal?: number; systemFree?: number; systemTotal?: number }
+  uploads?: { files?: number; bytes?: number }
+  timestamp?: string
+  [key: string]: unknown
+}
+
+export interface AdminSystemRuntime {
+  nodeVersion?: string
+  pid?: number
+  uptime?: number
+  memoryUsage?: { rss?: number; heapUsed?: number; heapTotal?: number }
+  [key: string]: unknown
+}
+
+export interface AdminInfraHost {
+  cpu?: { cores?: number; model?: string; loadAverage?: number[] }
+  memory?: { total?: number; free?: number; used?: number }
+  disk?: { total?: number; free?: number; used?: number }
+  os?: { platform?: string; hostname?: string; uptime?: number }
+  [key: string]: unknown
+}
+
+export interface AdminDockerContainer {
+  ID?: string; Names?: string; Image?: string; State?: string; Status?: string
+  containerId?: string; name?: string; image?: string; state?: string; status?: string
+  [key: string]: unknown
+}
+
+export function useAdminSystemHealth() {
+  return useQuery<AdminSystemHealth>({
+    queryKey: ['admin', 'system', 'health'],
+    queryFn: () => api.get('/admin/system/health').then((r) => r.data),
+    refetchInterval: 30_000,
+  })
+}
+
+export function useAdminSystemRuntime() {
+  return useQuery<AdminSystemRuntime>({
+    queryKey: ['admin', 'system', 'runtime'],
+    queryFn: () => api.get('/admin/system/runtime').then((r) => r.data),
+    refetchInterval: 30_000,
+  })
+}
+
+export function useAdminInfraHost() {
+  return useQuery<AdminInfraHost>({
+    queryKey: ['admin', 'infrastructure', 'host'],
+    queryFn: () => api.get('/admin/infrastructure/host').then((r) => r.data),
+    refetchInterval: 30_000,
+  })
+}
+
+export function useAdminDockerContainers() {
+  return useQuery<AdminDockerContainer[]>({
+    queryKey: ['admin', 'infrastructure', 'docker', 'containers'],
+    queryFn: () => api.get('/admin/infrastructure/docker/containers').then((r) => r.data),
+    refetchInterval: 30_000,
+  })
+}
+
+export function useAdminDockerContainerLogs(containerId: string | null) {
+  return useQuery<{ logs?: string; [key: string]: unknown }>({
+    queryKey: ['admin', 'infrastructure', 'docker', 'logs', containerId],
+    queryFn: () => api.get(`/admin/infrastructure/docker/containers/${containerId}/logs`).then((r) => r.data),
+    enabled: !!containerId,
+  })
+}
+
+// ─── Backup / Restore ────────────────────────────────────────────────────────
+
+export type BackupTarget = 'DATABASE' | 'SYSTEM_CONFIG' | 'FULL_SYSTEM'
+
+export interface AdminBackup {
+  id: string; target?: BackupTarget; status?: string; note?: string; createdAt?: string
+  [key: string]: unknown
+}
+
+export interface AdminRestore {
+  id: string; backupId?: string; target?: BackupTarget; status?: string; note?: string; createdAt?: string
+  [key: string]: unknown
+}
+
+export function useAdminBackups() {
+  return useQuery<Paginated<AdminBackup>>({
+    queryKey: ['admin', 'backups'],
+    queryFn: () => api.get('/admin/backups').then((r) => r.data),
+  })
+}
+
+export function useCreateAdminBackup() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: { target: BackupTarget; note?: string }) =>
+      api.post('/admin/backups', data).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'backups'] }),
+  })
+}
+
+export function useAdminRestores() {
+  return useQuery<Paginated<AdminRestore>>({
+    queryKey: ['admin', 'restores'],
+    queryFn: () => api.get('/admin/restores').then((r) => r.data),
+  })
+}
+
+export function useCreateAdminRestore() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: { backupId: string; target: BackupTarget; note?: string }) =>
+      api.post('/admin/restores', data).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'restores'] }),
+  })
+}
+
+export function useConfirmAdminRestore() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (restoreId: string) =>
+      api.post(`/admin/restores/${restoreId}/confirm`).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'restores'] }),
+  })
+}
+
+// ─── Family Subscription Management ─────────────────────────────────────────
+
+export interface AdminFamilySubscription {
+  id?: string; familyId?: string; planCode?: string; status?: string
+  currentPeriodStart?: string; currentPeriodEnd?: string
+  monthsToAdd?: number; stripeSubscriptionId?: string
+  [key: string]: unknown
+}
+
+export interface AdminFamilyActivationStatus {
+  status?: string; workspaceUrl?: string; provisionedAt?: string
+  lastProvisioningLog?: { result?: string; message?: string; createdAt?: string }
+  [key: string]: unknown
+}
+
+export interface AdminProvisioningLog {
+  id: string; familyId?: string; result?: string; message?: string; createdAt?: string
+  [key: string]: unknown
+}
+
+export function useAdminFamilySubscription(familyId: string | null) {
+  return useQuery<AdminFamilySubscription>({
+    queryKey: ['admin', 'family-subscription', familyId],
+    queryFn: () => api.get(`/admin/families/${familyId}/subscription`).then((r) => r.data),
+    enabled: !!familyId,
+  })
+}
+
+export function useAdminFamilyActivationStatus(familyId: string | null) {
+  return useQuery<AdminFamilyActivationStatus>({
+    queryKey: ['admin', 'family-activation', familyId],
+    queryFn: () => api.get(`/admin/families/${familyId}/activation-status`).then((r) => r.data),
+    enabled: !!familyId,
+  })
+}
+
+export function useAdminFamilyProvisioningLogs(familyId: string | null) {
+  return useQuery<Paginated<AdminProvisioningLog>>({
+    queryKey: ['admin', 'family-provisioning-logs', familyId],
+    queryFn: () => api.get(`/admin/families/${familyId}/provisioning-logs`).then((r) => r.data),
+    enabled: !!familyId,
+  })
+}
+
+export function useManualRenewFamilySubscription() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ familyId, ...data }: { familyId: string; planCode: string; monthsToAdd: number; reason?: string }) =>
+      api.post(`/admin/families/${familyId}/subscription/manual-renew`, data).then((r) => r.data),
+    onSuccess: (_, { familyId }) => {
+      qc.invalidateQueries({ queryKey: ['admin', 'family-subscription', familyId] })
+      qc.invalidateQueries({ queryKey: ['admin', 'families'] })
+    },
+  })
+}
+
+export function useUpdateFamilySubscriptionStatus() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ familyId, ...data }: { familyId: string; status: 'ACTIVE' | 'PAST_DUE' | 'CANCELED'; reason?: string }) =>
+      api.patch(`/admin/families/${familyId}/subscription/status`, data).then((r) => r.data),
+    onSuccess: (_, { familyId }) => {
+      qc.invalidateQueries({ queryKey: ['admin', 'family-subscription', familyId] })
+      qc.invalidateQueries({ queryKey: ['admin', 'families'] })
+    },
+  })
+}
+
+export function useRetryFamilyProvisioning() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ familyId, ...data }: { familyId: string; simulateResult?: 'SUCCESS' | 'FAILED'; message?: string }) =>
+      api.post(`/admin/families/${familyId}/provisioning/retry`, data).then((r) => r.data),
+    onSuccess: (_, { familyId }) => {
+      qc.invalidateQueries({ queryKey: ['admin', 'family-activation', familyId] })
+      qc.invalidateQueries({ queryKey: ['admin', 'family-provisioning-logs', familyId] })
+    },
+  })
+}

@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useState } from 'react'
-import { Shield, Users, Crown, Menu, LogOut, UserCircle, Home, Mail } from 'lucide-react'
+import { Shield, Users, Crown, Menu, LogOut, UserCircle, Home, Mail, TrendingUp, Server, ClipboardList, Archive } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/context/AuthContext'
 import { api } from '@/lib/api'
@@ -82,22 +82,24 @@ export function MobileAdminNav() {
               <p className="text-xs text-violet-700 truncate">{user?.email}</p>
             </div>
 
-            <Link
-              href="/admin/invitations"
-              onClick={() => setMoreOpen(false)}
-              className="flex items-center gap-3 w-full px-3 py-3 rounded-lg text-sm text-gray-700 hover:bg-gray-100"
-            >
-              <Mail className="w-5 h-5 text-green-600" />
-              Quản lý lời mời
-            </Link>
-            <Link
-              href="/dashboard"
-              onClick={() => setMoreOpen(false)}
-              className="flex items-center gap-3 w-full px-3 py-3 rounded-lg text-sm text-gray-700 hover:bg-gray-100"
-            >
-              <Home className="w-5 h-5 text-gray-500" />
-              Về dashboard người dùng
-            </Link>
+            {[
+              { href: '/admin/invitations', icon: Mail, label: 'Lời mời', color: 'text-green-600' },
+              { href: '/admin/revenue', icon: TrendingUp, label: 'Doanh thu', color: 'text-emerald-600' },
+              { href: '/admin/audit-logs', icon: ClipboardList, label: 'Audit Logs', color: 'text-violet-600' },
+              { href: '/admin/backups', icon: Archive, label: 'Backup & Restore', color: 'text-amber-600' },
+              { href: '/admin/system', icon: Server, label: 'Hệ thống', color: 'text-slate-600' },
+              { href: '/dashboard', icon: Home, label: 'Về dashboard người dùng', color: 'text-gray-500' },
+            ].map(({ href, icon: Icon, label, color }) => (
+              <Link
+                key={href}
+                href={href}
+                onClick={() => setMoreOpen(false)}
+                className="flex items-center gap-3 w-full px-3 py-3 rounded-lg text-sm text-gray-700 hover:bg-gray-100"
+              >
+                <Icon className={`w-5 h-5 ${color}`} />
+                {label}
+              </Link>
+            ))}
 
             <div className="border-t my-2" />
             <button
