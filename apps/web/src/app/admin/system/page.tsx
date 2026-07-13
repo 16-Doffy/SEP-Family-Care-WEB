@@ -11,7 +11,7 @@ import {
   useAdminSystemRuntime,
   useAdminInfraHost,
   useAdminDockerContainers,
-  useAdminDockerContainerLogs,
+  useAdminDockerContainerStats,
 } from '@/hooks/useAdmin'
 
 function formatBytes(bytes?: number) {
@@ -39,7 +39,7 @@ export default function AdminSystemPage() {
   const { data: runtime } = useAdminSystemRuntime()
   const { data: host } = useAdminInfraHost()
   const { data: containers, isLoading: containersLoading } = useAdminDockerContainers()
-  const { data: logs, isLoading: logsLoading } = useAdminDockerContainerLogs(selectedContainer)
+  const { data: containerStats, isLoading: statsLoading } = useAdminDockerContainerStats(selectedContainer)
 
   const loadLogs = () => {
     const id = containerInput.trim()
@@ -211,7 +211,7 @@ export default function AdminSystemPage() {
               </>
             )}
 
-            {/* Log viewer */}
+            {/* Stats viewer */}
             <div className="flex flex-col sm:flex-row gap-2 pt-1">
               <Input
                 value={containerInput}
@@ -219,14 +219,14 @@ export default function AdminSystemPage() {
                 placeholder="Container ID hoặc tên"
                 className="flex-1"
               />
-              <Button variant="outline" onClick={loadLogs} disabled={logsLoading} className="w-full sm:w-auto gap-2">
-                {logsLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
-                Xem log
+              <Button variant="outline" onClick={loadLogs} disabled={statsLoading} className="w-full sm:w-auto gap-2">
+                {statsLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+                Xem stats
               </Button>
             </div>
-            {logs != null && (
+            {containerStats != null && (
               <pre className="max-h-80 overflow-auto rounded bg-slate-950 p-3 text-xs text-slate-100 whitespace-pre-wrap">
-                {typeof logs === 'string' ? logs : JSON.stringify(logs, null, 2)}
+                {JSON.stringify(containerStats, null, 2)}
               </pre>
             )}
           </CardContent>

@@ -354,6 +354,14 @@ export function useAdminAuditLogs(params?: {
   })
 }
 
+export function useAdminAuditLog(auditLogId: string | null) {
+  return useQuery<AdminAuditLog>({
+    queryKey: ['admin', 'audit-logs', auditLogId],
+    queryFn: () => api.get(`/admin/audit-logs/${auditLogId}`).then((r) => r.data),
+    enabled: !!auditLogId,
+  })
+}
+
 // ─── System ───────────────────────────────────────────────────────────────────
 
 export interface AdminSystemHealth {
@@ -423,11 +431,12 @@ export function useAdminDockerContainers() {
   })
 }
 
-export function useAdminDockerContainerLogs(containerId: string | null) {
-  return useQuery<{ logs?: string; [key: string]: unknown }>({
-    queryKey: ['admin', 'infrastructure', 'docker', 'logs', containerId],
-    queryFn: () => api.get(`/admin/infrastructure/docker/containers/${containerId}/logs`).then((r) => r.data),
+export function useAdminDockerContainerStats(containerId: string | null) {
+  return useQuery<{ [key: string]: unknown }>({
+    queryKey: ['admin', 'infrastructure', 'docker', 'stats', containerId],
+    queryFn: () => api.get(`/admin/infrastructure/docker/containers/${containerId}/stats`).then((r) => r.data),
     enabled: !!containerId,
+    refetchInterval: 10_000,
   })
 }
 
@@ -452,6 +461,14 @@ export function useAdminBackups() {
   })
 }
 
+export function useAdminBackup(backupId: string | null) {
+  return useQuery<AdminBackup>({
+    queryKey: ['admin', 'backups', backupId],
+    queryFn: () => api.get(`/admin/backups/${backupId}`).then((r) => r.data),
+    enabled: !!backupId,
+  })
+}
+
 export function useCreateAdminBackup() {
   const qc = useQueryClient()
   return useMutation({
@@ -465,6 +482,14 @@ export function useAdminRestores() {
   return useQuery<Paginated<AdminRestore>>({
     queryKey: ['admin', 'restores'],
     queryFn: () => api.get('/admin/restores').then((r) => r.data),
+  })
+}
+
+export function useAdminRestore(restoreId: string | null) {
+  return useQuery<AdminRestore>({
+    queryKey: ['admin', 'restores', restoreId],
+    queryFn: () => api.get(`/admin/restores/${restoreId}`).then((r) => r.data),
+    enabled: !!restoreId,
   })
 }
 
@@ -527,6 +552,16 @@ export function useAdminFamilyProvisioningLogs(familyId: string | null) {
     queryKey: ['admin', 'family-provisioning-logs', familyId],
     queryFn: () => api.get(`/admin/families/${familyId}/provisioning-logs`).then((r) => r.data),
     enabled: !!familyId,
+  })
+}
+
+export function useAdminProvisioningLogs(params?: {
+  page?: number; limit?: number; status?: string; actionType?: string
+  familyId?: string; from?: string; to?: string
+}) {
+  return useQuery<Paginated<AdminProvisioningLog>>({
+    queryKey: ['admin', 'provisioning-logs', params],
+    queryFn: () => api.get('/admin/provisioning-logs', { params }).then((r) => r.data),
   })
 }
 
