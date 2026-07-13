@@ -31,6 +31,14 @@ export interface AdminUpdateUserInput {
   avatarUrl?: string
 }
 
+export function useAdminUser(id: string | null) {
+  return useQuery<AdminUser>({
+    queryKey: ['admin', 'users', id],
+    queryFn: () => api.get(`/admin/users/${id}`).then((r) => r.data),
+    enabled: !!id,
+  })
+}
+
 export function useAdminUsers(params?: { page?: number; limit?: number; search?: string; userType?: string; accountStatus?: string }) {
   return useQuery<Paginated<AdminUser>>({
     queryKey: ['admin', 'users', params],
@@ -109,6 +117,14 @@ export interface AdminUpdateMemberInput {
   displayName?: string
 }
 
+export function useAdminFamilyMember(id: string | null) {
+  return useQuery<AdminFamilyMember>({
+    queryKey: ['admin', 'family-members', id],
+    queryFn: () => api.get(`/admin/family-members/${id}`).then((r) => r.data),
+    enabled: !!id,
+  })
+}
+
 export function useAdminFamilyMembers(params?: { page?: number; limit?: number; familyId?: string; userId?: string; familyRole?: string; status?: string }) {
   return useQuery<Paginated<AdminFamilyMember>>({
     queryKey: ['admin', 'family-members', params],
@@ -154,6 +170,14 @@ export interface SubscriptionPlanInput {
   isActive?: boolean
 }
 
+export function useAdminSubscriptionPlan(id: string | null) {
+  return useQuery<SubscriptionPlan>({
+    queryKey: ['admin', 'subscription-plans', id],
+    queryFn: () => api.get(`/admin/subscription-plans/${id}`).then((r) => r.data),
+    enabled: !!id,
+  })
+}
+
 export function useAdminSubscriptionPlans(params?: { page?: number; limit?: number; search?: string; isActive?: boolean }) {
   return useQuery<Paginated<SubscriptionPlan>>({
     queryKey: ['admin', 'subscription-plans', params],
@@ -192,6 +216,14 @@ export interface AdminInvitation {
   status: 'PENDING' | 'CLAIMED' | 'APPROVED' | 'REJECTED' | 'ACCEPTED' | 'EXPIRED' | 'CANCELED' | string
   familyId: string
   createdAt?: string
+}
+
+export function useAdminInvitation(id: string | null) {
+  return useQuery<AdminInvitation>({
+    queryKey: ['admin', 'invitations', id],
+    queryFn: () => api.get(`/admin/invitations/${id}`).then((r) => r.data),
+    enabled: !!id,
+  })
 }
 
 export function useAdminInvitations(params?: { page?: number; limit?: number; status?: string; familyId?: string }) {
@@ -294,7 +326,7 @@ export function useAdminRevenueSummary() {
   })
 }
 
-export function useAdminRevenueMonthly(params?: { year?: number }) {
+export function useAdminRevenueMonthly(params?: { from?: string; to?: string; planCode?: string }) {
   return useQuery<AdminRevenueMonthlyItem[]>({
     queryKey: ['admin', 'revenue', 'monthly', params],
     queryFn: () => api.get('/admin/revenue/monthly', { params }).then((r) => r.data),
@@ -440,6 +472,14 @@ export function useAdminDockerContainerStats(containerId: string | null) {
   })
 }
 
+export function useAdminDockerContainerLogs(containerId: string | null, params?: { tail?: number; timestamps?: boolean; stdout?: boolean; stderr?: boolean; since?: string; until?: string }) {
+  return useQuery<{ logs?: string; [key: string]: unknown }>({
+    queryKey: ['admin', 'infrastructure', 'docker', 'logs', containerId, params],
+    queryFn: () => api.get(`/admin/infrastructure/docker/containers/${containerId}/logs`, { params }).then((r) => r.data),
+    enabled: !!containerId,
+  })
+}
+
 // ─── Backup / Restore ────────────────────────────────────────────────────────
 
 export type BackupTarget = 'DATABASE' | 'SYSTEM_CONFIG' | 'FULL_SYSTEM'
@@ -454,10 +494,10 @@ export interface AdminRestore {
   [key: string]: unknown
 }
 
-export function useAdminBackups() {
+export function useAdminBackups(params?: { page?: number; limit?: number; status?: string; target?: BackupTarget }) {
   return useQuery<Paginated<AdminBackup>>({
-    queryKey: ['admin', 'backups'],
-    queryFn: () => api.get('/admin/backups').then((r) => r.data),
+    queryKey: ['admin', 'backups', params],
+    queryFn: () => api.get('/admin/backups', { params }).then((r) => r.data),
   })
 }
 
@@ -562,6 +602,17 @@ export function useAdminProvisioningLogs(params?: {
   return useQuery<Paginated<AdminProvisioningLog>>({
     queryKey: ['admin', 'provisioning-logs', params],
     queryFn: () => api.get('/admin/provisioning-logs', { params }).then((r) => r.data),
+  })
+}
+
+export function useSyncStripeFamilySubscription() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (familyId: string) =>
+      api.post(`/admin/families/${familyId}/subscription/sync-stripe`).then((r) => r.data),
+    onSuccess: (_, familyId) => {
+      qc.invalidateQueries({ queryKey: ['admin', 'family-subscription', familyId] })
+    },
   })
 }
 

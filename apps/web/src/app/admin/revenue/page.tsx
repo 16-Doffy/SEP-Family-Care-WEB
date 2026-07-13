@@ -24,12 +24,16 @@ function fmtVND(n?: number) {
 
 const CURRENT_YEAR = new Date().getFullYear()
 
+function yearToRange(year: number) {
+  return { from: `${year}-01-01`, to: `${year}-12-31` }
+}
+
 export default function RevenueAdminPage() {
   const [year, setYear] = useState(CURRENT_YEAR)
   const [payStatus, setPayStatus] = useState('ALL')
 
   const { data: summary, isLoading: sumLoading } = useAdminRevenueSummary()
-  const { data: monthly, isLoading: monthlyLoading } = useAdminRevenueMonthly({ year })
+  const { data: monthly, isLoading: monthlyLoading } = useAdminRevenueMonthly(yearToRange(year))
   const { data: payments, isLoading: payLoading } = useAdminPayments({
     limit: 50,
     status: payStatus === 'ALL' ? undefined : payStatus,
