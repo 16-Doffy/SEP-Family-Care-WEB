@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useState } from 'react'
-import { Shield, Users, Crown, Menu, LogOut, UserCircle, Home, Mail, TrendingUp, Server, ClipboardList, Archive } from 'lucide-react'
+import { Shield, Users, Crown, Menu, LogOut, UserCircle, Home, Mail, TrendingUp, Server, ClipboardList, Archive, GitBranch } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/context/AuthContext'
 import { api } from '@/lib/api'
@@ -85,6 +85,7 @@ export function MobileAdminNav() {
             {[
               { href: '/admin/invitations', icon: Mail, label: 'Lời mời', color: 'text-green-600' },
               { href: '/admin/revenue', icon: TrendingUp, label: 'Doanh thu', color: 'text-emerald-600' },
+              { href: '/admin/provisioning-logs', icon: GitBranch, label: 'Provisioning', color: 'text-indigo-600' },
               { href: '/admin/audit-logs', icon: ClipboardList, label: 'Audit Logs', color: 'text-violet-600' },
               { href: '/admin/backups', icon: Archive, label: 'Backup & Restore', color: 'text-amber-600' },
               { href: '/admin/system', icon: Server, label: 'Hệ thống', color: 'text-slate-600' },

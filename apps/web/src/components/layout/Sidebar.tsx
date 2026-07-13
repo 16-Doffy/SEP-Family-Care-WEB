@@ -3,7 +3,7 @@
 import React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, Wallet, Settings, Users, Shield, LogOut, Crown, UserCircle, Mail, TrendingUp, Server, ClipboardList, Archive } from 'lucide-react'
+import { Home, Wallet, Settings, Users, Shield, LogOut, Crown, UserCircle, Mail, TrendingUp, Server, ClipboardList, Archive, GitBranch } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/context/AuthContext'
 import { useRouter } from 'next/navigation'
@@ -36,6 +36,7 @@ const adminItems: NavItem[] = [
   { href: '/admin/plans', label: 'Gói thuê bao', icon: Crown },
   { href: '/admin/invitations', label: 'Lời mời', icon: Mail },
   { href: '/admin/revenue', label: 'Doanh thu', icon: TrendingUp },
+  { href: '/admin/provisioning-logs', label: 'Provisioning', icon: GitBranch },
   { href: '/admin/audit-logs', label: 'Audit Logs', icon: ClipboardList },
   { href: '/admin/backups', label: 'Backup & Restore', icon: Archive },
   { href: '/admin/system', label: 'Hệ thống', icon: Server },
