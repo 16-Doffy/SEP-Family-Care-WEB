@@ -15,8 +15,8 @@ const RESULT_CLS: Record<string, string> = {
   IN_PROGRESS: 'bg-blue-100 text-blue-700',
 }
 
-const ACTION_TYPES = ['ALL', 'PROVISION', 'RETRY', 'DEPROVISION', 'UPDATE']
-const STATUSES = ['ALL', 'SUCCESS', 'FAILED', 'PENDING', 'IN_PROGRESS']
+const ACTION_TYPES = ['ALL', 'CREATE', 'ACTIVATE', 'RETRY', 'SUSPEND']
+const STATUSES = ['ALL', 'SUCCESS', 'FAILED', 'PENDING']
 
 export default function ProvisioningLogsPage() {
   const [familyId, setFamilyId] = useState('')

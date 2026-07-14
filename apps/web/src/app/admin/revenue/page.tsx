@@ -99,9 +99,9 @@ function MonthTick({ x = 0, y = 0, payload, chartData }: MonthTickProps) {
 
 // ── Tooltip ──────────────────────────────────────────────────────────────────
 
-function RevenueTooltip({ active, payload }: TooltipProps<ValueType, NameType>) {
+function RevenueTooltip({ active, payload }: TooltipProps<ValueType, NameType> & { payload?: { payload: ChartEntry }[] }) {
   if (!active || !payload?.length) return null
-  const d = payload[0].payload as ChartEntry
+  const d = payload[0].payload
   const gr = d.growth
 
   return (
@@ -193,11 +193,11 @@ export default function RevenueAdminPage() {
   const [payStatus, setPayStatus] = useState('ALL')
 
   const { data: summary,  isLoading: sumLoading } = useAdminRevenueSummary()
-  // Fetch paid payments for chart — limit 50 matches BE max for this endpoint
-  const { data: allPaid } = useAdminPayments({ limit: 50, status: 'PAID' })
+  // Fetch paid payments for chart — limit 100 matches BE max for this endpoint
+  const { data: allPaid } = useAdminPayments({ limit: 100, status: 'PAID' })
   // Fetch filtered payments for the table
   const { data: payments, isLoading: payLoading } = useAdminPayments({
-    limit: 50,
+    limit: 100,
     status: payStatus === 'ALL' ? undefined : payStatus,
   })
   const { data: familiesRaw, isLoading: familiesLoading } = useAdminFamilies({ limit: 100 })
@@ -418,7 +418,7 @@ export default function RevenueAdminPage() {
                     <LabelList
                       dataKey="revenue"
                       position="top"
-                      formatter={(v: number) => fmtShort(v)}
+                      formatter={(v) => fmtShort(Number(v))}
                       style={{ fontSize: 10, fill: '#5B21B6', fontWeight: 700 }}
                     />
                   </Bar>

@@ -55,9 +55,10 @@ export default function AdminSystemPage() {
         {/* Health tiles */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {[
-            { icon: Server, label: 'API Status', value: health?.status ?? (healthLoading ? '...' : '—'), color: 'text-indigo-600' },
+            // Health trả 200 nghĩa là API sống — hiện UP kể cả khi BE không có field status
+            { icon: Server, label: 'API Status', value: health?.status ?? (health ? 'UP' : healthLoading ? '...' : '—'), color: 'text-indigo-600' },
             { icon: Database, label: 'Database', value: typeof health?.database === 'string' ? health.database : (health?.database as { status?: string })?.status ?? (healthLoading ? '...' : '—'), color: 'text-emerald-600' },
-            { icon: Activity, label: 'Uptime', value: formatUptime(health?.uptimeSeconds), color: 'text-orange-600' },
+            { icon: Activity, label: 'Uptime', value: formatUptime(health?.uptimeSeconds ?? (health?.uptime as number | undefined) ?? runtime?.uptime), color: 'text-orange-600' },
             { icon: HardDrive, label: 'Uploads', value: `${health?.uploads?.files ?? 0} files`, color: 'text-slate-600' },
           ].map(({ icon: Icon, label, value, color }) => (
             <Card key={label}>
@@ -77,16 +78,23 @@ export default function AdminSystemPage() {
           <Card>
             <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold flex items-center gap-1.5"><Cpu className="w-4 h-4" /> Runtime Node.js</CardTitle></CardHeader>
             <CardContent className="space-y-2 text-sm">
-              {runtime ? (
-                <>
-                  <Row label="Node version" value={runtime.nodeVersion} />
-                  <Row label="PID" value={runtime.pid != null ? String(runtime.pid) : undefined} />
-                  <Row label="Uptime" value={formatUptime(runtime.uptime)} />
-                  <Row label="Heap used" value={formatBytes(runtime.memoryUsage?.heapUsed)} />
-                  <Row label="Heap total" value={formatBytes(runtime.memoryUsage?.heapTotal)} />
-                  <Row label="RSS" value={formatBytes(runtime.memoryUsage?.rss)} />
-                </>
-              ) : (
+              {runtime ? (() => {
+                const rt = runtime as Record<string, unknown>
+                const mem = (runtime.memoryUsage ?? rt.memory_usage ?? rt.memory) as Record<string, number> | undefined
+                const ver = runtime.nodeVersion ?? rt.node_version ?? rt.version
+                const pid = runtime.pid ?? rt.process_id
+                const up = (runtime.uptime ?? rt.uptime_seconds ?? rt.uptimeSeconds) as number | undefined
+                return (
+                  <>
+                    <Row label="Node version" value={ver as string | undefined} />
+                    <Row label="PID" value={pid != null ? String(pid) : undefined} />
+                    <Row label="Uptime" value={formatUptime(up)} />
+                    <Row label="Heap used" value={formatBytes(mem?.heapUsed ?? mem?.heap_used)} />
+                    <Row label="Heap total" value={formatBytes(mem?.heapTotal ?? mem?.heap_total)} />
+                    <Row label="RSS" value={formatBytes(mem?.rss)} />
+                  </>
+                )
+              })() : (
                 <p className="text-muted-foreground text-xs">Đang tải...</p>
               )}
             </CardContent>
@@ -95,17 +103,31 @@ export default function AdminSystemPage() {
           <Card>
             <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold flex items-center gap-1.5"><Network className="w-4 h-4" /> Host / Infrastructure</CardTitle></CardHeader>
             <CardContent className="space-y-2 text-sm">
-              {host ? (
-                <>
-                  <Row label="Platform" value={host.os?.platform} />
-                  <Row label="Hostname" value={host.os?.hostname} />
-                  <Row label="CPU cores" value={host.cpu?.cores != null ? String(host.cpu.cores) : undefined} />
-                  <Row label="CPU model" value={host.cpu?.model} />
-                  <Row label="RAM total" value={formatBytes(host.memory?.total)} />
-                  <Row label="RAM free" value={formatBytes(host.memory?.free)} />
-                  <Row label="Disk free" value={formatBytes(host.disk?.free)} />
-                </>
-              ) : (
+              {host ? (() => {
+                const h = host as Record<string, unknown>
+                const os = (host.os ?? h.OS ?? h) as Record<string, unknown>
+                const cpu = (host.cpu ?? h.CPU ?? h) as Record<string, unknown>
+                const mem = (host.memory ?? h.ram ?? h.RAM ?? h) as Record<string, number>
+                const disk = (host.disk ?? h.storage ?? h) as Record<string, number>
+                const platform = os.platform ?? h.platform
+                const hostname = os.hostname ?? h.hostname
+                const cores = cpu.cores ?? cpu.count ?? h.cpuCores ?? h.cpu_cores
+                const model = cpu.model ?? h.cpuModel ?? h.cpu_model
+                const memTotal = mem.total ?? (h.memTotal as number)
+                const memFree = mem.free ?? (h.memFree as number)
+                const diskFree = disk.free ?? (h.diskFree as number)
+                return (
+                  <>
+                    <Row label="Platform" value={platform as string | undefined} />
+                    <Row label="Hostname" value={hostname as string | undefined} />
+                    <Row label="CPU cores" value={cores != null ? String(cores) : undefined} />
+                    <Row label="CPU model" value={model as string | undefined} />
+                    <Row label="RAM total" value={formatBytes(memTotal)} />
+                    <Row label="RAM free" value={formatBytes(memFree)} />
+                    <Row label="Disk free" value={formatBytes(diskFree)} />
+                  </>
+                )
+              })() : (
                 <p className="text-muted-foreground text-xs">Đang tải...</p>
               )}
             </CardContent>

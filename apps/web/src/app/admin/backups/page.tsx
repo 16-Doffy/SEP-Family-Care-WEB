@@ -132,7 +132,7 @@ export default function BackupsPage() {
                   <tbody>
                     {(backupList as Record<string, string>[]).map((b) => (
                       <tr key={b.id} className="border-b last:border-0 hover:bg-muted/20">
-                        <td className="py-2 pl-4 font-mono text-[10px] text-muted-foreground">{b.id?.slice(0, 12)}…</td>
+                        <td className="py-2 pl-4 font-mono text-[10px] text-muted-foreground">{b.id ? `${b.id.slice(0, 12)}…` : '—'}</td>
                         <td className="py-2 text-xs font-semibold">{b.target}</td>
                         <td className="py-2">
                           <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${STATUS_CLS[b.status] ?? 'bg-gray-100 text-gray-600'}`}>
@@ -213,8 +213,8 @@ export default function BackupsPage() {
                   <tbody>
                     {(restoreList as Record<string, string>[]).map((r) => (
                       <tr key={r.id} className="border-b last:border-0 hover:bg-muted/20">
-                        <td className="py-2 pl-4 font-mono text-[10px] text-muted-foreground">{r.id?.slice(0, 12)}…</td>
-                        <td className="py-2 font-mono text-[10px] text-muted-foreground">{r.backupId?.slice(0, 12)}…</td>
+                        <td className="py-2 pl-4 font-mono text-[10px] text-muted-foreground">{r.id ? `${r.id.slice(0, 12)}…` : '—'}</td>
+                        <td className="py-2 font-mono text-[10px] text-muted-foreground">{r.backupId ? `${r.backupId.slice(0, 12)}…` : '—'}</td>
                         <td className="py-2">
                           <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${STATUS_CLS[r.status] ?? 'bg-gray-100 text-gray-600'}`}>
                             {r.status}
