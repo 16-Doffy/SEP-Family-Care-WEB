@@ -1,13 +1,4 @@
 'use client'
-/**
- * Trang quản lý gia đình — viết lại theo API team thật.
- * BE hiện chỉ hỗ trợ: liệt kê/tìm/lọc theo status, xem chi tiết (kèm members),
- * sửa thông tin family (`PATCH /admin/families/:id`), và sửa role/status của
- * từng member (`PATCH /admin/family-members/:id`).
- *
- * Các tính năng "đổi gói", "đổi chủ hộ", "gia hạn", "provision", "backup/restore"
- * của bản cũ KHÔNG tồn tại trong Swagger hiện tại nên đã được bỏ — gọi sẽ chỉ ra 404.
- */
 import { useState, useEffect } from 'react'
 import { Topbar } from '@/components/layout/Topbar'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -17,18 +8,26 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
-import { Search, Loader2, Users } from 'lucide-react'
+import { Search, Loader2, Users, Crown, RefreshCw, RotateCcw } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import toast from 'react-hot-toast'
 import { getApiErrorMessage } from '@/lib/api'
 import {
   useAdminFamilies, useUpdateAdminFamily, useAdminFamily, useUpdateAdminFamilyMember,
+  useAdminFamilySubscription, useAdminFamilyActivationStatus, useAdminFamilyProvisioningLogs,
+  useManualRenewFamilySubscription, useUpdateFamilySubscriptionStatus,
+  useSyncStripeFamilySubscription, useRetryFamilyProvisioning,
   type AdminFamily,
 } from '@/hooks/useAdmin'
 
 const STATUS_FILTERS = ['ALL', 'ACTIVE', 'PENDING', 'SUSPENDED', 'EXPIRED'] as const
 const STATUS_BADGE: Record<string, 'default' | 'secondary' | 'destructive'> = {
   ACTIVE: 'default', PENDING: 'secondary', SUSPENDED: 'destructive', EXPIRED: 'destructive',
+}
+const PROVISION_RESULT_CLS: Record<string, string> = {
+  SUCCESS: 'bg-green-100 text-green-700',
+  FAILED: 'bg-red-100 text-red-700',
+  PENDING: 'bg-yellow-100 text-yellow-700',
 }
 
 export default function AdminFamiliesPage() {
@@ -43,6 +42,8 @@ export default function AdminFamiliesPage() {
 
   const [editing, setEditing] = useState<AdminFamily | null>(null)
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [subscriptionFamilyId, setSubscriptionFamilyId] = useState<string | null>(null)
+  const subscriptionFamily = families.find((f) => f.id === subscriptionFamilyId) ?? null
 
   return (
     <div>
@@ -86,11 +87,14 @@ export default function AdminFamiliesPage() {
                           {f.createdAt && ` · ${formatDate(f.createdAt)}`}
                         </p>
                       </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <Badge variant={STATUS_BADGE[f.status] ?? 'secondary'}>{f.status}</Badge>
-                        <Button size="sm" variant="outline" onClick={() => setEditing(f)}>Sửa</Button>
-                        <Button size="sm" variant="ghost" onClick={() => setExpandedId(expandedId === f.id ? null : f.id)}>
-                          {expandedId === f.id ? 'Ẩn thành viên' : 'Thành viên'}
+                      <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+                        <Badge variant={STATUS_BADGE[f.status] ?? 'secondary'} className="text-[10px]">{f.status}</Badge>
+                        <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setEditing(f)}>Sửa</Button>
+                        <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => setSubscriptionFamilyId(f.id)}>
+                          <Crown className="w-3 h-3" />Gói
+                        </Button>
+                        <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setExpandedId(expandedId === f.id ? null : f.id)}>
+                          {expandedId === f.id ? 'Ẩn TV' : 'Thành viên'}
                         </Button>
                       </div>
                     </div>
@@ -104,9 +108,16 @@ export default function AdminFamiliesPage() {
       </div>
 
       <EditFamilyDialog family={editing} onClose={() => setEditing(null)} />
+      <FamilySubscriptionDialog
+        familyId={subscriptionFamilyId}
+        familyName={subscriptionFamily?.name}
+        onClose={() => setSubscriptionFamilyId(null)}
+      />
     </div>
   )
 }
+
+// ─── Members Panel ────────────────────────────────────────────────────────────
 
 const ROLE_OPTIONS = ['FAMILY_MANAGER', 'DEPUTY_MEMBER', 'FAMILY_MEMBER'] as const
 const MEMBER_STATUS_OPTIONS = ['ACTIVE', 'INACTIVE', 'REMOVED'] as const
@@ -131,21 +142,21 @@ function FamilyMembersPanel({ familyId }: { familyId: string }) {
             value={m.familyRole}
             onValueChange={(v) => updateMember.mutate(
               { id: m.id, familyRole: v as typeof ROLE_OPTIONS[number] },
-              { onSuccess: () => toast.success('Đã đổi vai trò'), onError: (e) => toast.error(getApiErrorMessage(e, 'Cập nhật thất bại')) },
+              { onSuccess: () => toast.success('Đã đổi vai trò'), onError: (e) => toast.error(getApiErrorMessage(e, 'Lỗi')) },
             )}
           >
             <SelectTrigger className="w-40 h-8 text-xs"><SelectValue /></SelectTrigger>
-            <SelectContent>{ROLE_OPTIONS.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}</SelectContent>
+            <SelectContent>{ROLE_OPTIONS.map((r) => <SelectItem key={r} value={r} className="text-xs">{r}</SelectItem>)}</SelectContent>
           </Select>
           <Select
             value={m.status}
             onValueChange={(v) => updateMember.mutate(
               { id: m.id, status: v as typeof MEMBER_STATUS_OPTIONS[number] },
-              { onSuccess: () => toast.success('Đã đổi trạng thái'), onError: (e) => toast.error(getApiErrorMessage(e, 'Cập nhật thất bại')) },
+              { onSuccess: () => toast.success('Đã đổi trạng thái'), onError: (e) => toast.error(getApiErrorMessage(e, 'Lỗi')) },
             )}
           >
-            <SelectTrigger className="w-32 h-8 text-xs"><SelectValue /></SelectTrigger>
-            <SelectContent>{MEMBER_STATUS_OPTIONS.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+            <SelectTrigger className="w-28 h-8 text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>{MEMBER_STATUS_OPTIONS.map((s) => <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>)}</SelectContent>
           </Select>
         </div>
       ))}
@@ -153,18 +164,259 @@ function FamilyMembersPanel({ familyId }: { familyId: string }) {
   )
 }
 
+// ─── Subscription Dialog ──────────────────────────────────────────────────────
+
+function FamilySubscriptionDialog({
+  familyId, familyName, onClose,
+}: { familyId: string | null; familyName?: string; onClose: () => void }) {
+  const [tab, setTab] = useState<'subscription' | 'activation' | 'provisioning'>('subscription')
+
+  const { data: sub, isLoading: subLoading } = useAdminFamilySubscription(familyId)
+  const { data: activation, isLoading: actLoading } = useAdminFamilyActivationStatus(familyId)
+  const { data: provLogs, isLoading: provLoading } = useAdminFamilyProvisioningLogs(familyId)
+
+  const manualRenew = useManualRenewFamilySubscription()
+  const updateStatus = useUpdateFamilySubscriptionStatus()
+  const syncStripe = useSyncStripeFamilySubscription()
+  const retryProvision = useRetryFamilyProvisioning()
+
+  const [renewForm, setRenewForm] = useState({ planCode: '', monthsToAdd: '1', reason: '' })
+  const [newSubStatus, setNewSubStatus] = useState<'ACTIVE' | 'PAST_DUE' | 'CANCELED'>('ACTIVE')
+  const [statusReason, setStatusReason] = useState('')
+
+  useEffect(() => {
+    if (sub?.planCode) setRenewForm((f) => ({ ...f, planCode: sub.planCode ?? '' }))
+  }, [sub])
+
+  if (!familyId) return null
+
+  const handleRenew = () => {
+    if (!renewForm.planCode || !renewForm.monthsToAdd) { toast.error('Nhập đầy đủ planCode và số tháng'); return }
+    manualRenew.mutate(
+      { familyId, planCode: renewForm.planCode, monthsToAdd: Number(renewForm.monthsToAdd), reason: renewForm.reason || undefined },
+      { onSuccess: () => toast.success('Đã gia hạn'), onError: (e) => toast.error(getApiErrorMessage(e, 'Gia hạn thất bại')) },
+    )
+  }
+
+  const handleUpdateStatus = () => {
+    updateStatus.mutate(
+      { familyId, status: newSubStatus, reason: statusReason || undefined },
+      { onSuccess: () => { toast.success('Đã cập nhật trạng thái'); setStatusReason('') }, onError: (e) => toast.error(getApiErrorMessage(e, 'Thất bại')) },
+    )
+  }
+
+  const handleSyncStripe = () => {
+    syncStripe.mutate(familyId, {
+      onSuccess: () => toast.success('Đã sync Stripe'),
+      onError: (e) => toast.error(getApiErrorMessage(e, 'Sync thất bại')),
+    })
+  }
+
+  const handleRetry = () => {
+    retryProvision.mutate(
+      { familyId },
+      { onSuccess: () => toast.success('Đã retry provisioning'), onError: (e) => toast.error(getApiErrorMessage(e, 'Retry thất bại')) },
+    )
+  }
+
+  return (
+    <Dialog open={!!familyId} onOpenChange={(o) => { if (!o) onClose() }}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Crown className="w-4 h-4 text-amber-500" />
+            Quản lý gói — {familyName}
+          </DialogTitle>
+          <DialogDescription className="font-mono text-[10px]">{familyId}</DialogDescription>
+        </DialogHeader>
+
+        {/* Tabs */}
+        <div className="flex gap-1 border-b pb-0 -mb-1">
+          {(['subscription', 'activation', 'provisioning'] as const).map((t) => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className={`px-3 py-1.5 text-xs font-medium rounded-t border-b-2 transition-colors ${
+                tab === t ? 'border-violet-600 text-violet-700' : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              {t === 'subscription' ? 'Gói thuê bao' : t === 'activation' ? 'Kích hoạt' : 'Provisioning Logs'}
+            </button>
+          ))}
+        </div>
+
+        {/* Tab: Subscription */}
+        {tab === 'subscription' && (
+          <div className="space-y-4 pt-2">
+            {subLoading ? <div className="flex justify-center py-6"><Loader2 className="w-4 h-4 animate-spin text-muted-foreground" /></div> : (
+              <>
+                {/* Current info */}
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <InfoRow label="Plan Code" value={sub?.planCode} />
+                  <InfoRow label="Trạng thái" value={sub?.status} />
+                  <InfoRow label="Bắt đầu kỳ" value={sub?.currentPeriodStart ? formatDate(sub.currentPeriodStart) : undefined} />
+                  <InfoRow label="Kết thúc kỳ" value={sub?.currentPeriodEnd ? formatDate(sub.currentPeriodEnd) : undefined} />
+                </div>
+
+                <div className="border-t pt-3 space-y-3">
+                  {/* Update status */}
+                  <div>
+                    <p className="text-xs font-semibold text-muted-foreground mb-1.5">Đổi trạng thái subscription</p>
+                    <div className="flex flex-wrap gap-2 items-end">
+                      <Select value={newSubStatus} onValueChange={(v) => setNewSubStatus(v as typeof newSubStatus)}>
+                        <SelectTrigger className="h-8 text-xs w-36"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {(['ACTIVE', 'PAST_DUE', 'CANCELED'] as const).map((s) => (
+                            <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Input
+                        className="h-8 text-xs flex-1 min-w-32"
+                        placeholder="Lý do (tuỳ chọn)"
+                        value={statusReason}
+                        onChange={(e) => setStatusReason(e.target.value)}
+                      />
+                      <Button size="sm" className="h-8 text-xs" onClick={handleUpdateStatus} disabled={updateStatus.isPending}>
+                        {updateStatus.isPending && <Loader2 className="w-3 h-3 animate-spin mr-1" />}Cập nhật
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Manual renew */}
+                  <div>
+                    <p className="text-xs font-semibold text-muted-foreground mb-1.5">Gia hạn thủ công</p>
+                    <div className="flex flex-wrap gap-2 items-end">
+                      <Input
+                        className="h-8 text-xs w-28"
+                        placeholder="Plan Code *"
+                        value={renewForm.planCode}
+                        onChange={(e) => setRenewForm({ ...renewForm, planCode: e.target.value.toUpperCase() })}
+                      />
+                      <Input
+                        type="number" min="1" max="24"
+                        className="h-8 text-xs w-20"
+                        placeholder="Tháng *"
+                        value={renewForm.monthsToAdd}
+                        onChange={(e) => setRenewForm({ ...renewForm, monthsToAdd: e.target.value })}
+                      />
+                      <Input
+                        className="h-8 text-xs flex-1 min-w-28"
+                        placeholder="Lý do (tuỳ chọn)"
+                        value={renewForm.reason}
+                        onChange={(e) => setRenewForm({ ...renewForm, reason: e.target.value })}
+                      />
+                      <Button size="sm" className="h-8 text-xs gap-1" variant="outline" onClick={handleRenew} disabled={manualRenew.isPending}>
+                        {manualRenew.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <RotateCcw className="w-3 h-3" />}
+                        Gia hạn
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Sync stripe */}
+                  <div className="flex items-center justify-between border-t pt-3">
+                    <div>
+                      <p className="text-xs font-semibold">Sync Stripe</p>
+                      <p className="text-[10px] text-muted-foreground">Đồng bộ lại trạng thái subscription từ Stripe</p>
+                    </div>
+                    <Button size="sm" variant="outline" className="h-8 text-xs gap-1" onClick={handleSyncStripe} disabled={syncStripe.isPending}>
+                      {syncStripe.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                      Sync
+                    </Button>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Tab: Activation */}
+        {tab === 'activation' && (
+          <div className="space-y-4 pt-2">
+            {actLoading ? <div className="flex justify-center py-6"><Loader2 className="w-4 h-4 animate-spin text-muted-foreground" /></div> : (
+              <>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <InfoRow label="Trạng thái kích hoạt" value={activation?.status} />
+                  <InfoRow label="Provisioned lúc" value={activation?.provisionedAt ? formatDate(activation.provisionedAt) : undefined} />
+                  {activation?.workspaceUrl && <InfoRow label="Workspace URL" value={activation.workspaceUrl} />}
+                </div>
+
+                {activation?.lastProvisioningLog && (
+                  <div className="border rounded-lg p-3 bg-muted/30 space-y-1">
+                    <p className="text-xs font-semibold text-muted-foreground">Log provisioning gần nhất</p>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${PROVISION_RESULT_CLS[activation.lastProvisioningLog.result ?? ''] ?? 'bg-gray-100 text-gray-600'}`}>
+                        {activation.lastProvisioningLog.result}
+                      </span>
+                      <span className="text-xs text-muted-foreground">{activation.lastProvisioningLog.createdAt ? formatDate(activation.lastProvisioningLog.createdAt) : ''}</span>
+                    </div>
+                    {activation.lastProvisioningLog.message && (
+                      <p className="text-xs text-muted-foreground">{activation.lastProvisioningLog.message}</p>
+                    )}
+                  </div>
+                )}
+
+                <div className="border-t pt-3 flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-semibold">Retry Provisioning</p>
+                    <p className="text-[10px] text-muted-foreground">Chạy lại quá trình kích hoạt workspace</p>
+                  </div>
+                  <Button
+                    size="sm" variant="outline" className="h-8 text-xs gap-1"
+                    onClick={handleRetry}
+                    disabled={retryProvision.isPending}
+                  >
+                    {retryProvision.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                    Retry
+                  </Button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Tab: Provisioning Logs */}
+        {tab === 'provisioning' && (
+          <div className="pt-2">
+            {provLoading ? (
+              <div className="flex justify-center py-6"><Loader2 className="w-4 h-4 animate-spin text-muted-foreground" /></div>
+            ) : (provLogs?.items ?? []).length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-8">Không có log nào</p>
+            ) : (
+              <div className="space-y-2">
+                {(provLogs?.items ?? []).map((log) => (
+                  <div key={log.id} className="border rounded-lg p-3 space-y-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${PROVISION_RESULT_CLS[log.result ?? ''] ?? 'bg-gray-100 text-gray-600'}`}>
+                        {log.result ?? '—'}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground">{log.createdAt ? formatDate(log.createdAt) : '—'}</span>
+                    </div>
+                    {log.message && <p className="text-xs text-muted-foreground">{log.message}</p>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Đóng</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// ─── Edit Family Dialog ───────────────────────────────────────────────────────
+
 function EditFamilyDialog({ family, onClose }: { family: AdminFamily | null; onClose: () => void }) {
   const updateFamily = useUpdateAdminFamily()
   const [form, setForm] = useState({ name: '', description: '', status: 'ACTIVE' as AdminFamily['status'], activationStatus: 'ACTIVE' as NonNullable<AdminFamily['activationStatus']> })
 
   useEffect(() => {
     if (family) {
-      setForm({
-        name: family.name,
-        description: family.description ?? '',
-        status: family.status,
-        activationStatus: family.activationStatus ?? 'ACTIVE',
-      })
+      setForm({ name: family.name, description: family.description ?? '', status: family.status, activationStatus: family.activationStatus ?? 'ACTIVE' })
     }
   }, [family])
 
@@ -189,7 +441,7 @@ function EditFamilyDialog({ family, onClose }: { family: AdminFamily | null; onC
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Sửa gia đình</DialogTitle>
-          <DialogDescription>Cập nhật thông tin và trạng thái hoạt động của gia đình.</DialogDescription>
+          <DialogDescription>Cập nhật thông tin và trạng thái gia đình.</DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-2"><Label>Tên gia đình</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
@@ -200,10 +452,7 @@ function EditFamilyDialog({ family, onClose }: { family: AdminFamily | null; onC
               <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v as AdminFamily['status'] })}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="ACTIVE">ACTIVE</SelectItem>
-                  <SelectItem value="PENDING">PENDING</SelectItem>
-                  <SelectItem value="SUSPENDED">SUSPENDED</SelectItem>
-                  <SelectItem value="EXPIRED">EXPIRED</SelectItem>
+                  {['ACTIVE','PENDING','SUSPENDED','EXPIRED'].map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -212,9 +461,7 @@ function EditFamilyDialog({ family, onClose }: { family: AdminFamily | null; onC
               <Select value={form.activationStatus} onValueChange={(v) => setForm({ ...form, activationStatus: v as NonNullable<AdminFamily['activationStatus']> })}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="ACTIVE">ACTIVE</SelectItem>
-                  <SelectItem value="PENDING">PENDING</SelectItem>
-                  <SelectItem value="FAILED">FAILED</SelectItem>
+                  {['ACTIVE','PENDING','FAILED'].map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -228,5 +475,14 @@ function EditFamilyDialog({ family, onClose }: { family: AdminFamily | null; onC
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  )
+}
+
+function InfoRow({ label, value }: { label: string; value?: string | null }) {
+  return (
+    <div className="space-y-0.5">
+      <p className="text-[10px] text-muted-foreground uppercase tracking-wide">{label}</p>
+      <p className="text-sm font-medium">{value ?? <span className="text-muted-foreground font-normal">—</span>}</p>
+    </div>
   )
 }
