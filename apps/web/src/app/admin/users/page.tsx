@@ -123,9 +123,6 @@ export default function AdminUsersPage() {
                         <Badge variant={STATUS_BADGE[u.accountStatus] ?? 'secondary'} className="text-[10px] shrink-0">{u.accountStatus}</Badge>
                       </div>
                       <div className="flex gap-2">
-                        <Button size="sm" variant="outline" className="flex-1" onClick={() => openEditRole(u)}>
-                          Đổi role
-                        </Button>
                         <Button size="sm" variant="outline" className="flex-1" disabled={updateUser.isPending} onClick={() => toggleStatus(u)}>
                           {u.accountStatus === 'SUSPENDED' ? 'Mở khóa' : 'Khóa'}
                         </Button>
@@ -157,7 +154,6 @@ export default function AdminUsersPage() {
                           </td>
                           <td className="py-2">
                             <div className="flex gap-2">
-                              <Button size="sm" variant="outline" onClick={() => openEditRole(u)}>Đổi role</Button>
                               <Button size="sm" variant="outline" disabled={updateUser.isPending} onClick={() => toggleStatus(u)}>
                                 {u.accountStatus === 'SUSPENDED' ? 'Mở khóa' : 'Khóa'}
                               </Button>
