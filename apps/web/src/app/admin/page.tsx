@@ -9,7 +9,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
 } from 'recharts'
 import {
-  useAdminUsers, useAdminFamilies, useAdminInvitations, useAdminSubscriptionPlans,
+  useAdminUsers, useAdminFamilies, useAdminJoinRequests, useAdminSubscriptionPlans,
 } from '@/hooks/useAdmin'
 
 const USER_STATUS_COLORS: Record<string, string> = {
@@ -96,7 +96,7 @@ const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: { name
 export default function AdminPage() {
   const { data: usersData, isLoading: usersLoading } = useAdminUsers({ limit: 100 })
   const { data: familiesData, isLoading: familiesLoading } = useAdminFamilies({ limit: 100 })
-  const { data: invitationsData } = useAdminInvitations({ limit: 1 })
+  const { data: joinRequestsData } = useAdminJoinRequests({ limit: 1 })
   const { data: plansData } = useAdminSubscriptionPlans({ limit: 20 })
 
   const users = usersData?.items ?? []
@@ -138,7 +138,7 @@ export default function AdminPage() {
           <StatTile icon={Users} label="Tổng người dùng" value={usersData?.total} color="blue" />
           <StatTile icon={UserCheck} label="Đang hoạt động" value={users.length ? activeUsers : undefined} sub={suspendedUsers ? `${suspendedUsers} bị khoá` : undefined} color="green" />
           <StatTile icon={Home} label="Tổng gia đình" value={familiesData?.total} color="violet" />
-          <StatTile icon={Mail} label="Lời mời" value={invitationsData?.total} color="amber" />
+          <StatTile icon={Mail} label="Yêu cầu gia nhập" value={joinRequestsData?.total} color="amber" />
         </div>
 
         {/* Charts row */}
@@ -258,7 +258,7 @@ export default function AdminPage() {
                     </div>
                     <p className="font-semibold text-sm">{p.name}</p>
                     <p className="text-xs text-muted-foreground mt-1">
-                      {Number(p.annualPrice) ? `${Number(p.annualPrice).toLocaleString('vi-VN')} VND/năm` : 'Miễn phí'}
+                      {Number(p.annualPrice) ? `${Number(p.annualPrice).toLocaleString('vi-VN')} VND / ${p.planCode.toUpperCase().includes('MONTH') ? 'tháng' : 'năm'}` : 'Miễn phí'}
                     </p>
                     {p._count != null && (
                       <p className="text-xs text-blue-600 mt-1 font-medium">{p._count.families} gia đình đang dùng</p>
@@ -277,7 +277,7 @@ export default function AdminPage() {
             <QuickLink href="/admin/users" icon={Users} label="Người dùng" sub={`${usersData?.total ?? '—'} tài khoản`} color="text-blue-600" />
             <QuickLink href="/admin/families" icon={Home} label="Gia đình" sub={`${familiesData?.total ?? '—'} gia đình`} color="text-violet-600" />
             <QuickLink href="/admin/plans" icon={Crown} label="Gói thuê bao" sub={`${activePlans} đang hoạt động`} color="text-amber-600" />
-            <QuickLink href="/admin/invitations" icon={Mail} label="Lời mời" sub={`${invitationsData?.total ?? '—'} tổng cộng`} color="text-green-600" />
+            <QuickLink href="/admin/invitations" icon={Mail} label="Yêu cầu gia nhập" sub={`${joinRequestsData?.total ?? '—'} tổng cộng`} color="text-green-600" />
           </div>
         </div>
 

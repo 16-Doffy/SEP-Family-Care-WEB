@@ -54,7 +54,8 @@ const PLAN_CODE_RE = /^[A-Z0-9_]+$/
 function formatPrice(p: SubscriptionPlan) {
   const n = typeof p.annualPrice === 'string' ? Number(p.annualPrice) : p.annualPrice
   if (!n) return 'Miễn phí'
-  return `${n.toLocaleString('vi-VN')} VND / năm`
+  const isMonthly = p.planCode.toUpperCase().includes('MONTH')
+  return `${n.toLocaleString('vi-VN')} VND / ${isMonthly ? 'tháng' : 'năm'}`
 }
 
 export default function PlansAdminPage() {

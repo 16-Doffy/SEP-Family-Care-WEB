@@ -210,43 +210,38 @@ export function useDeleteSubscriptionPlan() {
   })
 }
 
-export interface AdminInvitation {
+export interface AdminJoinRequest {
   id: string
-  email?: string | null
-  status: 'PENDING' | 'CLAIMED' | 'APPROVED' | 'REJECTED' | 'ACCEPTED' | 'EXPIRED' | 'CANCELED' | string
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELED' | string
+  message?: string | null
   familyId: string
   createdAt?: string
+  user?: {
+    fullName?: string
+    email?: string
+  } | null
 }
 
-export function useAdminInvitation(id: string | null) {
-  return useQuery<AdminInvitation>({
-    queryKey: ['admin', 'invitations', id],
-    queryFn: () => api.get(`/admin/invitations/${id}`).then((r) => r.data),
+export function useAdminJoinRequest(id: string | null) {
+  return useQuery<AdminJoinRequest>({
+    queryKey: ['admin', 'join-requests', id],
+    queryFn: () => api.get(`/admin/join-requests/${id}`).then((r) => r.data),
     enabled: !!id,
   })
 }
 
-export function useAdminInvitations(params?: { page?: number; limit?: number; status?: string; familyId?: string }) {
-  return useQuery<Paginated<AdminInvitation>>({
-    queryKey: ['admin', 'invitations', params],
-    queryFn: () => api.get('/admin/invitations', { params }).then((r) => r.data),
+export function useAdminJoinRequests(params?: { page?: number; limit?: number; status?: string; familyId?: string }) {
+  return useQuery<Paginated<AdminJoinRequest>>({
+    queryKey: ['admin', 'join-requests', params],
+    queryFn: () => api.get('/admin/join-requests', { params }).then((r) => r.data),
   })
 }
 
-export function useUpdateAdminInvitation() {
+export function useDeleteAdminJoinRequest() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, ...data }: { id: string; status: string }) =>
-      api.patch(`/admin/invitations/${id}`, data).then((r) => r.data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'invitations'] }),
-  })
-}
-
-export function useDeleteAdminInvitation() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (id: string) => api.delete(`/admin/invitations/${id}`).then((r) => r.data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'invitations'] }),
+    mutationFn: (id: string) => api.delete(`/admin/join-requests/${id}`).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'join-requests'] }),
   })
 }
 
