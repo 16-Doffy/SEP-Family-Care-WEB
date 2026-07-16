@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { GitBranch, Loader2 } from 'lucide-react'
-import { useAdminProvisioningLogs } from '@/hooks/useAdmin'
+import { useAdminProvisioningLogs, useAdminFamilies, useAdminFamily, type AdminFamily } from '@/hooks/useAdmin'
 import { formatDate } from '@/lib/utils'
 
 const RESULT_CLS: Record<string, string> = {
@@ -31,6 +31,9 @@ export default function ProvisioningLogsPage() {
     status: status === 'ALL' ? undefined : status,
     actionType: actionType === 'ALL' ? undefined : actionType,
   })
+
+  const { data: familiesData } = useAdminFamilies({ limit: 100 })
+  const families = familiesData?.items ?? []
 
   const logs = data?.items ?? []
   const totalPages = data?.totalPages ?? 1
@@ -86,9 +89,7 @@ export default function ProvisioningLogsPage() {
                         </span>
                         <span className="text-[10px] text-muted-foreground">{log.createdAt ? formatDate(log.createdAt) : '—'}</span>
                       </div>
-                      {log.familyId && (
-                        <p className="text-[10px] text-muted-foreground font-mono truncate">Family: {log.familyId}</p>
-                      )}
+                      {log.familyId && <FamilyNameAndManager familyId={log.familyId} cachedFamilies={families} />}
                       {log.message && <p className="text-xs text-muted-foreground">{log.message}</p>}
                     </div>
                   ))}
@@ -99,7 +100,7 @@ export default function ProvisioningLogsPage() {
                     <thead>
                       <tr className="border-b text-muted-foreground text-xs">
                         <th className="text-left py-2.5 pl-4">Kết quả</th>
-                        <th className="text-left py-2.5">Family ID</th>
+                        <th className="text-left py-2.5">Gia đình / Người quản lý</th>
                         <th className="text-left py-2.5">Message</th>
                         <th className="text-left py-2.5 pr-4">Thời gian</th>
                       </tr>
@@ -112,7 +113,9 @@ export default function ProvisioningLogsPage() {
                               {log.result ?? '—'}
                             </span>
                           </td>
-                          <td className="py-2 font-mono text-[10px] text-muted-foreground max-w-[160px] truncate">{log.familyId ?? '—'}</td>
+                          <td className="py-2 pr-2">
+                            {log.familyId ? <FamilyNameAndManager familyId={log.familyId} cachedFamilies={families} /> : '—'}
+                          </td>
                           <td className="py-2 text-xs text-muted-foreground max-w-[280px] truncate">{log.message ?? '—'}</td>
                           <td className="py-2 pr-4 text-xs text-muted-foreground whitespace-nowrap">{log.createdAt ? formatDate(log.createdAt) : '—'}</td>
                         </tr>
@@ -146,6 +149,56 @@ export default function ProvisioningLogsPage() {
           </CardContent>
         </Card>
       </div>
+    </div>
+  )
+}
+
+function FamilyNameAndManager({ familyId, cachedFamilies }: { familyId: string; cachedFamilies: AdminFamily[] }) {
+  // Check if already in cache AND has members array populated
+  const cachedFamily = cachedFamilies.find((f) => f.id === familyId)
+  const hasMembers = cachedFamily && Array.isArray(cachedFamily.members) && cachedFamily.members.length > 0
+
+  // Call useAdminFamily hook. It will fetch if not in cache or if cache does not have members
+  const { data: fetchedFamily, isLoading } = useAdminFamily(hasMembers ? null : familyId)
+
+  const family = hasMembers ? cachedFamily : fetchedFamily
+
+  if (isLoading) {
+    return (
+      <div className="space-y-0.5 animate-pulse">
+        <p className="font-semibold text-xs text-gray-500">Gia đình #{familyId.slice(0, 8)}</p>
+        <p className="text-[10px] text-muted-foreground">Đang tải...</p>
+        <p className="font-mono text-[9px] text-gray-400">ID: {familyId}</p>
+      </div>
+    )
+  }
+
+  if (!family) {
+    return (
+      <div className="space-y-0.5">
+        <p className="font-semibold text-xs text-gray-800 dark:text-gray-200">Gia đình #{familyId.slice(0, 8)}</p>
+        <p className="text-[10px] text-muted-foreground">Quản lý: —</p>
+        <p className="font-mono text-[9px] text-gray-400">ID: {familyId}</p>
+      </div>
+    )
+  }
+
+  const managerMember = family.members?.find((m) => m.familyRole === 'FAMILY_MANAGER') || family.members?.[0]
+  const managerName = managerMember
+    ? (managerMember.displayName || managerMember.user?.fullName || '—')
+    : '—'
+
+  return (
+    <div className="space-y-0.5">
+      <p className="font-semibold text-xs text-gray-800 dark:text-gray-200 truncate max-w-[200px]" title={family.name}>
+        {family.name}
+      </p>
+      <p className="text-[10px] text-muted-foreground truncate max-w-[200px]" title={`Quản lý: ${managerName}`}>
+        Quản lý: {managerName}
+      </p>
+      <p className="font-mono text-[9px] text-gray-400 truncate max-w-[200px]" title={familyId}>
+        ID: {familyId}
+      </p>
     </div>
   )
 }

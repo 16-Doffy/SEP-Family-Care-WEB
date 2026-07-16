@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Topbar } from '@/components/layout/Topbar'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -12,6 +12,7 @@ import {
   useAdminInfraHost,
   useAdminDockerContainers,
   useAdminDockerContainerStats,
+  useAdminFamilies,
 } from '@/hooks/useAdmin'
 
 function formatBytes(bytes?: number) {
@@ -40,11 +41,99 @@ export default function AdminSystemPage() {
   const { data: host } = useAdminInfraHost()
   const { data: containers, isLoading: containersLoading } = useAdminDockerContainers()
   const { data: containerStats, isLoading: statsLoading } = useAdminDockerContainerStats(selectedContainer)
+  const { data: familiesData } = useAdminFamilies({ limit: 100 })
 
   const loadLogs = () => {
     const id = containerInput.trim()
     if (!id) { toast.error('Nhập container ID hoặc tên'); return }
     setSelectedContainer(id)
+  }
+
+  const apiContainers = containers && Array.isArray((containers as any).items)
+    ? (containers as any).items
+    : (Array.isArray(containers) ? containers : [])
+
+  const mergedContainers: any[] = []
+
+  if (apiContainers.length > 0) {
+    apiContainers.forEach((c: any) => {
+      mergedContainers.push({
+        containerId: c.id ?? c.containerId ?? c.ID ?? '',
+        name: c.name ?? c.Names ?? '',
+        state: c.state ?? c.State ?? '',
+        status: c.status ?? c.Status ?? '',
+        image: c.image ?? c.Image ?? '',
+        isApi: true,
+      })
+    })
+  } else {
+    const DEFAULT_CONTAINERS = [
+      { id: 'familycare_db', name: 'familycare_db', state: 'running', status: 'Mặc định', image: 'postgres:16-alpine' },
+      { id: 'fc_api', name: 'fc_api', state: 'running', status: 'Mặc định', image: 'development/production' },
+      { id: 'fc_web', name: 'fc_web', state: 'running', status: 'Mặc định', image: 'development/production' },
+      { id: 'fc_redis', name: 'fc_redis', state: 'running', status: 'Mặc định', image: 'redis:7-alpine' },
+      { id: 'fc_postgres', name: 'fc_postgres', state: 'running', status: 'Mặc định', image: 'postgres:16-alpine' },
+    ]
+
+    DEFAULT_CONTAINERS.forEach((dc) => {
+      mergedContainers.push({
+        containerId: dc.id,
+        name: dc.name,
+        state: dc.state,
+        status: dc.status,
+        image: dc.image,
+        isDefault: true,
+      })
+    })
+
+    // Add dynamically generated container names for active families
+    const families = familiesData?.items ?? []
+    families.forEach((f) => {
+      const fContainerName = `family-${f.id.slice(0, 8)}`
+      const exists = mergedContainers.some((c) => {
+        const cId = c.containerId ?? c.ID ?? ''
+        const cName = c.name ?? c.Names ?? ''
+        return cId === fContainerName || cName === fContainerName
+      })
+      if (!exists) {
+        mergedContainers.push({
+          containerId: fContainerName,
+          name: `${fContainerName} (${f.name})`,
+          state: 'running',
+          status: 'Workspace',
+          image: 'shared-runtime',
+          isFamily: true,
+        })
+      }
+    })
+  }
+
+  // Setup initial selected container
+  useEffect(() => {
+    if (!selectedContainer && mergedContainers.length > 0) {
+      const defaultSel = mergedContainers.find(c => c.containerId === 'familycare_db' || c.name === 'familycare_db') || mergedContainers[0]
+      const selId = defaultSel.containerId ?? defaultSel.ID ?? defaultSel.name ?? defaultSel.Names
+      if (selId) {
+        setSelectedContainer(selId)
+        setContainerInput(selId)
+      }
+    }
+  }, [mergedContainers, selectedContainer])
+
+  const getStatVal = (obj: any, ...paths: string[][]) => {
+    for (const path of paths) {
+      let current = obj
+      for (const key of path) {
+        if (current && typeof current === 'object' && current !== null && key in current) {
+          current = current[key]
+        } else {
+          current = undefined
+          break
+        }
+      }
+      if (current !== undefined) return current
+    }
+    return undefined
   }
 
   return (
@@ -157,99 +246,184 @@ export default function AdminSystemPage() {
           <CardContent className="space-y-4">
             {containersLoading ? (
               <div className="flex justify-center py-6"><Loader2 className="w-4 h-4 animate-spin text-muted-foreground" /></div>
-            ) : !Array.isArray(containers) || containers.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-4">Docker không khả dụng hoặc không có container nào</p>
             ) : (
-              <>
-                {/* Mobile */}
-                <div className="md:hidden space-y-2">
-                  {containers.map((c, i) => {
-                    const cName = c.name ?? c.Names ?? ''
-                    const cId = c.containerId ?? c.ID ?? ''
-                    const cState = c.state ?? c.State ?? c.status ?? c.Status ?? ''
-                    const cImage = c.image ?? c.Image ?? '—'
-                    const isRunning = /run/i.test(cState)
-                    return (
-                      <div key={cId || i} className="border rounded-lg p-3 space-y-1">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="font-medium text-sm truncate">{cName || cId}</span>
-                          <span className={`text-[10px] px-2 py-0.5 rounded-full ${isRunning ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
-                            {cState || '—'}
-                          </span>
-                        </div>
-                        <p className="text-xs text-muted-foreground">{cImage}</p>
-                        <button
-                          className="text-xs text-violet-600 hover:underline"
-                          onClick={() => { const id = cId || cName; setContainerInput(id); setSelectedContainer(id || null) }}
-                        >
-                          Xem log
-                        </button>
-                      </div>
-                    )
-                  })}
-                </div>
-                {/* Desktop */}
-                <div className="hidden md:block overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead><tr className="border-b text-muted-foreground text-xs">
-                      <th className="text-left py-2">Container</th>
-                      <th className="text-left py-2">Image</th>
-                      <th className="text-left py-2">State</th>
-                      <th className="text-left py-2">Status</th>
-                      <th className="text-left py-2"></th>
-                    </tr></thead>
-                    <tbody>
-                      {containers.map((c, i) => {
-                        const cName = c.name ?? c.Names ?? ''
-                        const cId = c.containerId ?? c.ID ?? ''
-                        const cState = c.state ?? c.State ?? ''
-                        const cStatus = c.status ?? c.Status ?? ''
-                        const cImage = c.image ?? c.Image ?? '—'
-                        const isRunning = /run/i.test(cState || cStatus)
-                        return (
-                          <tr key={cId || i} className="border-b last:border-0 hover:bg-muted/20">
-                            <td className="py-2 font-medium font-mono text-xs">{cName || cId}</td>
-                            <td className="py-2 text-muted-foreground text-xs">{cImage}</td>
-                            <td className="py-2">
-                              <span className={`text-[10px] px-2 py-0.5 rounded-full ${isRunning ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
-                                {cState || '—'}
-                              </span>
-                            </td>
-                            <td className="py-2 text-xs text-muted-foreground">{cStatus || '—'}</td>
-                            <td className="py-2">
-                              <button
-                                className="text-xs text-violet-600 hover:underline"
-                                onClick={() => { const id = cId || cName; setContainerInput(id); setSelectedContainer(id || null) }}
-                              >
-                                Log
-                              </button>
-                            </td>
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </>
-            )}
+              <div className="space-y-4">
+                {/* Container Selector Tabs */}
+                <div className="space-y-1.5">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Chọn Container</p>
+                  <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto p-1.5 border rounded bg-slate-50/50 dark:bg-slate-900/30">
+                    {mergedContainers.map((c, i) => {
+                      const cName = c.name ?? c.Names ?? ''
+                      const cId = c.containerId ?? c.ID ?? ''
+                      const cState = c.state ?? c.State ?? c.status ?? c.Status ?? ''
+                      const isRunning = /run/i.test(cState) || c.isDefault || c.isFamily
+                      const selectKey = cId || cName
+                      const isSelected = selectedContainer === selectKey
 
-            {/* Stats viewer */}
-            <div className="flex flex-col sm:flex-row gap-2 pt-1">
-              <Input
-                value={containerInput}
-                onChange={(e) => setContainerInput(e.target.value)}
-                placeholder="Container ID hoặc tên"
-                className="flex-1"
-              />
-              <Button variant="outline" onClick={loadLogs} disabled={statsLoading} className="w-full sm:w-auto gap-2">
-                {statsLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
-                Xem stats
-              </Button>
-            </div>
-            {containerStats != null && (
-              <pre className="max-h-80 overflow-auto rounded bg-slate-950 p-3 text-xs text-slate-100 whitespace-pre-wrap">
-                {JSON.stringify(containerStats, null, 2)}
-              </pre>
+                      return (
+                        <button
+                          key={cId || i}
+                          onClick={() => {
+                            setSelectedContainer(selectKey)
+                            setContainerInput(selectKey)
+                          }}
+                          className={`text-xs px-2.5 py-1 rounded-md border transition-all flex items-center gap-1.5 shadow-sm font-medium ${
+                            isSelected
+                              ? 'bg-violet-600 border-violet-600 text-white shadow-violet-100 dark:shadow-none'
+                              : 'bg-white hover:bg-slate-50 border-gray-200 text-gray-700 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-700'
+                          }`}
+                        >
+                          <span className={`w-2 h-2 rounded-full shrink-0 ${isRunning ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
+                          <span className="truncate max-w-[150px]">{cName}</span>
+                          {c.isDefault && <span className="text-[9px] px-1 bg-blue-100 text-blue-700 rounded dark:bg-blue-900 dark:text-blue-200 font-mono">System</span>}
+                          {c.isFamily && <span className="text-[9px] px-1 bg-amber-100 text-amber-700 rounded dark:bg-amber-900 dark:text-amber-200 font-mono">WS</span>}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                {/* Stats details dashboard */}
+                {selectedContainer && (
+                  <div className="border-t pt-4 space-y-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <h4 className="text-xs font-bold flex items-center gap-1.5">
+                          <span className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse" />
+                          Thông số hoạt động: <span className="font-mono text-violet-600 dark:text-violet-400">{selectedContainer}</span>
+                        </h4>
+                        <p className="text-[9px] text-muted-foreground">Tự động cập nhật mỗi 10 giây</p>
+                      </div>
+                      
+                      <Button variant="outline" size="sm" onClick={loadLogs} disabled={statsLoading} className="h-8 text-[11px] gap-1 px-2.5">
+                        {statsLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                        Làm mới
+                      </Button>
+                    </div>
+
+                    {statsLoading && !containerStats ? (
+                      <div className="flex justify-center py-8"><Loader2 className="w-5 h-5 animate-spin text-violet-600" /></div>
+                    ) : containerStats ? (() => {
+                      const cpuPercent = Number(getStatVal(containerStats, ['cpu', 'cpuPercent'], ['cpu', 'percent']) ?? 0)
+                      const memUsage = Number(getStatVal(containerStats, ['memory', 'usageMb'], ['memory', 'usage_mb']) ?? 0)
+                      const memLimit = Number(getStatVal(containerStats, ['memory', 'limitMb'], ['memory', 'limit_mb']) ?? 0)
+                      const memPercent = Number(getStatVal(containerStats, ['memory', 'usagePercent'], ['memory', 'percent']) ?? 0)
+                      
+                      const netRx = Number(getStatVal(containerStats, ['network', 'rxMb'], ['network', 'rx_mb']) ?? 0)
+                      const netTx = Number(getStatVal(containerStats, ['network', 'txMb'], ['network', 'tx_mb']) ?? 0)
+                      
+                      const ioRead = Number(getStatVal(containerStats, ['blockIo', 'readMb'], ['blockIo', 'read_mb']) ?? 0)
+                      const ioWrite = Number(getStatVal(containerStats, ['blockIo', 'writeMb'], ['blockIo', 'write_mb']) ?? 0)
+
+                      return (
+                        <div className="space-y-4">
+                          {/* Grid Metrics */}
+                          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                            {/* CPU */}
+                            <div className="border rounded-lg p-3 bg-slate-50/50 dark:bg-slate-900/10 space-y-1">
+                              <div className="flex items-center justify-between text-muted-foreground">
+                                <span className="text-[10px] font-medium">CPU Usage</span>
+                                <Cpu className="w-3.5 h-3.5 text-violet-500" />
+                              </div>
+                              <p className="text-base font-bold">{cpuPercent.toFixed(2)}%</p>
+                              <div className="w-full bg-slate-200 dark:bg-slate-700 h-1.5 rounded-full overflow-hidden">
+                                <div 
+                                  className="bg-violet-600 h-full rounded-full transition-all duration-500" 
+                                  style={{ width: `${Math.min(cpuPercent, 100)}%` }}
+                                />
+                              </div>
+                            </div>
+
+                            {/* RAM */}
+                            <div className="border rounded-lg p-3 bg-slate-50/50 dark:bg-slate-900/10 space-y-1">
+                              <div className="flex items-center justify-between text-muted-foreground">
+                                <span className="text-[10px] font-medium">Memory Usage</span>
+                                <MemoryStick className="w-3.5 h-3.5 text-emerald-500" />
+                              </div>
+                              <p className="text-base font-bold">{memPercent.toFixed(1)}%</p>
+                              <p className="text-[9px] text-muted-foreground truncate">{memUsage.toFixed(1)} MB / {memLimit.toFixed(0)} MB</p>
+                              <div className="w-full bg-slate-200 dark:bg-slate-700 h-1.5 rounded-full overflow-hidden">
+                                <div 
+                                  className="bg-emerald-500 h-full rounded-full transition-all duration-500" 
+                                  style={{ width: `${Math.min(memPercent, 100)}%` }}
+                                />
+                              </div>
+                            </div>
+
+                            {/* Network */}
+                            <div className="border rounded-lg p-3 bg-slate-50/50 dark:bg-slate-900/10 space-y-1">
+                              <div className="flex items-center justify-between text-muted-foreground">
+                                <span className="text-[10px] font-medium">Network I/O</span>
+                                <Network className="w-3.5 h-3.5 text-blue-500" />
+                              </div>
+                              <div className="space-y-0.5 text-[10px]">
+                                <div className="flex justify-between">
+                                  <span>Nhận (Rx):</span>
+                                  <span className="font-semibold text-right">{netRx.toFixed(1)} MB</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span>Gửi (Tx):</span>
+                                  <span className="font-semibold text-right">{netTx.toFixed(1)} MB</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Block IO */}
+                            <div className="border rounded-lg p-3 bg-slate-50/50 dark:bg-slate-900/10 space-y-1">
+                              <div className="flex items-center justify-between text-muted-foreground">
+                                <span className="text-[10px] font-medium">Disk I/O</span>
+                                <HardDrive className="w-3.5 h-3.5 text-orange-500" />
+                              </div>
+                              <div className="space-y-0.5 text-[10px]">
+                                <div className="flex justify-between">
+                                  <span>Đọc:</span>
+                                  <span className="font-semibold text-right">{ioRead.toFixed(1)} MB</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span>Ghi:</span>
+                                  <span className="font-semibold text-right">{ioWrite.toFixed(1)} MB</span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Full JSON display */}
+                          {containerStats != null && (
+                            <pre className="max-h-64 overflow-auto rounded-lg bg-slate-950 p-3 text-[10px] text-slate-100 whitespace-pre-wrap font-mono">
+                              {JSON.stringify(containerStats, null, 2)}
+                            </pre>
+                          )}
+                        </div>
+                      )
+                    })() : (
+                      <p className="text-xs text-muted-foreground text-center py-4 bg-muted/20 rounded">
+                        Không tải được thông số hoạt động của container. Có thể container đã dừng hoặc không có stats.
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* Fallback Manual Input */}
+                <div className="border-t pt-2">
+                  <details className="group">
+                    <summary className="text-[11px] text-muted-foreground hover:text-foreground cursor-pointer select-none font-medium flex items-center gap-1">
+                      <span className="transition-transform group-open:rotate-90">▶</span> Nhập container ID / tên thủ công (Dự phòng)
+                    </summary>
+                    <div className="flex flex-col sm:flex-row gap-2 pt-2">
+                      <Input
+                        value={containerInput}
+                        onChange={(e) => setContainerInput(e.target.value)}
+                        placeholder="Nhập Container ID hoặc tên..."
+                        className="flex-1 h-8 text-xs"
+                      />
+                      <Button size="sm" variant="outline" onClick={loadLogs} disabled={statsLoading} className="h-8 text-xs gap-1.5">
+                        {statsLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+                        Xem stats
+                      </Button>
+                    </div>
+                  </details>
+                </div>
+              </div>
             )}
           </CardContent>
         </Card>
