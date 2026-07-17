@@ -1,79 +1,67 @@
-/**
- * Layout dùng chung cho nhóm trang xác thực (đăng nhập, đăng ký).
- *
- * Bố cục split-screen:
- *  - Mobile: chỉ hiển thị form ở giữa với gradient nền
- *  - Desktop (lg+): bên trái là brand showcase, bên phải là form
- */
-import { Heart, Calendar, Wallet, Siren, CheckSquare, MessageCircle } from 'lucide-react'
+import { Heart, Calendar, Wallet, Siren, CheckSquare, MessageCircle, ShieldCheck } from 'lucide-react'
+import Image from 'next/image'
 
-const features = [
-  { icon: Calendar, label: 'Lịch gia đình', desc: 'Theo dõi sự kiện chung' },
-  { icon: Wallet, label: 'Sổ quỹ nội bộ', desc: 'Quản lý kế hoạch chi tiêu minh bạch' },
-  { icon: CheckSquare, label: 'Nhiệm vụ gia đình', desc: 'Giao việc kèm reward settlement' },
-  { icon: Siren, label: 'SOS khẩn cấp', desc: 'Cảnh báo tức thì khi cần' },
-  { icon: MessageCircle, label: 'Chat gia đình', desc: 'Trò chuyện realtime' },
+const floaters = [
+  { icon: Calendar, label: 'Lịch gia đình', desc: 'Đồng bộ sự kiện', pos: 'top-[15%] left-[8%]', anim: 'animate-float' },
+  { icon: MessageCircle, label: 'Chat gia đình', desc: 'Realtime mọi lúc', pos: 'top-[45%] left-[4%]', anim: 'animate-float-delayed' },
+  { icon: CheckSquare, label: 'Nhiệm vụ', desc: 'Giao việc & reward', pos: 'bottom-[20%] left-[10%]', anim: 'animate-float-slow' },
+  { icon: Wallet, label: 'Quỹ nội bộ', desc: 'Chi tiêu minh bạch', pos: 'top-[18%] right-[8%]', anim: 'animate-float-delayed' },
+  { icon: ShieldCheck, label: 'Bảo mật cao', desc: 'Dữ liệu an toàn', pos: 'top-[45%] right-[4%]', anim: 'animate-float-slow' },
+  { icon: Siren, label: 'SOS khẩn cấp', desc: 'Cảnh báo tức thì', pos: 'bottom-[20%] right-[10%]', anim: 'animate-float' },
 ]
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen flex">
-      {/* Cột trái: brand + showcase tính năng (ẩn trên mobile) */}
-      <aside className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-700 text-white p-12 flex-col justify-between">
-        {/* Decorative blobs */}
-        <div aria-hidden className="absolute -top-20 -left-20 w-72 h-72 rounded-full bg-white/10 blur-3xl" />
-        <div aria-hidden className="absolute bottom-0 right-0 w-96 h-96 rounded-full bg-pink-400/20 blur-3xl" />
-        <div aria-hidden className="absolute top-1/3 right-10 w-40 h-40 rounded-full bg-yellow-300/10 blur-2xl" />
+    <div className="relative min-h-screen w-full flex items-center justify-center bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-indigo-950 via-purple-900 to-violet-950 overflow-hidden font-sans">
+      
+      {/* Decorative blurred blobs in background */}
+      <div aria-hidden className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-500/30 rounded-full blur-[100px] pointer-events-none" />
+      <div aria-hidden className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-500/30 rounded-full blur-[100px] pointer-events-none" />
 
-        {/* Logo */}
-        <div className="relative z-10 flex items-center gap-3">
-          <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center shadow-lg">
-            <Heart className="w-6 h-6 fill-white text-white" />
+      {/* Floating Image Bubbles */}
+      <div className="absolute top-[20%] left-[25%] animate-float-slow hidden xl:block w-32 h-32 rounded-full border-[4px] border-white/20 shadow-[0_0_30px_rgba(255,255,255,0.2)] overflow-hidden">
+        <Image src="/images/fm1.png" alt="Happy Family" fill className="object-cover opacity-90 hover:opacity-100 transition-opacity" />
+      </div>
+      <div className="absolute bottom-[25%] right-[22%] animate-float hidden xl:block w-40 h-40 rounded-full border-[4px] border-white/20 shadow-[0_0_30px_rgba(255,255,255,0.2)] overflow-hidden">
+        <Image src="/images/fm2.png" alt="Happy Family" fill className="object-cover opacity-90 hover:opacity-100 transition-opacity" />
+      </div>
+
+      {/* Floating Hearts */}
+      <Heart className="absolute top-[10%] right-[30%] text-pink-400/50 w-8 h-8 animate-float-delayed hidden md:block" />
+      <Heart className="absolute bottom-[15%] left-[20%] text-red-400/50 w-12 h-12 animate-float hidden md:block" />
+      <Heart className="absolute top-[60%] left-[25%] text-pink-300/40 w-6 h-6 animate-float-slow hidden lg:block" />
+
+      {/* Floating Chips (Hidden on small screens) */}
+      {floaters.map((item, i) => (
+        <div key={i} className={`hidden lg:flex absolute ${item.pos} ${item.anim} items-center gap-3 bg-white/5 backdrop-blur-xl border border-white/10 shadow-2xl rounded-full pr-6 pl-2 py-2 text-white`}>
+          <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center shrink-0">
+            <item.icon className="w-5 h-5 text-white" />
           </div>
           <div>
-            <p className="text-xl font-bold tracking-tight">Family Care</p>
-            <p className="text-xs text-white/70">Kết nối, chăm sóc, sẻ chia</p>
+            <p className="text-sm font-bold leading-tight">{item.label}</p>
+            <p className="text-[10px] text-white/60 leading-tight">{item.desc}</p>
           </div>
         </div>
+      ))}
 
-        {/* Tiêu đề & feature list */}
-        <div className="relative z-10 space-y-8">
-          <div>
-            <h1 className="text-4xl font-bold leading-tight mb-3">
-              Mọi điều quan trọng <br /> của gia đình bạn,<br />
-              <span className="text-yellow-300">trên cùng một nơi.</span>
-            </h1>
-            <p className="text-white/80 text-base max-w-md">
-              Nền tảng giúp các thành viên trong gia đình theo dõi hoạt động,
-              chia sẻ tài chính và quan tâm nhau mỗi ngày.
-            </p>
-          </div>
-
-          <ul className="space-y-3">
-            {features.map(({ icon: Icon, label, desc }) => (
-              <li key={label} className="flex items-start gap-3 group">
-                <div className="w-10 h-10 rounded-xl bg-white/15 backdrop-blur-sm flex items-center justify-center shrink-0 group-hover:bg-white/25 transition-colors">
-                  <Icon className="w-5 h-5" />
-                </div>
-                <div>
-                  <p className="font-medium text-sm">{label}</p>
-                  <p className="text-xs text-white/70">{desc}</p>
-                </div>
-              </li>
-            ))}
-          </ul>
+      {/* Top Header Logo */}
+      <div className="absolute top-10 flex flex-col items-center pointer-events-none drop-shadow-md z-20">
+        <div className="flex items-center gap-2 text-white/90">
+          <Heart className="w-4 h-4 fill-white" />
+          <span className="font-bold tracking-wider">Family Care</span>
         </div>
+        <p className="text-xs text-white/50">Kết nối · Chăm sóc · Sẻ chia</p>
+      </div>
 
-        {/* Footer */}
-        <p className="relative z-10 text-xs text-white/60">
-          © {new Date().getFullYear()} Family Care · Được xây dựng cho mọi gia đình Việt
-        </p>
-      </aside>
-
-      {/* Cột phải: form đăng nhập / đăng ký */}
-      <main className="flex-1 flex items-center justify-center p-4 sm:p-8 bg-gradient-to-br from-slate-50 to-blue-50 lg:bg-none lg:bg-white">
-        <div className="w-full max-w-md">{children}</div>
+      {/* Main Login Form Container */}
+      <main className="relative z-10 w-full max-w-md px-4">
+        {children}
       </main>
+
+      {/* Bottom Footer */}
+      <div className="absolute bottom-6 text-center text-xs text-white/40 pointer-events-none">
+        © {new Date().getFullYear()} Family Care · Được xây dựng cho mọi gia đình Việt
+      </div>
     </div>
   )
 }
