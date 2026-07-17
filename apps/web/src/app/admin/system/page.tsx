@@ -145,10 +145,10 @@ export default function AdminSystemPage() {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {[
             // Health trả 200 nghĩa là API sống — hiện UP kể cả khi BE không có field status
-            { icon: Server, label: 'API Status', value: health?.status ?? (health ? 'UP' : healthLoading ? '...' : '—'), color: 'text-indigo-600' },
+            { icon: Server, label: 'API Status', value: health?.backend?.status ?? (health ? 'UP' : healthLoading ? '...' : '—'), color: 'text-indigo-600' },
             { icon: Database, label: 'Database', value: typeof health?.database === 'string' ? health.database : (health?.database as { status?: string })?.status ?? (healthLoading ? '...' : '—'), color: 'text-emerald-600' },
-            { icon: Activity, label: 'Uptime', value: formatUptime(health?.uptimeSeconds ?? (health?.uptime as number | undefined) ?? runtime?.uptime), color: 'text-orange-600' },
-            { icon: HardDrive, label: 'Uploads', value: `${health?.uploads?.files ?? 0} files`, color: 'text-slate-600' },
+            { icon: Activity, label: 'Uptime', value: formatUptime(health?.backend?.uptimeSeconds ?? (health?.uptime as number | undefined) ?? runtime?.uptime), color: 'text-orange-600' },
+            { icon: HardDrive, label: 'Uploads', value: `${(health?.uploads as { files?: number } | undefined)?.files ?? 0} files`, color: 'text-slate-600' },
           ].map(({ icon: Icon, label, value, color }) => (
             <Card key={label}>
               <CardContent className="pt-4 pb-4 flex items-center gap-3">
