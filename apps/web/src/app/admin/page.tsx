@@ -1,529 +1,602 @@
 'use client'
 import { useMemo } from 'react'
 import Link from 'next/link'
-import { Topbar } from '@/components/layout/Topbar'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
-  Users, Home, Mail, Crown, TrendingUp, UserCheck, Shield, ArrowRight,
-  Activity, Server, ClipboardList, Archive, GitBranch, Zap, DollarSign,
-  BarChart3, PieChart as PieIcon, Sparkles, ChevronRight,
+  Users, Home, Crown, TrendingUp, Activity, Server, DollarSign,
+  ChevronRight, RefreshCw, Bell, Search, UserPlus,
+  CheckCircle2, XCircle, Box, BarChart3, PieChart as PieIcon,
+  UserCheck,
 } from 'lucide-react'
 import {
-  PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer,
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, AreaChart, Area,
+  PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
+  BarChart, Bar, LabelList,
+  AreaChart, Area, XAxis, YAxis, CartesianGrid,
 } from 'recharts'
 import {
-  useAdminUsers, useAdminFamilies, useAdminJoinRequests, useAdminSubscriptionPlans,
-  useAdminSystemHealth, useAdminDockerContainers, useAdminRevenueSummary,
+  useAdminDashboardSummary,
+  useAdminRevenueSummary,
+  useAdminRevenueMonthly,
+  useAdminSystemHealth,
+  useAdminDockerContainers,
+  useAdminAuditLogs,
+  useAdminJoinRequests,
+  useAdminPayments,
+  type AdminAuditLog,
+  type AdminDockerContainer,
 } from '@/hooks/useAdmin'
 import { useAuth } from '@/context/AuthContext'
 
-/* ─── Color Palettes (HSL-tailored, premium) ─────────────────────────────────── */
+/* ─── Helpers ──────────────────────────────────────────────────────────────── */
 
-const USER_STATUS_COLORS: Record<string, string> = {
-  ACTIVE: '#10b981',    // emerald-500
-  INACTIVE: '#94a3b8',  // slate-400
-  SUSPENDED: '#f43f5e', // rose-500
-}
-const FAMILY_STATUS_COLORS: Record<string, string> = {
-  ACTIVE: '#6366f1',    // indigo-500
-  PENDING: '#f59e0b',   // amber-500
-  SUSPENDED: '#ef4444', // red-500
-  EXPIRED: '#6b7280',   // gray-500
-}
-const USER_TYPE_COLORS: Record<string, string> = {
-  NORMAL_USER: '#8b5cf6', // violet-500
-  SYSTEM_ADMIN: '#ec4899', // pink-500
-}
-const STATUS_LABELS: Record<string, string> = {
-  ACTIVE: 'Đang hoạt động',
-  INACTIVE: 'Không hoạt động',
-  SUSPENDED: 'Bị khoá',
-  PENDING: 'Chờ duyệt',
-  EXPIRED: 'Hết hạn',
-}
-
-/* ─── Utility ────────────────────────────────────────────────────────────────── */
-
-function countBy<T>(items: T[], key: keyof T) {
-  return items.reduce<Record<string, number>>((acc, item) => {
-    const val = String(item[key])
-    acc[val] = (acc[val] || 0) + 1
-    return acc
-  }, {})
-}
-
-function formatCurrency(value?: number) {
+function formatVND(value?: number | null) {
   if (!value) return '0 ₫'
-  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(value)
+  if (value >= 1_000_000_000) return `₫${(value / 1_000_000_000).toFixed(1)}B`
+  if (value >= 1_000_000) return `₫${(value / 1_000_000).toFixed(1)}M`
+  if (value >= 1_000) return `₫${(value / 1_000).toFixed(0)}K`
+  return `₫${value}`
 }
 
-/* ─── Premium Tooltip ────────────────────────────────────────────────────────── */
-
-const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: { name: string; value: number }[] }) => {
-  if (!active || !payload?.length) return null
-  return (
-    <div className="bg-white/95 backdrop-blur-sm border border-slate-200 rounded-xl shadow-xl px-4 py-2.5 text-xs">
-      <p className="font-semibold text-slate-800">{STATUS_LABELS[payload[0].name] ?? payload[0].name}</p>
-      <p className="text-slate-500 mt-0.5">{payload[0].value} mục</p>
-    </div>
-  )
+function makeTickFormatter(maxVal: number) {
+  if (maxVal >= 1_000_000_000) return (v: number) => `₫${(v / 1_000_000_000).toFixed(1)}B`
+  if (maxVal >= 1_000_000) return (v: number) => `₫${(v / 1_000_000).toFixed(0)}M`
+  if (maxVal >= 1_000) return (v: number) => `₫${(v / 1_000).toFixed(0)}K`
+  if (maxVal > 0) return (v: number) => `₫${v}`
+  return (v: number) => String(v)
 }
 
-/* ─── Chart Skeleton ─────────────────────────────────────────────────────────── */
-
-function ChartSkeleton() {
-  return (
-    <div className="h-[240px] flex flex-col items-center justify-center gap-2">
-      <div className="w-8 h-8 border-2 border-violet-200 border-t-violet-500 rounded-full animate-spin" />
-      <span className="text-xs text-muted-foreground">Đang tải dữ liệu...</span>
-    </div>
-  )
+function timeAgo(dateStr?: string) {
+  if (!dateStr) return '—'
+  const diff = Date.now() - new Date(dateStr).getTime()
+  const m = Math.floor(diff / 60000)
+  if (m < 1) return 'Vừa xong'
+  if (m < 60) return `${m} phút trước`
+  const h = Math.floor(m / 60)
+  if (h < 24) return `${h} giờ trước`
+  return `${Math.floor(h / 24)} ngày trước`
 }
 
-/* ─── Stat Tile (Premium) ────────────────────────────────────────────────────── */
-
-function StatTile({
-  icon: Icon, label, value, sub, badge, color,
-}: {
-  icon: React.ComponentType<{ className?: string }>
-  label: string
-  value?: number | string
-  sub?: string
-  badge?: string
-  color: 'blue' | 'green' | 'violet' | 'amber' | 'rose' | 'indigo' | 'emerald'
-}) {
-  const themes = {
-    blue:    { icon: 'text-blue-600',    bg: 'bg-blue-50',    ring: 'ring-blue-100',    badge: 'bg-blue-50 text-blue-600' },
-    green:   { icon: 'text-emerald-600', bg: 'bg-emerald-50', ring: 'ring-emerald-100', badge: 'bg-emerald-50 text-emerald-600' },
-    violet:  { icon: 'text-violet-600',  bg: 'bg-violet-50',  ring: 'ring-violet-100',  badge: 'bg-violet-50 text-violet-600' },
-    amber:   { icon: 'text-amber-600',   bg: 'bg-amber-50',   ring: 'ring-amber-100',   badge: 'bg-amber-50 text-amber-600' },
-    rose:    { icon: 'text-rose-600',    bg: 'bg-rose-50',    ring: 'ring-rose-100',    badge: 'bg-rose-50 text-rose-600' },
-    indigo:  { icon: 'text-indigo-600',  bg: 'bg-indigo-50',  ring: 'ring-indigo-100',  badge: 'bg-indigo-50 text-indigo-600' },
-    emerald: { icon: 'text-emerald-600', bg: 'bg-emerald-50', ring: 'ring-emerald-100', badge: 'bg-emerald-50 text-emerald-600' },
-  }
-  const t = themes[color]
-  return (
-    <Card className="hover:-translate-y-0.5 transition-all duration-300 hover:shadow-lg border-slate-100 bg-white/80 backdrop-blur-sm">
-      <CardContent className="pt-5 pb-4 px-5">
-        <div className="flex items-start justify-between">
-          <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${t.bg} ring-1 ${t.ring}`}>
-            <Icon className={`w-5 h-5 ${t.icon}`} />
-          </div>
-          {badge && (
-            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${t.badge}`}>
-              {badge}
-            </span>
-          )}
-        </div>
-        <p className="text-2xl font-bold mt-3 leading-none tracking-tight">{value ?? '—'}</p>
-        <p className="text-xs text-muted-foreground mt-1 truncate">{label}</p>
-        {sub && <p className="text-[10px] text-muted-foreground/70 mt-0.5 truncate">{sub}</p>}
-      </CardContent>
-    </Card>
-  )
+/** Normalize container: API trả về array trực tiếp với field viết hoa hoặc viết thường */
+function getContainerName(c: AdminDockerContainer) {
+  const raw = (c.name ?? c.Names ?? '') as string
+  return raw.replace(/^\//, '').split(',')[0].trim()
+}
+function getContainerState(c: AdminDockerContainer) {
+  return ((c.state ?? c.State ?? '') as string).toLowerCase()
+}
+function getContainerStatus(c: AdminDockerContainer) {
+  return (c.status ?? c.Status ?? '') as string
+}
+function getContainerImage(c: AdminDockerContainer) {
+  return (c.image ?? c.Image ?? '') as string
 }
 
-/* ─── Quick Action Link (Premium) ────────────────────────────────────────────── */
+/* ─── TopBar ─────────────────────────────────────────────────────────────────── */
+function TopBar() {
+  const { user } = useAuth()
+  const now = new Date()
+  const timeStr = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+  const dateStr = now.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
+  const initials = (user?.displayName ?? 'SA').split(' ').map((w: string) => w[0]).slice(0, 2).join('').toUpperCase()
 
-function QuickAction({
-  href, icon: Icon, label, description, color, count,
-}: {
-  href: string
-  icon: React.ComponentType<{ className?: string }>
-  label: string
-  description: string
-  color: string
-  count?: number | string
-}) {
   return (
-    <Link href={href}>
-      <div className="border border-slate-100 rounded-xl p-4 hover:bg-gradient-to-br hover:from-white hover:to-slate-50 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 cursor-pointer group bg-white h-full">
-        <div className="flex items-start justify-between gap-2 mb-3">
-          <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${color} bg-opacity-10`}>
-            <Icon className={`w-5 h-5 ${color}`} />
-          </div>
-          <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-slate-500 group-hover:translate-x-0.5 transition-all" />
-        </div>
-        <p className="text-sm font-semibold text-slate-800">{label}</p>
-        <p className="text-[11px] text-slate-400 mt-0.5 leading-snug">{description}</p>
-        {count != null && (
-          <p className="text-xs font-bold text-slate-600 mt-2">{count}</p>
-        )}
+    <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-white sticky top-0 z-10">
+      <div>
+        <h1 className="text-lg font-bold text-slate-900 leading-tight">Dashboard</h1>
+        <p className="text-xs text-slate-400 mt-0.5">
+          Tổng quan SEPFamilyCare — cập nhật lúc {timeStr}, {dateStr}
+        </p>
       </div>
-    </Link>
+      <div className="flex items-center gap-2">
+        <div className="hidden sm:flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-slate-400">
+          <Search className="w-3.5 h-3.5" />
+          <span className="hidden lg:inline text-[13px]">Tìm kiếm...</span>
+        </div>
+        <button className="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50 transition-colors">
+          <Bell className="w-4 h-4" />
+        </button>
+        <button className="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50 transition-colors">
+          <RefreshCw className="w-3.5 h-3.5" />
+        </button>
+        <div className="flex items-center gap-2 border border-slate-200 rounded-lg px-3 py-1.5 hover:bg-slate-50 transition-colors cursor-pointer">
+          <div className="w-6 h-6 rounded-full bg-teal-500/20 border border-teal-500/30 flex items-center justify-center text-teal-600 font-bold text-[10px]">
+            {initials}
+          </div>
+          <span className="text-[13px] font-medium text-slate-700 hidden sm:block">{user?.displayName ?? 'Super Admin'}</span>
+        </div>
+      </div>
+    </div>
   )
 }
+
+/* ─── KPI Card ────────────────────────────────────────────────────────────────── */
+function KpiCard({
+  label, value, sub, icon: Icon, accentColor, warning, loading,
+}: {
+  label: string
+  value?: string | number | null
+  sub?: string
+  icon: React.ComponentType<{ className?: string }>
+  accentColor: string
+  warning?: boolean
+  loading?: boolean
+}) {
+  return (
+    <div className={`bg-white rounded-xl border p-5 hover:shadow-sm transition-shadow ${warning ? 'border-amber-200 bg-amber-50/20' : 'border-slate-100'}`}>
+      <div className="flex items-start justify-between mb-3">
+        <p className={`text-[10px] font-bold uppercase tracking-widest ${warning ? 'text-amber-600' : 'text-slate-400'}`}>{label}</p>
+        <Icon className={`w-4 h-4 ${warning ? 'text-amber-400' : accentColor}`} />
+      </div>
+      {loading ? (
+        <div className="h-8 w-20 bg-slate-100 rounded-md animate-pulse mb-1" />
+      ) : (
+        <p className="text-[28px] font-bold text-slate-900 leading-none tracking-tight">
+          {value != null ? value : <span className="text-slate-300 text-xl">—</span>}
+        </p>
+      )}
+      {sub && <p className="text-[11px] text-slate-400 mt-2 leading-snug">{sub}</p>}
+    </div>
+  )
+}
+
+/* ─── Container badge ────────────────────────────────────────────────────────── */
+function ContainerDot({ state }: { state: string }) {
+  if (state === 'running') return <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
+  if (state === 'restarting') return <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse shrink-0" />
+  return <span className="w-2 h-2 rounded-full bg-rose-400 shrink-0" />
+}
+
+function ContainerStateBadge({ state }: { state: string }) {
+  if (state === 'running') return <span className="text-[11px] font-semibold text-emerald-600 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full">Running</span>
+  if (state === 'restarting') return <span className="text-[11px] font-semibold text-amber-600 bg-amber-50 border border-amber-100 px-2 py-0.5 rounded-full">Restarting</span>
+  return <span className="text-[11px] font-semibold text-rose-600 bg-rose-50 border border-rose-100 px-2 py-0.5 rounded-full capitalize">{state || 'Stopped'}</span>
+}
+
+/* ─── Audit icon ────────────────────────────────────────────────────────────── */
+function AuditIcon({ log }: { log: AdminAuditLog }) {
+  const t = log.targetType?.toUpperCase()
+  if (t === 'USER') return <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center shrink-0"><Users className="w-3.5 h-3.5 text-blue-500" /></div>
+  if (t === 'FAMILY') return <div className="w-8 h-8 rounded-full bg-violet-50 flex items-center justify-center shrink-0"><Home className="w-3.5 h-3.5 text-violet-500" /></div>
+  if (t === 'SUBSCRIPTION') return <div className="w-8 h-8 rounded-full bg-amber-50 flex items-center justify-center shrink-0"><Crown className="w-3.5 h-3.5 text-amber-500" /></div>
+  if (t === 'CONTAINER') return <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center shrink-0"><Server className="w-3.5 h-3.5 text-slate-500" /></div>
+  return <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center shrink-0"><Activity className="w-3.5 h-3.5 text-slate-400" /></div>
+}
+
+function AuditTag({ log }: { log: AdminAuditLog }) {
+  const t = log.targetType?.toUpperCase()
+  if (t === 'USER') return <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 font-medium">User</span>
+  if (t === 'FAMILY') return <span className="text-[10px] px-1.5 py-0.5 rounded bg-violet-50 text-violet-600 font-medium">Family</span>
+  if (t === 'SUBSCRIPTION') return <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 font-medium">Sub</span>
+  if (t === 'CONTAINER') return <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 font-medium">Container</span>
+  return <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 font-medium">{log.targetType ?? 'System'}</span>
+}
+
+/* ─── Colors ────────────────────────────────────────────────────────────────── */
+const STATUS_COLORS = ['#10b981', '#94a3b8', '#f43f5e']
 
 /* ─── Main Dashboard ─────────────────────────────────────────────────────────── */
-
 export default function AdminPage() {
-  const { user } = useAuth()
-  const { data: usersData, isLoading: usersLoading } = useAdminUsers({ limit: 100 })
-  const { data: familiesData, isLoading: familiesLoading } = useAdminFamilies({ limit: 100 })
-  const { data: joinRequestsData } = useAdminJoinRequests({ limit: 1 })
-  const { data: plansData } = useAdminSubscriptionPlans({ limit: 20 })
-  const { data: healthData } = useAdminSystemHealth()
+  const { data: summary, isLoading: summaryLoading } = useAdminDashboardSummary()
+  const { data: revenue } = useAdminRevenueSummary()
+  const { data: revenueMonthly } = useAdminRevenueMonthly()
+  const { data: health } = useAdminSystemHealth()
   const { data: containersData } = useAdminDockerContainers()
-  const { data: revenueSummary } = useAdminRevenueSummary()
+  const { data: auditLogs } = useAdminAuditLogs({ limit: 6 })
+  const { data: joinRequests } = useAdminJoinRequests({ status: 'PENDING', limit: 1 })
+  const { data: paymentsData } = useAdminPayments({ limit: 100, status: 'PAID' })
 
-  const users = usersData?.items ?? []
-  const families = familiesData?.items ?? []
-  const plans = plansData?.items ?? []
-
-  // Docker containers — extract from nested data.items if present
-  const dockerContainers = containersData && Array.isArray((containersData as any).items)
+  /* Docker — Handle case where API returns paginated or direct array */
+  const containers: AdminDockerContainer[] = containersData && Array.isArray((containersData as any).items)
     ? (containersData as any).items
     : (Array.isArray(containersData) ? containersData : [])
-  const runningContainers = dockerContainers.filter((c: any) => /run/i.test(c.state ?? c.State ?? ''))
+  const runningCount = containers.filter(c => getContainerState(c) === 'running').length
+  const totalContainers = containers.length
+  const apiUp = health?.backend?.status === 'UP' || health?.backend?.status === 'ok' || health?.backend?.status === 'OK'
 
-  // Chart data
-  const userStatusChartData = useMemo(() => {
-    const c = countBy(users, 'accountStatus')
-    return Object.entries(c).map(([name, value]) => ({ name, value }))
-  }, [users])
+  /* Area chart - Daily revenue for target month (auto-detect based on latest payment) */
+  const areaData = useMemo(() => {
+    const today = new Date()
+    let targetMonth = today.getMonth()
+    let targetYear = today.getFullYear()
 
-  const userTypeChartData = useMemo(() => {
-    const c = countBy(users, 'userType')
-    return Object.entries(c).map(([name, value]) => ({
-      name,
-      value,
-      label: name === 'SYSTEM_ADMIN' ? 'Admin' : 'User thường',
+    const items = Array.isArray(paymentsData) ? paymentsData : (paymentsData as any)?.items || []
+    if (items.length > 0 && items[0]?.createdAt) {
+      const latest = new Date(items[0].createdAt)
+      targetMonth = latest.getMonth()
+      targetYear = latest.getFullYear()
+    }
+
+    const daysInMonth = new Date(targetYear, targetMonth + 1, 0).getDate()
+    const dataMap: Record<number, { revenue: number, payments: number }> = {}
+    
+    // Initialize all days of target month to 0
+    for (let i = 1; i <= daysInMonth; i++) {
+      dataMap[i] = { revenue: 0, payments: 0 }
+    }
+
+    items.forEach((p: any) => {
+      if (p.createdAt) {
+        const d = new Date(p.createdAt)
+        // Only include target month and year
+        if (d.getMonth() === targetMonth && d.getFullYear() === targetYear) {
+          const day = d.getDate()
+          if (dataMap[day]) {
+            dataMap[day].revenue += Number(p.amount || 0)
+            dataMap[day].payments += 1
+          }
+        }
+      }
+    })
+
+    return Object.entries(dataMap).map(([day, val]) => ({
+      label: `${day}/${targetMonth + 1}`,
+      revenue: val.revenue,
+      payments: val.payments,
     }))
-  }, [users])
+  }, [paymentsData])
 
-  const familyStatusChartData = useMemo(() => {
-    const c = countBy(families, 'status')
-    return ['ACTIVE', 'PENDING', 'SUSPENDED', 'EXPIRED']
-      .map((name) => ({ name, value: c[name] || 0 }))
-      .filter((d) => d.value > 0)
-  }, [families])
+  const maxRevenue = useMemo(() => Math.max(...areaData.map(d => d.revenue), 0), [areaData])
+  const yTickFmt = useMemo(() => makeTickFormatter(maxRevenue), [maxRevenue])
 
-  // Computed stats
-  const activeUsers = users.filter((u) => u.accountStatus === 'ACTIVE').length
-  const suspendedUsers = users.filter((u) => u.accountStatus === 'SUSPENDED').length
-  const activeFamilies = families.filter((f) => f.status === 'ACTIVE').length
-  const activePlans = plans.filter((p) => p.isActive).length
+  /* Donut — user status breakdown từ dashboard summary */
+  const donutData = useMemo(() => [
+    { name: 'Hoạt động', value: summary?.users?.active ?? 0 },
+    { name: 'Khóa/Vô hiệu', value: (summary?.users?.locked ?? 0) + (summary?.users?.disabled ?? 0) },
+    { name: 'Chờ xác thực', value: summary?.users?.pending ?? 0 },
+  ].filter(d => d.value > 0), [summary])
 
-  // MRR estimation
-  const mrrEstimate = useMemo(() => {
-    return plans.reduce((sum, p) => {
-      if (!p.isActive || !p._count?.families) return sum
-      const price = Number(p.annualPrice) || 0
-      const isMonthly = p.planCode?.toUpperCase().includes('MONTH')
-      const monthlyPrice = isMonthly ? price : price / 12
-      return sum + monthlyPrice * (p._count.families ?? 0)
-    }, 0)
-  }, [plans])
-
-  // System health status
-  const apiStatus = healthData?.status ?? 'unknown'
-  const isApiUp = apiStatus === 'ok' || apiStatus === 'UP'
-
-  // Greeting based on time
-  const hour = new Date().getHours()
-  const greeting = hour < 12 ? 'Chào buổi sáng' : hour < 18 ? 'Chào buổi chiều' : 'Chào buổi tối'
+  const totalUsersDonut = summary?.users?.total ?? 0
 
   return (
-    <div>
-      <Topbar title="Admin Dashboard" />
-      <div className="p-4 md:p-6 space-y-6">
+    <div className="flex flex-col min-h-screen bg-[#f8fafc]">
+      <TopBar />
+      <div className="flex-1 p-5 space-y-5">
 
-        {/* ═══ Welcome Banner ═══ */}
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-violet-600 via-indigo-600 to-purple-700 p-6 md:p-8 text-white">
-          {/* Decorative blobs */}
-          <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/10 rounded-full blur-2xl" />
-          <div className="absolute -bottom-8 -left-8 w-32 h-32 bg-white/5 rounded-full blur-xl" />
-          <div className="absolute top-1/2 right-1/4 w-20 h-20 bg-white/5 rounded-full blur-lg" />
-
-          <div className="relative z-10">
-            <div className="flex items-center gap-2 mb-1">
-              <Sparkles className="w-4 h-4 text-amber-300" />
-              <span className="text-xs font-medium text-white/70 uppercase tracking-wider">Admin Dashboard</span>
-            </div>
-            <h1 className="text-xl md:text-2xl font-bold">
-              {greeting}, {user?.displayName ?? 'Admin'} 👋
-            </h1>
-            <p className="text-sm text-white/70 mt-1 max-w-xl">
-              Hệ thống Family Care đang vận hành{isApiUp ? ' ổn định' : ''}.{' '}
-              {runningContainers.length > 0 && `${runningContainers.length} Docker container đang chạy. `}
-              {(usersData?.total ?? 0) > 0 && `${usersData?.total} người dùng đã đăng ký. `}
-              {activeFamilies > 0 && `${activeFamilies} gia đình đang hoạt động.`}
-            </p>
-
-            {/* Mini status indicators */}
-            <div className="flex flex-wrap gap-2 mt-4">
-              <span className={`inline-flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-full ${isApiUp ? 'bg-emerald-500/20 text-emerald-200' : 'bg-red-500/20 text-red-200'}`}>
-                <span className={`w-1.5 h-1.5 rounded-full ${isApiUp ? 'bg-emerald-400 animate-pulse' : 'bg-red-400'}`} />
-                API {isApiUp ? 'Online' : 'Offline'}
-              </span>
-              <span className="inline-flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-full bg-white/10 text-white/80">
-                <Server className="w-3 h-3" />
-                {runningContainers.length}/{dockerContainers.length} Containers
-              </span>
-              <span className="inline-flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-full bg-white/10 text-white/80">
-                <Crown className="w-3 h-3" />
-                {activePlans} gói đang bán
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* ═══ Stats Grid ═══ */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
-          <StatTile
-            icon={Users} label="Tổng người dùng" value={usersData?.total}
-            badge={activeUsers > 0 ? `${Math.round((activeUsers / (usersData?.total || 1)) * 100)}% active` : undefined}
-            color="blue"
+        {/* ═══ KPI Cards — từ useAdminDashboardSummary + useAdminRevenueSummary ═══ */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <KpiCard
+            label="Tổng người dùng"
+            value={summary?.users?.total?.toLocaleString('vi-VN')}
+            sub={summary?.users?.active != null ? `${summary.users.active.toLocaleString('vi-VN')} đang hoạt động` : undefined}
+            icon={Users}
+            accentColor="text-blue-400"
+            loading={summaryLoading}
           />
-          <StatTile
-            icon={UserCheck} label="Đang hoạt động" value={users.length ? activeUsers : undefined}
-            sub={suspendedUsers ? `${suspendedUsers} tài khoản bị khoá` : 'Tất cả đang hoạt động'}
-            color="emerald"
+          <KpiCard
+            label="Gia đình hoạt động"
+            value={summary?.families?.active?.toLocaleString('vi-VN')}
+            sub={summary?.families?.total != null ? `Tổng: ${summary.families.total.toLocaleString('vi-VN')} gia đình` : undefined}
+            icon={Home}
+            accentColor="text-teal-400"
+            loading={summaryLoading}
           />
-          <StatTile
-            icon={Home} label="Tổng gia đình" value={familiesData?.total}
-            badge={activeFamilies > 0 ? `${activeFamilies} active` : undefined}
-            color="violet"
+          <KpiCard
+            label="Tổng doanh thu"
+            value={revenue?.totalRevenue != null ? formatVND(revenue.totalRevenue) : null}
+            sub={revenue?.paidPayments != null ? `${revenue.paidPayments.toLocaleString('vi-VN')} giao dịch thành công` : undefined}
+            icon={DollarSign}
+            accentColor="text-emerald-400"
           />
-          <StatTile
-            icon={DollarSign} label="Doanh thu ước tính (MRR)"
-            value={mrrEstimate > 0 ? formatCurrency(mrrEstimate) : (revenueSummary?.totalRevenue ? formatCurrency(revenueSummary.totalRevenue) : '0 ₫')}
-            sub={revenueSummary?.totalPayments ? `${revenueSummary.totalPayments} giao dịch` : undefined}
-            color="amber"
+          <KpiCard
+            label="Người dùng chờ xác thực"
+            value={summary?.users?.pending?.toLocaleString('vi-VN')}
+            sub={summary?.users?.locked ? `${summary.users.locked} tài khoản bị khóa` : 'Không có tài khoản bị khóa'}
+            icon={UserCheck}
+            accentColor="text-indigo-400"
+            loading={summaryLoading}
+          />
+          <KpiCard
+            label="Giao dịch thành công"
+            value={revenue?.paidPayments?.toLocaleString('vi-VN')}
+            sub={revenue?.failedPayments ? `${revenue.failedPayments} thất bại` : revenue?.pendingPayments ? `${revenue.pendingPayments} đang xử lý` : undefined}
+            icon={TrendingUp}
+            accentColor="text-violet-400"
+          />
+          <KpiCard
+            label="Containers đang chạy"
+            value={totalContainers > 0 ? `${runningCount}/${totalContainers}` : null}
+            sub={`API: ${apiUp ? '✓ Hoạt động' : '✗ Sự cố'}`}
+            icon={Activity}
+            accentColor="text-cyan-400"
+            warning={!apiUp}
           />
         </div>
 
-        {/* ═══ Analytics Charts ═══ */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* User Status Donut */}
-          <Card className="border-slate-100 hover:shadow-md transition-shadow">
-            <CardHeader className="pb-0 pt-5 px-5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-sm font-semibold flex items-center gap-1.5">
-                    <PieIcon className="w-4 h-4 text-blue-500" />
-                    Phân bố Người dùng
-                  </CardTitle>
-                  <p className="text-[11px] text-muted-foreground mt-0.5">Theo trạng thái tài khoản</p>
-                </div>
-                <span className="text-lg font-bold text-slate-800">{usersData?.total ?? '—'}</span>
-              </div>
-            </CardHeader>
-            <CardContent className="pb-4 px-5">
-              {usersLoading ? <ChartSkeleton /> : userStatusChartData.length === 0 ? (
-                <div className="h-[240px] flex items-center justify-center text-sm text-muted-foreground">Không có dữ liệu</div>
-              ) : (
-                <ResponsiveContainer width="100%" height={240}>
-                  <PieChart>
-                    <Pie
-                      data={userStatusChartData}
-                      cx="50%" cy="50%"
-                      innerRadius={65} outerRadius={95}
-                      paddingAngle={3}
-                      dataKey="value"
-                      strokeWidth={0}
-                    >
-                      {userStatusChartData.map((entry) => (
-                        <Cell key={entry.name} fill={USER_STATUS_COLORS[entry.name] ?? '#94a3b8'} />
-                      ))}
-                    </Pie>
-                    <Tooltip content={<CustomTooltip />} />
-                    <Legend
-                      iconType="circle" iconSize={8}
-                      wrapperStyle={{ fontSize: 11, paddingTop: 12 }}
-                      formatter={(v) => STATUS_LABELS[v] ?? v}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              )}
-            </CardContent>
-          </Card>
+        {/* ═══ Charts ═══ */}
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-4">
 
-          {/* User Type Donut */}
-          <Card className="border-slate-100 hover:shadow-md transition-shadow">
-            <CardHeader className="pb-0 pt-5 px-5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-sm font-semibold flex items-center gap-1.5">
-                    <Shield className="w-4 h-4 text-violet-500" />
-                    Phân quyền Tài khoản
-                  </CardTitle>
-                  <p className="text-[11px] text-muted-foreground mt-0.5">Admin hệ thống vs Người dùng thường</p>
-                </div>
-                <span className="text-lg font-bold text-slate-800">{usersData?.total ?? '—'}</span>
-              </div>
-            </CardHeader>
-            <CardContent className="pb-4 px-5">
-              {usersLoading ? <ChartSkeleton /> : userTypeChartData.length === 0 ? (
-                <div className="h-[240px] flex items-center justify-center text-sm text-muted-foreground">Không có dữ liệu</div>
-              ) : (
-                <ResponsiveContainer width="100%" height={240}>
-                  <PieChart>
-                    <Pie
-                      data={userTypeChartData}
-                      cx="50%" cy="50%"
-                      innerRadius={65} outerRadius={95}
-                      paddingAngle={3}
-                      dataKey="value"
-                      strokeWidth={0}
-                    >
-                      {userTypeChartData.map((entry) => (
-                        <Cell key={entry.name} fill={USER_TYPE_COLORS[entry.name] ?? '#94a3b8'} />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      formatter={(value, name) => [value, name === 'SYSTEM_ADMIN' ? 'Admin hệ thống' : 'Người dùng thường']}
-                    />
-                    <Legend
-                      iconType="circle" iconSize={8}
-                      wrapperStyle={{ fontSize: 11, paddingTop: 12 }}
-                      formatter={(v) => v === 'SYSTEM_ADMIN' ? 'Admin hệ thống' : 'Người dùng thường'}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* ═══ Family Status Bar Chart ═══ */}
-        <Card className="border-slate-100 hover:shadow-md transition-shadow">
-          <CardHeader className="pb-0 pt-5 px-5">
-            <div className="flex items-center justify-between">
+          {/* Area Chart — useAdminRevenueMonthly */}
+          <div className="bg-white rounded-xl border border-slate-100 p-5">
+            <div className="flex items-center justify-between mb-4">
               <div>
-                <CardTitle className="text-sm font-semibold flex items-center gap-1.5">
-                  <BarChart3 className="w-4 h-4 text-indigo-500" />
-                  Gia đình theo Trạng thái
-                </CardTitle>
-                <p className="text-[11px] text-muted-foreground mt-0.5">Phân bố trạng thái hoạt động của tất cả gia đình</p>
+                <p className="text-sm font-bold text-slate-800">Doanh thu theo ngày (tháng này)</p>
+                <p className="text-xs text-slate-400 mt-0.5">Nguồn: /admin/payments</p>
               </div>
-              <Link href="/admin/families" className="text-[11px] text-violet-600 hover:text-violet-700 font-medium flex items-center gap-0.5">
-                Chi tiết <ChevronRight className="w-3 h-3" />
-              </Link>
+              {areaData.length > 0 && (
+                <div className="flex items-center gap-3 text-[11px] text-slate-500">
+                  <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-indigo-400 inline-block" /> Doanh thu</span>
+                </div>
+              )}
             </div>
-          </CardHeader>
-          <CardContent className="pb-4 px-5">
-            {familiesLoading ? <ChartSkeleton /> : familyStatusChartData.length === 0 ? (
-              <div className="h-[200px] flex items-center justify-center text-sm text-muted-foreground">Không có dữ liệu</div>
+            {areaData.length === 0 ? (
+              <div className="h-[220px] flex flex-col items-center justify-center gap-2 text-slate-300">
+                <BarChart3 className="w-8 h-8" />
+                <p className="text-sm text-slate-400">Chưa có dữ liệu doanh thu theo tháng</p>
+              </div>
             ) : (
-              <ResponsiveContainer width="100%" height={200}>
-                <BarChart data={familyStatusChartData} margin={{ top: 12, right: 8, left: -20, bottom: 0 }}>
+              <div className="h-[220px] -ml-4">
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={areaData} margin={{ top: 20, right: 0, left: 10, bottom: 0 }} barCategoryGap="5%" barGap={2}>
+                  <defs>
+                    <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#6366f1" stopOpacity={0.8} />
+                      <stop offset="95%" stopColor="#6366f1" stopOpacity={0.3} />
+                    </linearGradient>
+                    <linearGradient id="payGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#14b8a6" stopOpacity={0.8} />
+                      <stop offset="95%" stopColor="#14b8a6" stopOpacity={0.3} />
+                    </linearGradient>
+                  </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                  <XAxis
-                    dataKey="name" tick={{ fontSize: 11 }} axisLine={false} tickLine={false}
-                    tickFormatter={(v) => STATUS_LABELS[v] ?? v}
+                  <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                  <YAxis
+                    yAxisId="rev"
+                    tick={{ fontSize: 10, fill: '#94a3b8' }}
+                    axisLine={false} tickLine={false}
+                    tickFormatter={yTickFmt}
+                    width={60}
                   />
-                  <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} allowDecimals={false} />
-                  <Tooltip content={<CustomTooltip />} cursor={{ fill: '#f8fafc', radius: 4 } as any} />
-                  <Bar dataKey="value" name="Gia đình" radius={[6, 6, 0, 0]} maxBarSize={56}>
-                    {familyStatusChartData.map((entry) => (
-                      <Cell key={entry.name} fill={FAMILY_STATUS_COLORS[entry.name] ?? '#94a3b8'} />
-                    ))}
+                  <YAxis
+                    yAxisId="pay"
+                    orientation="right"
+                    tick={{ fontSize: 10, fill: '#94a3b8' }}
+                    axisLine={false} tickLine={false}
+                    allowDecimals={false}
+                  />
+                  <Tooltip
+                    cursor={{ fill: 'rgba(0,0,0,0.02)' }}
+                    contentStyle={{ fontSize: 11, borderRadius: 8, border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.06)' }}
+                    formatter={(v: unknown, name: unknown) => {
+                      const num = Number(v)
+                      return name === 'revenue'
+                        ? [formatVND(num), 'Doanh thu']
+                        : [num.toLocaleString('vi-VN'), 'Giao dịch']
+                    }}
+                  />
+                  <Bar yAxisId="rev" dataKey="revenue" fill="url(#revGrad)" radius={[4, 4, 0, 0]} maxBarSize={40}>
+                    <LabelList dataKey="revenue" position="top" formatter={(v: any) => yTickFmt(Number(v))} style={{ fontSize: 10, fill: '#4f46e5', fontWeight: 600 }} />
+                  </Bar>
+                  <Bar yAxisId="pay" dataKey="payments" fill="url(#payGrad)" radius={[4, 4, 0, 0]} maxBarSize={40}>
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
+              </div>
             )}
-          </CardContent>
-        </Card>
+          </div>
 
-        {/* ═══ Subscription Analytics & Plans ═══ */}
-        {plans.length > 0 && (
-          <Card className="border-slate-100 hover:shadow-md transition-shadow">
-            <CardHeader className="pb-3 pt-5 px-5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-sm font-semibold flex items-center gap-1.5">
-                    <Crown className="w-4 h-4 text-amber-500" />
-                    Phân tích Gói Thuê bao
-                  </CardTitle>
-                  <p className="text-[11px] text-muted-foreground mt-0.5">
-                    {activePlans} gói đang hoạt động · MRR ước tính: {formatCurrency(mrrEstimate)}
-                  </p>
-                </div>
-                <Link href="/admin/plans" className="text-[11px] text-violet-600 hover:text-violet-700 font-medium flex items-center gap-0.5">
-                  Quản lý <ChevronRight className="w-3 h-3" />
-                </Link>
+          {/* Donut — user status từ useAdminDashboardSummary */}
+          <div className="bg-white rounded-xl border border-slate-100 p-5">
+            <p className="text-sm font-semibold text-slate-800 mb-0.5">Phân bổ người dùng</p>
+            <p className="text-xs text-slate-400 mb-3">Theo trạng thái tài khoản</p>
+
+            {summaryLoading ? (
+              <div className="h-[180px] flex items-center justify-center">
+                <div className="w-6 h-6 border-2 border-teal-400 border-t-transparent rounded-full animate-spin" />
               </div>
-            </CardHeader>
-            <CardContent className="px-5 pb-5">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {plans.map((p) => {
-                  const price = Number(p.annualPrice) || 0
-                  const isMonthly = p.planCode?.toUpperCase().includes('MONTH')
-                  const familyCount = p._count?.families ?? 0
-                  const totalFamilies = plans.reduce((s, pl) => s + (pl._count?.families ?? 0), 0)
-                  const sharePercent = totalFamilies > 0 ? Math.round((familyCount / totalFamilies) * 100) : 0
-
-                  return (
-                    <div
-                      key={p.id}
-                      className={`relative border rounded-xl p-4 transition-all hover:shadow-md ${
-                        !p.isActive ? 'opacity-50 bg-slate-50' : 'bg-white hover:-translate-y-0.5'
-                      }`}
+            ) : donutData.length === 0 ? (
+              <div className="h-[180px] flex flex-col items-center justify-center gap-2 text-slate-300">
+                <PieIcon className="w-8 h-8" />
+                <p className="text-sm text-slate-400">Chưa có dữ liệu</p>
+              </div>
+            ) : (
+              <>
+                <ResponsiveContainer width="100%" height={150}>
+                  <PieChart>
+                    <Pie
+                      data={donutData}
+                      cx="50%" cy="50%"
+                      innerRadius={45} outerRadius={68}
+                      paddingAngle={3} dataKey="value" strokeWidth={0}
                     >
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{p.planCode}</span>
-                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${
-                          p.isActive ? 'bg-emerald-50 text-emerald-600 ring-1 ring-emerald-100' : 'bg-slate-100 text-slate-400'
-                        }`}>
-                          {p.isActive ? '● Active' : 'Off'}
-                        </span>
-                      </div>
-                      <p className="font-bold text-base text-slate-800">{p.name}</p>
-                      <p className="text-xs text-slate-500 mt-1">
-                        {price > 0 ? `${price.toLocaleString('vi-VN')} ₫ / ${isMonthly ? 'tháng' : 'năm'}` : 'Miễn phí'}
-                      </p>
-
-                      {/* Usage bar */}
-                      <div className="mt-3 space-y-1">
-                        <div className="flex justify-between text-[10px]">
-                          <span className="text-slate-400">Gia đình đăng ký</span>
-                          <span className="font-bold text-slate-600">{familyCount}</span>
-                        </div>
-                        <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
-                          <div
-                            className="bg-gradient-to-r from-violet-500 to-indigo-500 h-full rounded-full transition-all duration-500"
-                            style={{ width: `${Math.max(sharePercent, 2)}%` }}
-                          />
-                        </div>
-                        <p className="text-[9px] text-slate-400">{sharePercent}% thị phần</p>
-                      </div>
+                      {donutData.map((_, i) => (
+                        <Cell key={i} fill={STATUS_COLORS[i % STATUS_COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      contentStyle={{ fontSize: 11, borderRadius: 8, border: '1px solid #e2e8f0' }}
+                      formatter={(v: unknown) => [Number(v).toLocaleString('vi-VN'), '']}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+                <p className="text-center text-2xl font-bold text-slate-800 -mt-1">
+                  {totalUsersDonut.toLocaleString('vi-VN')}
+                </p>
+                <p className="text-center text-[11px] text-slate-400 mb-3">Tổng người dùng</p>
+                <div className="space-y-1.5">
+                  {donutData.map((d, i) => (
+                    <div key={d.name} className="flex items-center justify-between text-xs">
+                      <span className="flex items-center gap-1.5 text-slate-600">
+                        <span className="w-2 h-2 rounded-full shrink-0" style={{ background: STATUS_COLORS[i % STATUS_COLORS.length] }} />
+                        {d.name}
+                      </span>
+                      <span className="font-semibold text-slate-700">
+                        {d.value.toLocaleString('vi-VN')}
+                        {totalUsersDonut > 0 && (
+                          <span className="font-normal text-slate-400 ml-1.5">
+                            {((d.value / totalUsersDonut) * 100).toFixed(1)}%
+                          </span>
+                        )}
+                      </span>
                     </div>
-                  )
-                })}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* ═══ Quick Actions Grid ═══ */}
-        <div>
-          <h2 className="text-[11px] font-bold text-slate-400 mb-3 uppercase tracking-widest px-0.5 flex items-center gap-1.5">
-            <Zap className="w-3 h-3" />
-            Quản lý hệ thống
-          </h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-            <QuickAction href="/admin/users" icon={Users} label="Người dùng" description="Quản lý tài khoản, phân quyền" color="text-blue-500" count={`${usersData?.total ?? '—'} tài khoản`} />
-            <QuickAction href="/admin/families" icon={Home} label="Gia đình" description="Quản lý hộ gia đình, thành viên" color="text-violet-500" count={`${familiesData?.total ?? '—'} gia đình`} />
-            <QuickAction href="/admin/plans" icon={Crown} label="Gói thuê bao" description="Cấu hình gói dịch vụ, giá cả" color="text-amber-500" count={`${activePlans} đang bán`} />
-            <QuickAction href="/admin/invitations" icon={Mail} label="Yêu cầu gia nhập" description="Duyệt lời mời tham gia gia đình" color="text-emerald-500" count={`${joinRequestsData?.total ?? '—'} yêu cầu`} />
-            <QuickAction href="/admin/revenue" icon={TrendingUp} label="Doanh thu" description="Thống kê doanh thu, thanh toán" color="text-pink-500" />
-            <QuickAction href="/admin/provisioning-logs" icon={GitBranch} label="Provisioning" description="Nhật ký khởi tạo workspace" color="text-cyan-500" />
-            <QuickAction href="/admin/audit-logs" icon={ClipboardList} label="Audit Logs" description="Lịch sử thao tác hệ thống" color="text-orange-500" />
-            <QuickAction href="/admin/system" icon={Server} label="Hệ thống" description="Docker, hạ tầng server, health" color="text-indigo-500" count={`${runningContainers.length} container`} />
+                  ))}
+                </div>
+              </>
+            )}
           </div>
         </div>
 
-        {/* ═══ Footer ═══ */}
-        <div className="flex items-center justify-between pt-2 pb-1 border-t border-slate-100">
-          <div className="flex items-center gap-2 text-xs text-slate-400">
-            <Shield className="w-3.5 h-3.5" />
-            <span>SYSTEM_ADMIN — Family Care Admin Panel v1.0</span>
+        {/* ═══ Bottom ═══ */}
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-4">
+          <div className="space-y-4">
+
+            {/* Docker Containers — useAdminDockerContainers trả về array trực tiếp */}
+            <div className="bg-white rounded-xl border border-slate-100 p-5">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <Box className="w-4 h-4 text-slate-500" />
+                  <p className="text-sm font-semibold text-slate-800">Docker Containers</p>
+                </div>
+                {totalContainers > 0 && (
+                  <span className="text-[11px] text-emerald-600 font-medium">
+                    ● {runningCount}/{totalContainers} running
+                  </span>
+                )}
+              </div>
+
+              {containers.length === 0 ? (
+                <div className="py-6 text-center text-sm text-slate-400">
+                  Không lấy được thông tin container
+                </div>
+              ) : (
+                <div>
+                  {containers.map((c, idx) => {
+                    const state = getContainerState(c)
+                    const name = getContainerName(c)
+                    const image = getContainerImage(c)
+                    const status = getContainerStatus(c)
+                    return (
+                      <div
+                        key={c.ID ?? c.containerId ?? idx}
+                        className={`flex items-center gap-3 py-3 ${idx < containers.length - 1 ? 'border-b border-slate-50' : ''}`}
+                      >
+                        <ContainerDot state={state} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[13px] font-semibold text-slate-800">{name}</p>
+                          {image && <p className="text-[11px] text-slate-400 mt-0.5 truncate">{image}</p>}
+                        </div>
+                        <ContainerStateBadge state={state} />
+                        {status && (
+                          <span className="text-[11px] text-slate-400 hidden sm:block truncate max-w-[120px]">{status}</span>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+
+              <Link href="/admin/system" className="flex items-center justify-center gap-1 mt-4 text-[11px] text-teal-600 hover:text-teal-700 font-medium">
+                Xem chi tiết hệ thống <ChevronRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+
+            {/* Audit Logs — useAdminAuditLogs */}
+            <div className="bg-white rounded-xl border border-slate-100 p-5">
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-sm font-semibold text-slate-800">Hoạt động gần đây</p>
+                <Link href="/admin/audit-logs" className="text-[11px] text-teal-600 hover:text-teal-700 font-medium">
+                  Xem tất cả
+                </Link>
+              </div>
+              {(auditLogs?.items?.length ?? 0) === 0 ? (
+                <div className="py-6 text-center text-sm text-slate-400">Chưa có hoạt động</div>
+              ) : (
+                <div className="space-y-3">
+                  {auditLogs!.items.map(log => (
+                    <div key={log.id} className="flex items-start gap-3">
+                      <AuditIcon log={log} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[12px] text-slate-700 leading-snug">
+                          <span className="font-semibold">{log.adminUser?.fullName ?? 'System'}</span>
+                          {' '}
+                          <span className="text-slate-500">{log.action?.replace(/_/g, ' ').toLowerCase()}</span>
+                          {log.targetId && (
+                            <span className="font-mono text-[10px] text-slate-400 ml-1">#{log.targetId.slice(0, 8)}</span>
+                          )}
+                        </p>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <AuditTag log={log} />
+                          <span className={`text-[10px] font-medium ${log.result === 'SUCCESS' ? 'text-emerald-500' : 'text-rose-500'}`}>
+                            {log.result}
+                          </span>
+                          <span className="text-[10px] text-slate-400">{timeAgo(log.createdAt)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
-          <div className="flex items-center gap-1.5 text-[10px] text-slate-300">
-            <Activity className="w-3 h-3" />
-            <span>{new Date().toLocaleDateString('vi-VN')}</span>
+
+          {/* Right column */}
+          <div className="space-y-4">
+            {/* Quick Actions */}
+            <div className="bg-white rounded-xl border border-slate-100 p-5">
+              <p className="text-sm font-semibold text-slate-800 mb-3">Thao tác nhanh</p>
+              <div className="space-y-1.5">
+                {[
+                  { href: '/admin/users', icon: UserPlus, label: 'Người dùng', sub: 'Quản lý tài khoản', color: 'text-blue-500 bg-blue-50' },
+                  { href: '/admin/families', icon: Home, label: 'Quản lý gia đình', sub: 'Xem và chỉnh sửa', color: 'text-teal-500 bg-teal-50' },
+                  { href: '/admin/plans', icon: Crown, label: 'Gói dịch vụ', sub: 'Cấu hình gói', color: 'text-amber-500 bg-amber-50' },
+                  { href: '/admin/revenue', icon: DollarSign, label: 'Doanh thu', sub: 'Xem chi tiết', color: 'text-emerald-500 bg-emerald-50' },
+                ].map(({ href, icon: Icon, label, sub, color }) => (
+                  <Link key={href} href={href}>
+                    <div className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-slate-50 transition-colors group cursor-pointer">
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${color}`}>
+                        <Icon className="w-3.5 h-3.5" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[13px] font-semibold text-slate-800">{label}</p>
+                        <p className="text-[11px] text-slate-400">{sub}</p>
+                      </div>
+                      <ChevronRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-slate-500 transition-colors" />
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+
+            {/* Stats từ API thật */}
+            <div className="bg-white rounded-xl border border-slate-100 p-5">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Thống kê nhanh</p>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { label: 'Người dùng', value: summary?.users?.total },
+                  { label: 'Gia đình', value: summary?.families?.total },
+                  { label: 'Yêu cầu ht', value: joinRequests?.total ?? 0 },
+                  { label: 'Doanh thu', value: null, formatted: formatVND(revenue?.totalRevenue) },
+                ].map(({ label, value, formatted }) => (
+                  <div key={label} className="bg-slate-50 rounded-xl p-3 text-center">
+                    <p className="text-lg font-bold text-slate-800 leading-tight">
+                      {formatted ?? (value != null ? value.toLocaleString('vi-VN') : '—')}
+                    </p>
+                    <p className="text-[10px] text-slate-500 mt-0.5 capitalize">{label}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* System health */}
+            <div className={`rounded-xl border p-4 ${apiUp ? 'bg-emerald-50 border-emerald-100' : 'bg-rose-50 border-rose-100'}`}>
+              <div className="flex items-center gap-2">
+                {apiUp
+                  ? <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                  : <XCircle className="w-4 h-4 text-rose-500 shrink-0" />
+                }
+                <p className="text-[12px] font-semibold text-slate-700">
+                  API {apiUp ? 'hoạt động bình thường' : 'gặp sự cố'}
+                </p>
+              </div>
+              {health?.database && (
+                <p className="text-[11px] text-slate-500 mt-1 ml-6">
+                  DB: {health.database.status ?? '—'}
+                </p>
+              )}
+              {health?.backend?.uptimeSeconds != null && (
+                <p className="text-[11px] text-slate-500 mt-0.5 ml-6">
+                  Uptime: {Math.floor(health.backend.uptimeSeconds / 3600)}h {Math.floor((health.backend.uptimeSeconds % 3600) / 60)}m
+                </p>
+              )}
+            </div>
           </div>
         </div>
       </div>

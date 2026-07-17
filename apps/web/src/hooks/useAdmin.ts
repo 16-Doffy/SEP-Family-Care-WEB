@@ -129,9 +129,11 @@ export function useAdminFamilyMembers(params?: { page?: number; limit?: number; 
   return useQuery<Paginated<AdminFamilyMember>>({
     queryKey: ['admin', 'family-members', params],
     queryFn: () => api.get('/admin/family-members', { params }).then((r) => r.data),
-    enabled: !!params?.familyId || params == null,
+    // enabled when: no params (fetch all), OR specific familyId/userId, OR explicit limit for admin listing
+    enabled: params == null || !!params?.familyId || !!params?.userId || params?.limit !== undefined,
   })
 }
+
 
 export function useUpdateAdminFamilyMember() {
   const qc = useQueryClient()
@@ -276,14 +278,10 @@ export function useDeleteAdminFamilyMember() {
 // ─── Dashboard ───────────────────────────────────────────────────────────────
 
 export interface AdminDashboardSummary {
-  totalUsers?: number
-  activeUsers?: number
-  inactiveUsers?: number
-  suspendedUsers?: number
-  totalFamilies?: number
-  activeFamilies?: number
-  totalRevenue?: number
-  totalPayments?: number
+  users?: { total: number; active: number; locked: number; disabled: number; pending: number }
+  families?: { total: number; active: number; pending: number; suspended: number; expired: number }
+  subscriptions?: { free: number; monthly: number; yearly: number; active: number; expired: number; canceled: number; pastDue: number }
+  payments?: { totalPaidAmount: number; paidCount: number; failedCount: number; pendingCount: number; currency: string }
   [key: string]: unknown
 }
 
@@ -299,18 +297,23 @@ export function useAdminDashboardSummary() {
 
 export interface AdminRevenueSummary {
   totalRevenue?: number
-  totalPayments?: number
+  currentMonthRevenue?: number
+  monthlyPlanRevenue?: number
+  yearlyPlanRevenue?: number
   paidPayments?: number
   failedPayments?: number
   pendingPayments?: number
+  currency?: string
   [key: string]: unknown
 }
 
 export interface AdminRevenueMonthlyItem {
-  month?: number
-  year?: number
-  revenue?: number
-  payments?: number
+  month?: string
+  totalRevenue?: number
+  monthlyRevenue?: number
+  yearlyRevenue?: number
+  paidCount?: number
+  currency?: string
   [key: string]: unknown
 }
 
@@ -392,8 +395,9 @@ export function useAdminAuditLog(auditLogId: string | null) {
 // ─── System ───────────────────────────────────────────────────────────────────
 
 export interface AdminSystemHealth {
-  status?: string
-  database?: string | { status?: string; latency?: number }
+  backend?: { status: string; uptimeSeconds: number; timestamp: string; version: string }
+  database?: { status: string; type: string; error?: string }
+  message?: string
   nodeEnv?: string
   platform?: string
   uptimeSeconds?: number

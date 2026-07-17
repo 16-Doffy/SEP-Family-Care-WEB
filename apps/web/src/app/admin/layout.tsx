@@ -35,10 +35,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   if (!user || user.role !== 'SYSTEM_ADMIN') return null
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <div className="flex min-h-screen bg-[#f8fafc]">
       <Sidebar />
-      <main className="flex-1 flex flex-col min-w-0 pb-16 md:pb-0">{children}</main>
+      <main className="flex-1 flex flex-col min-w-0 pb-16 md:pb-0 overflow-hidden">{children}</main>
       <MobileAdminNav />
     </div>
   )
+
 }

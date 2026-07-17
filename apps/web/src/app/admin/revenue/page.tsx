@@ -268,10 +268,10 @@ export default function RevenueAdminPage() {
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {([
-              { icon: TrendingUp,  label: 'Tổng doanh thu',  value: fmtVND(summary?.totalRevenue),  color: 'text-violet-600 bg-violet-50' },
-              { icon: CreditCard,  label: 'Tổng thanh toán', value: summary?.totalPayments ?? '—',  color: 'text-blue-600 bg-blue-50' },
-              { icon: CheckCircle, label: 'Thành công',      value: summary?.paidPayments ?? '—',   color: 'text-emerald-600 bg-emerald-50' },
-              { icon: XCircle,     label: 'Thất bại',        value: summary?.failedPayments ?? '—', color: 'text-red-500 bg-red-50' },
+              { icon: TrendingUp,  label: 'Tổng doanh thu',  value: fmtVND(summary?.totalRevenue as number | undefined),  color: 'text-violet-600 bg-violet-50' },
+              { icon: CreditCard,  label: 'Tổng thanh toán', value: ((summary?.paidPayments as number | undefined ?? 0) + (summary?.failedPayments as number | undefined ?? 0) + (summary?.pendingPayments as number | undefined ?? 0)) || '—',  color: 'text-blue-600 bg-blue-50' },
+              { icon: CheckCircle, label: 'Thành công',      value: (summary?.paidPayments as number | undefined) ?? '—',   color: 'text-emerald-600 bg-emerald-50' },
+              { icon: XCircle,     label: 'Thất bại',        value: (summary?.failedPayments as number | undefined) ?? '—', color: 'text-red-500 bg-red-50' },
             ] as const).map(({ icon: Icon, label, value, color }) => (
               <Card key={label}>
                 <CardContent className="pt-4 pb-4 flex items-center gap-3">
