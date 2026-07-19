@@ -19,8 +19,11 @@ FROM base AS builder
 # NEXT_PUBLIC_* vars are baked into the bundle at build time
 ARG NEXT_PUBLIC_API_URL
 ARG NEXT_PUBLIC_SOCKET_URL
+ARG BACKEND_API_ORIGIN
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_SOCKET_URL=$NEXT_PUBLIC_SOCKET_URL
+ENV BACKEND_API_ORIGIN=$BACKEND_API_ORIGIN
+ENV NEXT_STANDALONE=true
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml* ./
 COPY apps/api/package.json ./apps/api/
 COPY apps/web/package.json apps/web/.npmrc ./apps/web/
@@ -35,8 +38,10 @@ RUN pnpm build
 FROM node:22-alpine AS production
 WORKDIR /app/apps/web
 ENV NODE_ENV production
+ENV HOSTNAME=0.0.0.0
+ENV PORT=3000
 COPY --from=builder /app/apps/web/.next/standalone ./
 COPY --from=builder /app/apps/web/.next/static ./.next/static
 COPY --from=builder /app/apps/web/public ./public
 EXPOSE 3000
-CMD ["node", "server.js"]
+CMD ["node", "apps/web/server.js"]

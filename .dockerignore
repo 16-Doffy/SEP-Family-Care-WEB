@@ -1,0 +1,14 @@
+.git
+.github
+.agents
+.claude
+.env
+.env.*
+!.env.example
+!.env.prod.example
+**/.next
+**/node_modules
+**/*.log
+docs
+tools
+sw4.tmp.json
