@@ -46,6 +46,7 @@ services:
         condition: service_started
 
   web:
+    image: ${WEB_IMAGE:-family-care-admin-web:local}
     build:
       context: .
       dockerfile: apps/web/Dockerfile
@@ -53,6 +54,7 @@ services:
       args:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
         NEXT_PUBLIC_SOCKET_URL: ${NEXT_PUBLIC_SOCKET_URL}
+        BACKEND_API_ORIGIN: ${BACKEND_API_ORIGIN}
     container_name: fc_web
     restart: unless-stopped
     env_file: .env.prod
