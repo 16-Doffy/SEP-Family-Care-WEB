@@ -97,6 +97,7 @@ enum NotificationType {
   MONEY_REQUEST
   MONEY_RESOLVED
   CALENDAR_REMINDER
+  CALENDAR
   ANNOUNCEMENT
   SYSTEM
   RECURRING_TASK_OPEN_CLAIM
@@ -731,6 +732,9 @@ model SubscriptionPlan {
   prioritySupport  Boolean  @default(false)
   // Bậc gói: 0 = free, 1 = basic, 2 = standard, 3 = premium...
   tier             Int      @default(0)
+  /// Quyền theo tính năng, dạng map lồng nhau. Ví dụ:
+  /// { "calendar": { "enabled": true, "reminders": false, "recurringEvents": false } }
+  featureAccess    Json     @default("{}")
   features         Json     @default("[]")
   isActive         Boolean  @default(true)
   sortOrder        Int      @default(0)

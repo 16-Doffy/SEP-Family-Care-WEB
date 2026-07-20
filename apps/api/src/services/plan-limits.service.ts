@@ -34,6 +34,8 @@ interface PlanLimits {
   /** Truy cập báo cáo nâng cao */
   advancedReports: boolean
   features: string[]
+  /** Cờ tính năng động theo SubscriptionPlan.featureAccess. */
+  featureAccess: Record<string, unknown>
 }
 
 /**
@@ -50,6 +52,7 @@ const FALLBACK_BY_ENUM: Record<string, PlanLimits> = {
     aiFinanceEnabled: false,
     advancedReports: false,
     features: [],
+    featureAccess: { calendar: { enabled: true, reminders: false, recurringEvents: false } },
   },
   BASIC: {
     maxMembers: 8,
@@ -60,6 +63,7 @@ const FALLBACK_BY_ENUM: Record<string, PlanLimits> = {
     aiFinanceEnabled: false,
     advancedReports: false,
     features: [],
+    featureAccess: { calendar: { enabled: true, reminders: true, recurringEvents: false } },
   },
   PREMIUM: {
     maxMembers: null,
@@ -70,6 +74,7 @@ const FALLBACK_BY_ENUM: Record<string, PlanLimits> = {
     aiFinanceEnabled: true,
     advancedReports: true,
     features: [],
+    featureAccess: { calendar: { enabled: true, reminders: true, recurringEvents: true } },
   },
 }
 
@@ -97,10 +102,29 @@ export async function getFamilyLimits(familyId: string): Promise<PlanLimits> {
       aiFinanceEnabled: p.aiFinanceEnabled,
       advancedReports: p.advancedReports,
       features: Array.isArray(p.features) ? (p.features as string[]) : [],
+      featureAccess: p.featureAccess && typeof p.featureAccess === 'object' && !Array.isArray(p.featureAccess)
+        ? p.featureAccess as Record<string, unknown>
+        : {},
     }
   }
 
   return FALLBACK_BY_ENUM[family.plan] ?? FALLBACK_BY_ENUM.FREE
+}
+
+/** Kiểm tra một feature theo đường dẫn chấm, ví dụ `calendar.reminders`. */
+export async function assertFeatureEnabled(familyId: string, feature: string) {
+  const limits = await getFamilyLimits(familyId)
+  // Hỗ trợ cả map phẳng (`{ "calendar.enabled": true }`) từ admin web cũ
+  // lẫn map lồng (`{ calendar: { enabled: true } }`) theo contract mới.
+  const value = limits.featureAccess[feature] ?? feature.split('.').reduce<unknown>((current, key) =>
+    current && typeof current === 'object' && !Array.isArray(current)
+      ? (current as Record<string, unknown>)[key]
+      : undefined,
+  limits.featureAccess)
+
+  if (value !== true) {
+    throw Errors.Forbidden()
+  }
 }
 
 /**

@@ -46,6 +46,7 @@ const planSchema = z.object({
   advancedReports: z.boolean().optional(),
   prioritySupport: z.boolean().optional(),
   tier: z.number().int().nonnegative().optional(),
+  featureAccess: z.record(z.unknown()).optional(),
   features: z.array(z.string().max(200)).optional(),
   isActive: z.boolean().optional(),
   sortOrder: z.number().int().optional(),

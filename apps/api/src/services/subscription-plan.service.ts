@@ -62,6 +62,8 @@ export interface PlanInput {
   prioritySupport?: boolean
   /** Bậc gói. 0 = FREE, càng cao càng mạnh — dùng để so sánh nhanh */
   tier?: number
+  /** Map quyền theo tính năng, ví dụ `{ calendar: { enabled: true } }`. */
+  featureAccess?: Record<string, unknown>
   /** Danh sách tính năng đi kèm gói (hiển thị trên UI) */
   features?: string[]
   /** Trạng thái gói: `true` = đang bán, `false` = ẩn */
@@ -147,6 +149,7 @@ export async function createPlan(data: PlanInput) {
       advancedReports: data.advancedReports ?? false,
       prioritySupport: data.prioritySupport ?? false,
       tier: data.tier ?? 0,
+      featureAccess: (data.featureAccess ?? {}) as object,
       // features là JSON trong Prisma nên cần cast về object
       features: (data.features ?? []) as unknown as object,
       isActive: data.isActive ?? true,
@@ -186,6 +189,7 @@ export async function updatePlan(id: string, data: Partial<PlanInput>) {
       ...(data.advancedReports !== undefined && { advancedReports: data.advancedReports }),
       ...(data.prioritySupport !== undefined && { prioritySupport: data.prioritySupport }),
       ...(data.tier !== undefined && { tier: data.tier }),
+      ...(data.featureAccess !== undefined && { featureAccess: data.featureAccess as object }),
       ...(data.features !== undefined && { features: data.features as unknown as object }),
       ...(data.isActive !== undefined && { isActive: data.isActive }),
       ...(data.sortOrder !== undefined && { sortOrder: data.sortOrder }),
@@ -250,6 +254,7 @@ export async function ensureDefaultPlans() {
       advancedReports: false,
       prioritySupport: false,
       tier: 0,
+      featureAccess: { calendar: { enabled: true, reminders: false, recurringEvents: false } },
       features: [
         'Quản lý nhiệm vụ cơ bản',
         'Chat gia đình',
@@ -276,6 +281,7 @@ export async function ensureDefaultPlans() {
       advancedReports: false,
       prioritySupport: false,
       tier: 1,
+      featureAccess: { calendar: { enabled: true, reminders: true, recurringEvents: false } },
       features: [
         'Tất cả tính năng FREE',
         'Album ảnh 1GB',
@@ -303,6 +309,7 @@ export async function ensureDefaultPlans() {
       advancedReports: false,
       prioritySupport: false,
       tier: 2,
+      featureAccess: { calendar: { enabled: true, reminders: true, recurringEvents: true } },
       features: [
         'Tất cả tính năng BASIC',
         'Album ảnh 5GB',
@@ -330,6 +337,7 @@ export async function ensureDefaultPlans() {
       advancedReports: true,
       prioritySupport: true,
       tier: 3,
+      featureAccess: { calendar: { enabled: true, reminders: true, recurringEvents: true } },
       features: [
         'Tất cả tính năng STANDARD',
         'Thành viên không giới hạn',

@@ -81,6 +81,8 @@ apps/api/uploads/*
 apps/api/prisma/migrations/*
 !apps/api/prisma/migrations/20260614204100_core_erd_alignment/
 !apps/api/prisma/migrations/20260614204100_core_erd_alignment/migration.sql
+!apps/api/prisma/migrations/20260720100000_subscription_feature_access_calendar_notification/
+!apps/api/prisma/migrations/20260720100000_subscription_feature_access_calendar_notification/migration.sql
 
 # Temp files
 *.tmp

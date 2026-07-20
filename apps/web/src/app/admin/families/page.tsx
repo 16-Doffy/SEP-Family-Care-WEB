@@ -171,9 +171,9 @@ function FamilySubscriptionDialog({
 }: { familyId: string | null; familyName?: string; onClose: () => void }) {
   const [tab, setTab] = useState<'subscription' | 'activation' | 'provisioning'>('subscription')
 
-  const { data: sub, isLoading: subLoading } = useAdminFamilySubscription(familyId)
-  const { data: activation, isLoading: actLoading } = useAdminFamilyActivationStatus(familyId)
-  const { data: provLogs, isLoading: provLoading } = useAdminFamilyProvisioningLogs(familyId)
+  const { data: sub, isLoading: subLoading, isError: subError } = useAdminFamilySubscription(familyId)
+  const { data: activation, isLoading: actLoading, isError: actError } = useAdminFamilyActivationStatus(familyId)
+  const { data: provLogs, isLoading: provLoading, isError: provError } = useAdminFamilyProvisioningLogs(familyId)
 
   const manualRenew = useManualRenewFamilySubscription()
   const updateStatus = useUpdateFamilySubscriptionStatus()
@@ -248,7 +248,9 @@ function FamilySubscriptionDialog({
         {/* Tab: Subscription */}
         {tab === 'subscription' && (
           <div className="space-y-4 pt-2">
-            {subLoading ? <div className="flex justify-center py-6"><Loader2 className="w-4 h-4 animate-spin text-muted-foreground" /></div> : (
+            {subLoading ? <div className="flex justify-center py-6"><Loader2 className="w-4 h-4 animate-spin text-muted-foreground" /></div> : subError ? (
+              <AdminApiError label="Không tải được subscription. Kiểm tra quyền SYSTEM_ADMIN hoặc API family subscription." />
+            ) : (
               <>
                 {/* Current info */}
                 <div className="grid grid-cols-2 gap-2 text-sm">
@@ -333,7 +335,9 @@ function FamilySubscriptionDialog({
         {/* Tab: Activation */}
         {tab === 'activation' && (
           <div className="space-y-4 pt-2">
-            {actLoading ? <div className="flex justify-center py-6"><Loader2 className="w-4 h-4 animate-spin text-muted-foreground" /></div> : (
+            {actLoading ? <div className="flex justify-center py-6"><Loader2 className="w-4 h-4 animate-spin text-muted-foreground" /></div> : actError ? (
+              <AdminApiError label="Workspace chưa được kích hoạt hoặc API activation-status không trả dữ liệu." />
+            ) : (
               <>
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   <InfoRow label="Trạng thái kích hoạt" value={activation?.status} />
@@ -380,6 +384,8 @@ function FamilySubscriptionDialog({
           <div className="pt-2">
             {provLoading ? (
               <div className="flex justify-center py-6"><Loader2 className="w-4 h-4 animate-spin text-muted-foreground" /></div>
+            ) : provError ? (
+              <AdminApiError label="Không tải được Provisioning Logs." />
             ) : (provLogs?.items ?? []).length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-8">Không có log nào</p>
             ) : (
@@ -406,6 +412,10 @@ function FamilySubscriptionDialog({
       </DialogContent>
     </Dialog>
   )
+}
+
+function AdminApiError({ label }: { label: string }) {
+  return <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-800">{label}</div>
 }
 
 // ─── Edit Family Dialog ───────────────────────────────────────────────────────

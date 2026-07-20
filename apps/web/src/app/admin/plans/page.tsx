@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
-import { Pencil, Trash2, Plus, HardDrive, Users, Loader2, CreditCard } from 'lucide-react'
+import { Pencil, Trash2, Plus, HardDrive, Users, Loader2, CreditCard, BadgePercent, CalendarDays } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { getApiErrorMessage } from '@/lib/api'
 import {
@@ -21,6 +21,9 @@ import {
  * dưới dạng checkbox. Key lạ từ BE vẫn được giữ nguyên khi PATCH.
  */
 const KNOWN_FEATURES: { key: string; label: string; description: string }[] = [
+  { key: 'calendar.enabled', label: 'Calendar', description: 'Tạo, sửa và hủy sự kiện lịch' },
+  { key: 'calendar.reminders', label: 'Calendar reminders', description: 'Bật/tắt nhắc lịch cá nhân' },
+  { key: 'calendar.recurringEvents', label: 'Recurring calendar', description: 'Tạo sự kiện lịch lặp lại' },
   { key: 'aiChatbot', label: 'AI Chatbot', description: 'Trợ lý AI trong ứng dụng' },
   { key: 'sos', label: 'SOS khẩn cấp', description: 'Gửi tín hiệu SOS cho thành viên gia đình' },
   { key: 'advancedReports', label: 'Báo cáo nâng cao', description: 'Thống kê tài chính chi tiết' },
@@ -51,11 +54,23 @@ const EMPTY: FormState = {
 
 const PLAN_CODE_RE = /^[A-Z0-9_]+$/
 
-function formatPrice(p: SubscriptionPlan) {
-  const n = typeof p.annualPrice === 'string' ? Number(p.annualPrice) : p.annualPrice
-  if (!n) return 'Miễn phí'
-  const isMonthly = p.planCode.toUpperCase().includes('MONTH')
-  return `${n.toLocaleString('vi-VN')} VND / ${isMonthly ? 'tháng' : 'năm'}`
+const toPrice = (value: number | string) => Number(value) || 0
+const money = (value: number) => `${value.toLocaleString('vi-VN')} VND`
+const isMonthlyPlan = (plan: SubscriptionPlan) => /MONTH|THANG/i.test(plan.planCode)
+const isYearlyPlan = (plan: SubscriptionPlan) => /YEAR|NAM/i.test(plan.planCode)
+
+function PriceSummary({ plan, plans }: { plan: SubscriptionPlan; plans: SubscriptionPlan[] }) {
+  const price = toPrice(plan.annualPrice)
+  const monthlyPlan = plans.find((candidate) => isMonthlyPlan(candidate))
+  const monthlyPrice = monthlyPlan ? toPrice(monthlyPlan.annualPrice) : 0
+  const isYearly = isYearlyPlan(plan)
+  const originalYearlyPrice = isYearly && monthlyPrice ? monthlyPrice * 12 : 0
+  const saving = originalYearlyPrice > price ? originalYearlyPrice - price : 0
+  const savingPercent = saving ? Math.round((saving / originalYearlyPrice) * 100) : 0
+
+  if (price === 0) return <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-3"><p className="text-2xl font-bold text-emerald-700">Miễn phí</p><p className="mt-1 text-xs text-emerald-700/80">Không phát sinh chi phí</p></div>
+  if (!isYearly) return <div className="rounded-xl border border-violet-100 bg-gradient-to-br from-violet-50 to-blue-50 px-3 py-3"><p className="text-xs font-medium text-muted-foreground">Thanh toán theo tháng</p><p className="mt-0.5 text-2xl font-bold tracking-tight text-violet-700">{money(price)} <span className="text-sm font-medium">/ tháng</span></p><p className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground"><CalendarDays className="h-3.5 w-3.5" />Tổng 12 tháng: <span className="font-semibold text-foreground">{money(price * 12)}</span></p></div>
+  return <div className="rounded-xl border border-blue-100 bg-gradient-to-br from-blue-50 to-indigo-50 px-3 py-3"><div className="flex items-start justify-between gap-2"><div><p className="text-xs font-medium text-muted-foreground">Thanh toán theo năm</p><p className="mt-0.5 text-2xl font-bold tracking-tight text-blue-700">{money(price)}</p></div>{saving > 0 && <Badge className="gap-1 bg-emerald-600 hover:bg-emerald-600"><BadgePercent className="h-3 w-3" />Tiết kiệm {savingPercent}%</Badge>}</div>{originalYearlyPrice > 0 && <div className="mt-2 flex items-center gap-2 text-xs"><span className="text-muted-foreground line-through">{money(originalYearlyPrice)}</span><span className="font-semibold text-emerald-700">Giảm {money(saving)}</span></div>}<p className="mt-2 text-xs text-muted-foreground">Tương đương {money(Math.round(price / 12))} / tháng</p></div>
 }
 
 export default function PlansAdminPage() {
@@ -158,10 +173,7 @@ export default function PlansAdminPage() {
     <div>
       <Topbar title="Quản lý gói thuê bao" backHref="/admin" />
       <div className="p-4 md:p-6 space-y-4 md:space-y-6">
-        <div className="flex justify-between items-center">
-          <p className="text-sm text-muted-foreground">
-            planCode là chuỗi tự do (CHỮ HOA/số/_). Ví dụ: <code className="bg-muted px-1 rounded text-xs">FREE</code>, <code className="bg-muted px-1 rounded text-xs">MONTHLY</code>, <code className="bg-muted px-1 rounded text-xs">YEARLY</code>.
-          </p>
+        <div className="flex justify-end items-center">
           <Button onClick={openCreate} className="gap-2">
             <Plus className="w-4 h-4" />Tạo gói mới
           </Button>
@@ -194,7 +206,7 @@ export default function PlansAdminPage() {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-2.5">
-                  <p className="text-xl font-bold text-blue-600">{formatPrice(p)}</p>
+                  <PriceSummary plan={p} plans={plans} />
 
                   <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
                     <span className="flex items-center gap-1">

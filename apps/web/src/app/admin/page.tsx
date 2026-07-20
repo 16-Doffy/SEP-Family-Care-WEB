@@ -398,7 +398,7 @@ export default function AdminPage() {
                       paddingAngle={3} dataKey="value" strokeWidth={0}
                     >
                       {donutData.map((_, i) => (
-                        <Cell key={i} fill={STATUS_COLORS[i % STATUS_COLORS.length]} />
+                        <Cell key={`status-cell-${i}`} fill={STATUS_COLORS[i % STATUS_COLORS.length]} />
                       ))}
                     </Pie>
                     <Tooltip
@@ -413,7 +413,7 @@ export default function AdminPage() {
                 <p className="text-center text-[11px] text-slate-400 mb-3">Tổng người dùng</p>
                 <div className="space-y-1.5">
                   {donutData.map((d, i) => (
-                    <div key={d.name} className="flex items-center justify-between text-xs">
+                    <div key={`${d.name}-${i}`} className="flex items-center justify-between text-xs">
                       <span className="flex items-center gap-1.5 text-slate-600">
                         <span className="w-2 h-2 rounded-full shrink-0" style={{ background: STATUS_COLORS[i % STATUS_COLORS.length] }} />
                         {d.name}
@@ -500,8 +500,8 @@ export default function AdminPage() {
                 <div className="py-6 text-center text-sm text-slate-400">Chưa có hoạt động</div>
               ) : (
                 <div className="space-y-3">
-                  {auditLogs!.items.map(log => (
-                    <div key={log.id} className="flex items-start gap-3">
+                  {auditLogs!.items.map((log, index) => (
+                    <div key={`${log.id}-${index}`} className="flex items-start gap-3">
                       <AuditIcon log={log} />
                       <div className="flex-1 min-w-0">
                         <p className="text-[12px] text-slate-700 leading-snug">

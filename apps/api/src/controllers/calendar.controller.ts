@@ -47,12 +47,27 @@ export async function createEvent(req: Request, res: Response, next: NextFunctio
       endDate: z.string().optional(),
       allDay: z.boolean().optional(),
       color: z.string().optional(),
+      isRecurring: z.boolean().optional(),
     }).parse(req.body)
 
     // familyMemberId là ID của FamilyMember record (khác với userId)
     // dùng để xác định người tạo sự kiện trong ngữ cảnh gia đình
     const event = await calendarService.createEvent(req.user.familyId!, req.user.familyMemberId!, data)
     res.status(201).json(event)
+  } catch (e) { next(e) }
+}
+
+/** Bật/tắt reminder của chính member đang đăng nhập cho một event. */
+export async function setReminder(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { reminderEnabled } = z.object({ reminderEnabled: z.boolean() }).parse(req.body)
+    const participant = await calendarService.setReminder(
+      req.params.id,
+      req.user.familyId!,
+      req.user.familyMemberId!,
+      reminderEnabled,
+    )
+    res.json(participant)
   } catch (e) { next(e) }
 }
 

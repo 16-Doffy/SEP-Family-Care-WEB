@@ -402,9 +402,9 @@ export default function RevenueAdminPage() {
                     animationEasing="ease-out"
                   >
                     {/* Color: peak bar darker, zero months muted */}
-                    {chartData.map((entry, i) => (
+                    {chartData.map((entry) => (
                       <Cell
-                        key={i}
+                        key={`revenue-${entry.name}`}
                         fill={
                           entry.revenue === 0   ? COL_ZERO    :
                           entry.revenue === maxRev ? COL_PEAK :

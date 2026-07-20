@@ -11,6 +11,8 @@
 
 import { prisma } from '../config/database'
 import { Errors } from '../utils/errors'
+import { assertFeatureEnabled } from './plan-limits.service'
+import { createNotification } from './notification.service'
 
 /**
  * Lấy danh sách sự kiện của gia đình trong khoảng thời gian từ đầu tháng chỉ định
@@ -71,25 +73,41 @@ export async function createEvent(
     endDate?: string
     allDay?: boolean
     color?: string
+    isRecurring?: boolean
   },
 ) {
-  return prisma.familyEvent.create({
+  await assertFeatureEnabled(familyId, 'calendar.enabled')
+  if (data.isRecurring) await assertFeatureEnabled(familyId, 'calendar.recurringEvents')
+
+  // Snapshot toàn bộ member tại lúc tạo event thành participant để notification/reminder
+  // luôn có một tập người nhận rõ ràng, kể cả khi membership thay đổi về sau.
+  const members = await prisma.familyMember.findMany({
+    where: { familyId, memberStatus: 'ACTIVE' },
+    select: { id: true, userId: true },
+  })
+  const event = await prisma.familyEvent.create({
     data: {
-      familyId,
-      createdById,
-      title: data.title,
-      description: data.description,
-      startDate: new Date(data.startDate),
-      endDate: data.endDate ? new Date(data.endDate) : undefined,
-      allDay: data.allDay ?? false,
-      color: data.color ?? '#3b82f6',
+      familyId, createdById, title: data.title, description: data.description,
+      startDate: new Date(data.startDate), endDate: data.endDate ? new Date(data.endDate) : undefined,
+      allDay: data.allDay ?? false, color: data.color ?? '#3b82f6', isRecurring: data.isRecurring ?? false,
+      participants: { create: members.map((member) => ({ memberId: member.id })) },
     },
     include: {
-      createdBy: {
-        include: { user: { select: { id: true, displayName: true, avatarUrl: true } } },
-      },
+      createdBy: { include: { user: { select: { id: true, displayName: true, avatarUrl: true } } } },
+      participants: { include: { member: { select: { userId: true } } } },
     },
   })
+
+  await Promise.all(event.participants
+    .filter(({ member }) => member.userId !== undefined)
+    .map(({ member }) => createNotification({
+      userId: member.userId,
+      type: 'CALENDAR',
+      title: `Sự kiện mới: ${event.title}`,
+      body: `Được thêm vào lịch gia đình vào ${event.startDate.toLocaleString('vi-VN')}.`,
+      metadata: { eventId: event.id, familyId },
+    })))
+  return event
 }
 
 /**
@@ -118,6 +136,7 @@ export async function updateEvent(
   requesterId?: string,
   requesterRole?: string,
 ) {
+  await assertFeatureEnabled(familyId, 'calendar.enabled')
   // Kiểm tra sự kiện tồn tại và thuộc về đúng gia đình trước khi cập nhật
   const event = await prisma.familyEvent.findFirst({ where: { id: eventId, familyId } })
   if (!event) throw Errors.NotFound('Event')
@@ -155,8 +174,24 @@ export async function updateEvent(
  * @throws {NotFoundError} Nếu không tìm thấy sự kiện với eventId và familyId tương ứng
  */
 export async function deleteEvent(eventId: string, familyId: string) {
+  await assertFeatureEnabled(familyId, 'calendar.enabled')
   // Kiểm tra sự kiện tồn tại và thuộc về đúng gia đình trước khi xóa
   const event = await prisma.familyEvent.findFirst({ where: { id: eventId, familyId } })
   if (!event) throw Errors.NotFound('Event')
   await prisma.familyEvent.delete({ where: { id: eventId } })
+}
+
+/** Cập nhật reminder của member hiện tại; không làm thay đổi preference của người khác. */
+export async function setReminder(eventId: string, familyId: string, memberId: string, reminderEnabled: boolean) {
+  await assertFeatureEnabled(familyId, 'calendar.reminders')
+  const event = await prisma.familyEvent.findFirst({ where: { id: eventId, familyId }, select: { id: true } })
+  if (!event) throw Errors.NotFound('Event')
+  const participant = await prisma.calendarEventParticipant.findUnique({
+    where: { eventId_memberId: { eventId, memberId } },
+  })
+  if (!participant) throw Errors.Forbidden()
+  return prisma.calendarEventParticipant.update({
+    where: { eventId_memberId: { eventId, memberId } },
+    data: { reminderEnabled },
+  })
 }

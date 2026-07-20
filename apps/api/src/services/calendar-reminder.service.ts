@@ -60,7 +60,7 @@ export async function scanAndSendReminders() {
     },
     include: {
       // Lấy danh sách userId của tất cả thành viên gia đình để gửi thông báo
-      family: { include: { members: { select: { userId: true } } } },
+      participants: { where: { reminderEnabled: true }, include: { member: { select: { userId: true } } } },
     },
   })
 
@@ -70,7 +70,7 @@ export async function scanAndSendReminders() {
 
     // Gửi thông báo song song đến tất cả thành viên gia đình để tiết kiệm thời gian
     await Promise.all(
-      ev.family.members.map((m) =>
+      ev.participants.map(({ member: m }) =>
         createNotification({
           userId: m.userId,
           type: 'CALENDAR_REMINDER',

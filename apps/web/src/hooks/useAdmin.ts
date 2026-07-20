@@ -570,10 +570,49 @@ export interface AdminProvisioningLog {
   [key: string]: unknown
 }
 
+/** API team có một số endpoint trả object trực tiếp, số khác bọc theo resource name.
+ * Chuẩn hóa tại boundary để UI không hiển thị `—` khi dữ liệu hợp lệ nằm trong wrapper. */
+function unwrapAdminResource<T extends Record<string, unknown>>(payload: unknown, resource: string): T {
+  if (!payload || typeof payload !== 'object') return {} as T
+  const value = payload as Record<string, unknown>
+  const wrapped = value[resource]
+  return wrapped && typeof wrapped === 'object' ? wrapped as T : value as T
+}
+
+function normalizeSubscription(payload: unknown): AdminFamilySubscription {
+  const source = unwrapAdminResource<Record<string, unknown>>(payload, 'subscription')
+  const plan = source.plan && typeof source.plan === 'object' ? source.plan as Record<string, unknown> : {}
+  return {
+    ...source,
+    planCode: String(source.planCode ?? plan.code ?? plan.planCode ?? '') || undefined,
+    status: String(source.status ?? source.subscriptionStatus ?? '') || undefined,
+    currentPeriodStart: (source.currentPeriodStart ?? source.startedAt ?? source.subscriptionStartedAt) as string | undefined,
+    currentPeriodEnd: (source.currentPeriodEnd ?? source.endsAt ?? source.subscriptionExpiresAt) as string | undefined,
+  }
+}
+
+function normalizeActivation(payload: unknown): AdminFamilyActivationStatus {
+  const source = unwrapAdminResource<Record<string, unknown>>(payload, 'activation')
+  const provision = source.provision && typeof source.provision === 'object' ? source.provision as Record<string, unknown> : {}
+  return {
+    ...source,
+    status: String(source.status ?? provision.status ?? '') || undefined,
+    workspaceUrl: (source.workspaceUrl ?? provision.workspaceUrl) as string | undefined,
+    provisionedAt: (source.provisionedAt ?? provision.provisionedAt) as string | undefined,
+    lastProvisioningLog: (source.lastProvisioningLog ?? provision.lastProvisioningLog) as AdminFamilyActivationStatus['lastProvisioningLog'],
+  }
+}
+
+function normalizeProvisioningLogs(payload: unknown): Paginated<AdminProvisioningLog> {
+  const source = payload && typeof payload === 'object' ? payload as Record<string, unknown> : {}
+  const candidate = source.items ?? source.logs ?? source.data
+  return { ...source, items: Array.isArray(candidate) ? candidate as AdminProvisioningLog[] : [] } as Paginated<AdminProvisioningLog>
+}
+
 export function useAdminFamilySubscription(familyId: string | null) {
   return useQuery<AdminFamilySubscription>({
     queryKey: ['admin', 'family-subscription', familyId],
-    queryFn: () => api.get(`/admin/families/${familyId}/subscription`).then((r) => r.data),
+    queryFn: () => api.get(`/admin/families/${familyId}/subscription`).then((r) => normalizeSubscription(r.data)),
     enabled: !!familyId,
   })
 }
@@ -581,7 +620,7 @@ export function useAdminFamilySubscription(familyId: string | null) {
 export function useAdminFamilyActivationStatus(familyId: string | null) {
   return useQuery<AdminFamilyActivationStatus>({
     queryKey: ['admin', 'family-activation', familyId],
-    queryFn: () => api.get(`/admin/families/${familyId}/activation-status`).then((r) => r.data),
+    queryFn: () => api.get(`/admin/families/${familyId}/activation-status`).then((r) => normalizeActivation(r.data)),
     enabled: !!familyId,
   })
 }
@@ -589,7 +628,7 @@ export function useAdminFamilyActivationStatus(familyId: string | null) {
 export function useAdminFamilyProvisioningLogs(familyId: string | null) {
   return useQuery<Paginated<AdminProvisioningLog>>({
     queryKey: ['admin', 'family-provisioning-logs', familyId],
-    queryFn: () => api.get(`/admin/families/${familyId}/provisioning-logs`).then((r) => r.data),
+    queryFn: () => api.get(`/admin/families/${familyId}/provisioning-logs`).then((r) => normalizeProvisioningLogs(r.data)),
     enabled: !!familyId,
   })
 }

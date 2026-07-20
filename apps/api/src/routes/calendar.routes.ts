@@ -28,6 +28,8 @@ router.get('/', ctrl.getEvents)
 /** Tạo / sửa sự kiện — mọi thành viên gia đình đều được phép */
 router.post('/', ctrl.createEvent)
 router.put('/:id', ctrl.updateEvent)
+/** Bật/tắt reminder cá nhân cho event. */
+router.patch('/:id/reminder', ctrl.setReminder)
 
 /** Xóa sự kiện — chỉ PARENT / SUPER_ADMIN (hành động không thể hoàn tác) */
 router.delete('/:id', requireRole('PARENT', 'SUPER_ADMIN'), ctrl.deleteEvent)
