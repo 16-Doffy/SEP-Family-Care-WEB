@@ -183,6 +183,8 @@ function FamilySubscriptionDialog({
   const [renewForm, setRenewForm] = useState({ planCode: '', monthsToAdd: '1', reason: '' })
   const [newSubStatus, setNewSubStatus] = useState<'ACTIVE' | 'PAST_DUE' | 'CANCELED'>('ACTIVE')
   const [statusReason, setStatusReason] = useState('')
+  const hasPlan = Boolean(sub?.planCode)
+  const hasWorkspace = Boolean(activation?.status)
 
   useEffect(() => {
     if (sub?.planCode) setRenewForm((f) => ({ ...f, planCode: sub.planCode ?? '' }))
@@ -254,11 +256,12 @@ function FamilySubscriptionDialog({
               <>
                 {/* Current info */}
                 <div className="grid grid-cols-2 gap-2 text-sm">
-                  <InfoRow label="Plan Code" value={sub?.planCode} />
+                  <InfoRow label="Plan Code" value={sub?.planCode} emptyLabel="Chưa gán gói" />
                   <InfoRow label="Trạng thái" value={sub?.status} />
                   <InfoRow label="Bắt đầu kỳ" value={sub?.currentPeriodStart ? formatDate(sub.currentPeriodStart) : undefined} />
                   <InfoRow label="Kết thúc kỳ" value={sub?.currentPeriodEnd ? formatDate(sub.currentPeriodEnd) : undefined} />
                 </div>
+                {!hasPlan && <AdminApiError label="Chưa có subscription active để hiển thị. Nếu family đã thanh toán, backend cần đồng bộ payment PAID sang subscription/planCode; admin không nên gán lại gói thủ công." />}
 
                 <div className="border-t pt-3 space-y-3">
                   {/* Update status */}
@@ -279,7 +282,7 @@ function FamilySubscriptionDialog({
                         value={statusReason}
                         onChange={(e) => setStatusReason(e.target.value)}
                       />
-                      <Button size="sm" className="h-8 text-xs" onClick={handleUpdateStatus} disabled={updateStatus.isPending}>
+                      <Button size="sm" className="h-8 text-xs" onClick={handleUpdateStatus} disabled={updateStatus.isPending || !hasPlan}>
                         {updateStatus.isPending && <Loader2 className="w-3 h-3 animate-spin mr-1" />}Cập nhật
                       </Button>
                     </div>
@@ -308,7 +311,7 @@ function FamilySubscriptionDialog({
                         value={renewForm.reason}
                         onChange={(e) => setRenewForm({ ...renewForm, reason: e.target.value })}
                       />
-                      <Button size="sm" className="h-8 text-xs gap-1" variant="outline" onClick={handleRenew} disabled={manualRenew.isPending}>
+                      <Button size="sm" className="h-8 text-xs gap-1" variant="outline" onClick={handleRenew} disabled={manualRenew.isPending || !renewForm.planCode}>
                         {manualRenew.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <RotateCcw className="w-3 h-3" />}
                         Gia hạn
                       </Button>
@@ -321,7 +324,7 @@ function FamilySubscriptionDialog({
                       <p className="text-xs font-semibold">Sync Stripe</p>
                       <p className="text-[10px] text-muted-foreground">Đồng bộ lại trạng thái subscription từ Stripe</p>
                     </div>
-                    <Button size="sm" variant="outline" className="h-8 text-xs gap-1" onClick={handleSyncStripe} disabled={syncStripe.isPending}>
+                    <Button size="sm" variant="outline" className="h-8 text-xs gap-1" onClick={handleSyncStripe} disabled={syncStripe.isPending || !sub?.stripeSubscriptionId}>
                       {syncStripe.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
                       Sync
                     </Button>
@@ -340,10 +343,11 @@ function FamilySubscriptionDialog({
             ) : (
               <>
                 <div className="grid grid-cols-2 gap-2 text-sm">
-                  <InfoRow label="Trạng thái kích hoạt" value={activation?.status} />
-                  <InfoRow label="Provisioned lúc" value={activation?.provisionedAt ? formatDate(activation.provisionedAt) : undefined} />
+                  <InfoRow label="Trạng thái kích hoạt" value={activation?.status} emptyLabel="Chưa provision workspace" />
+                  <InfoRow label="Provisioned lúc" value={activation?.provisionedAt ? formatDate(activation.provisionedAt) : undefined} emptyLabel="Chưa provision workspace" />
                   {activation?.workspaceUrl && <InfoRow label="Workspace URL" value={activation.workspaceUrl} />}
                 </div>
+                {!hasWorkspace && <AdminApiError label="Chưa có workspace provisioning. Backend cần tạo provisioning record khi setup family; Retry chỉ dùng cho workspace đã tồn tại nhưng thất bại." />}
 
                 {activation?.lastProvisioningLog && (
                   <div className="border rounded-lg p-3 bg-muted/30 space-y-1">
@@ -368,7 +372,7 @@ function FamilySubscriptionDialog({
                   <Button
                     size="sm" variant="outline" className="h-8 text-xs gap-1"
                     onClick={handleRetry}
-                    disabled={retryProvision.isPending}
+                    disabled={retryProvision.isPending || !hasWorkspace}
                   >
                     {retryProvision.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
                     Retry
@@ -488,11 +492,11 @@ function EditFamilyDialog({ family, onClose }: { family: AdminFamily | null; onC
   )
 }
 
-function InfoRow({ label, value }: { label: string; value?: string | null }) {
+function InfoRow({ label, value, emptyLabel = '—' }: { label: string; value?: string | null; emptyLabel?: string }) {
   return (
     <div className="space-y-0.5">
       <p className="text-[10px] text-muted-foreground uppercase tracking-wide">{label}</p>
-      <p className="text-sm font-medium">{value ?? <span className="text-muted-foreground font-normal">—</span>}</p>
+      <p className="text-sm font-medium">{value ?? <span className="text-muted-foreground font-normal">{emptyLabel}</span>}</p>
     </div>
   )
 }

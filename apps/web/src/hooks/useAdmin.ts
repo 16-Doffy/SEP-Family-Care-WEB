@@ -581,19 +581,35 @@ function unwrapAdminResource<T extends Record<string, unknown>>(payload: unknown
 
 function normalizeSubscription(payload: unknown): AdminFamilySubscription {
   const source = unwrapAdminResource<Record<string, unknown>>(payload, 'subscription')
-  const plan = source.plan && typeof source.plan === 'object' ? source.plan as Record<string, unknown> : {}
+  const subscriptionPlan = source.subscriptionPlan && typeof source.subscriptionPlan === 'object'
+    ? source.subscriptionPlan as Record<string, unknown>
+    : {}
+  const workspaceSubscription = source.workspaceSubscription && typeof source.workspaceSubscription === 'object'
+    ? source.workspaceSubscription as Record<string, unknown>
+    : {}
+  const plan = source.plan && typeof source.plan === 'object'
+    ? source.plan as Record<string, unknown>
+    : workspaceSubscription.plan && typeof workspaceSubscription.plan === 'object'
+      ? workspaceSubscription.plan as Record<string, unknown>
+      : subscriptionPlan
   return {
     ...source,
-    planCode: String(source.planCode ?? plan.code ?? plan.planCode ?? '') || undefined,
-    status: String(source.status ?? source.subscriptionStatus ?? '') || undefined,
-    currentPeriodStart: (source.currentPeriodStart ?? source.startedAt ?? source.subscriptionStartedAt) as string | undefined,
-    currentPeriodEnd: (source.currentPeriodEnd ?? source.endsAt ?? source.subscriptionExpiresAt) as string | undefined,
+    planCode: String(source.planCode ?? source.selectedPlanCode ?? plan.code ?? plan.planCode ?? '') || undefined,
+    status: String(source.status ?? source.subscriptionStatus ?? workspaceSubscription.status ?? '') || undefined,
+    currentPeriodStart: (source.currentPeriodStart ?? source.startedAt ?? source.subscriptionStartedAt ?? workspaceSubscription.currentPeriodStart) as string | undefined,
+    currentPeriodEnd: (source.currentPeriodEnd ?? source.endsAt ?? source.subscriptionExpiresAt ?? workspaceSubscription.currentPeriodEnd) as string | undefined,
+    stripeSubscriptionId: (source.stripeSubscriptionId ?? workspaceSubscription.stripeSubscriptionId) as string | undefined,
   }
 }
 
 function normalizeActivation(payload: unknown): AdminFamilyActivationStatus {
   const source = unwrapAdminResource<Record<string, unknown>>(payload, 'activation')
-  const provision = source.provision && typeof source.provision === 'object' ? source.provision as Record<string, unknown> : {}
+  const workspace = source.workspace && typeof source.workspace === 'object' ? source.workspace as Record<string, unknown> : {}
+  const provision = source.provision && typeof source.provision === 'object'
+    ? source.provision as Record<string, unknown>
+    : source.familyProvision && typeof source.familyProvision === 'object'
+      ? source.familyProvision as Record<string, unknown>
+      : workspace
   return {
     ...source,
     status: String(source.status ?? provision.status ?? '') || undefined,
