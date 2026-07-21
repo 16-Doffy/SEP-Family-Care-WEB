@@ -184,7 +184,12 @@ function FamilySubscriptionDialog({
   const [newSubStatus, setNewSubStatus] = useState<'ACTIVE' | 'PAST_DUE' | 'CANCELED'>('ACTIVE')
   const [statusReason, setStatusReason] = useState('')
   const hasPlan = Boolean(sub?.planCode)
-  const hasWorkspace = Boolean(activation?.status)
+  const latestProvisionStatus = activation?.lastProvisioningLog?.result
+    ?? activation?.lastProvisioningLog?.status
+    ?? provLogs?.items?.[0]?.result
+    ?? provLogs?.items?.[0]?.status
+  const activationStatus = activation?.status ?? latestProvisionStatus
+  const canRetryProvision = latestProvisionStatus === 'FAILED'
 
   useEffect(() => {
     if (sub?.planCode) setRenewForm((f) => ({ ...f, planCode: sub.planCode ?? '' }))
@@ -343,18 +348,18 @@ function FamilySubscriptionDialog({
             ) : (
               <>
                 <div className="grid grid-cols-2 gap-2 text-sm">
-                  <InfoRow label="Trạng thái kích hoạt" value={activation?.status} emptyLabel="Chưa provision workspace" />
+                  <InfoRow label="Trạng thái kích hoạt" value={activationStatus} emptyLabel="Chưa provision workspace" />
                   <InfoRow label="Provisioned lúc" value={activation?.provisionedAt ? formatDate(activation.provisionedAt) : undefined} emptyLabel="Chưa provision workspace" />
                   {activation?.workspaceUrl && <InfoRow label="Workspace URL" value={activation.workspaceUrl} />}
                 </div>
-                {!hasWorkspace && <AdminApiError label="Chưa có workspace provisioning. Backend cần tạo provisioning record khi setup family; Retry chỉ dùng cho workspace đã tồn tại nhưng thất bại." />}
+                {!activationStatus && <AdminApiError label="Chưa có trạng thái provisioning để hiển thị." />}
 
                 {activation?.lastProvisioningLog && (
                   <div className="border rounded-lg p-3 bg-muted/30 space-y-1">
                     <p className="text-xs font-semibold text-muted-foreground">Log provisioning gần nhất</p>
                     <div className="flex items-center gap-2">
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${PROVISION_RESULT_CLS[activation.lastProvisioningLog.result ?? ''] ?? 'bg-gray-100 text-gray-600'}`}>
-                        {activation.lastProvisioningLog.result}
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${PROVISION_RESULT_CLS[activation.lastProvisioningLog.result ?? activation.lastProvisioningLog.status ?? ''] ?? 'bg-gray-100 text-gray-600'}`}>
+                        {activation.lastProvisioningLog.result ?? activation.lastProvisioningLog.status}
                       </span>
                       <span className="text-xs text-muted-foreground">{activation.lastProvisioningLog.createdAt ? formatDate(activation.lastProvisioningLog.createdAt) : ''}</span>
                     </div>
@@ -372,7 +377,7 @@ function FamilySubscriptionDialog({
                   <Button
                     size="sm" variant="outline" className="h-8 text-xs gap-1"
                     onClick={handleRetry}
-                    disabled={retryProvision.isPending || !hasWorkspace}
+                    disabled={retryProvision.isPending || !canRetryProvision}
                   >
                     {retryProvision.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
                     Retry

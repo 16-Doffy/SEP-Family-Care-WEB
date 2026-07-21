@@ -152,7 +152,11 @@ export interface SubscriptionPlan {
   id: string
   planCode: string
   name: string
-  annualPrice: number | string
+  /** Legacy display field. Prefer billingPeriod + monthlyPrice/yearlyPrice. */
+  annualPrice?: number | string | null
+  billingPeriod?: 'FREE' | 'MONTHLY' | 'YEARLY'
+  monthlyPrice?: number | string | null
+  yearlyPrice?: number | string | null
   maxMembers: number | null
   storageLimit: number
   stripePriceId?: string | null
@@ -164,7 +168,10 @@ export interface SubscriptionPlan {
 export interface SubscriptionPlanInput {
   planCode: string
   name: string
-  annualPrice: number
+  annualPrice?: number
+  billingPeriod?: 'FREE' | 'MONTHLY' | 'YEARLY'
+  monthlyPrice?: number
+  yearlyPrice?: number
   maxMembers?: number
   storageLimit: number
   stripePriceId?: string
@@ -561,12 +568,12 @@ export interface AdminFamilySubscription {
 
 export interface AdminFamilyActivationStatus {
   status?: string; workspaceUrl?: string; provisionedAt?: string
-  lastProvisioningLog?: { result?: string; message?: string; createdAt?: string }
+  lastProvisioningLog?: { result?: string; status?: string; message?: string; createdAt?: string }
   [key: string]: unknown
 }
 
 export interface AdminProvisioningLog {
-  id: string; familyId?: string; result?: string; message?: string; createdAt?: string
+  id: string; familyId?: string; result?: string; status?: string; message?: string; createdAt?: string
   [key: string]: unknown
 }
 
@@ -594,7 +601,7 @@ function normalizeSubscription(payload: unknown): AdminFamilySubscription {
       : subscriptionPlan
   return {
     ...source,
-    planCode: String(source.planCode ?? source.selectedPlanCode ?? plan.code ?? plan.planCode ?? '') || undefined,
+    planCode: String(source.planCode ?? source.currentPlanCode ?? source.selectedPlanCode ?? plan.code ?? plan.planCode ?? '') || undefined,
     status: String(source.status ?? source.subscriptionStatus ?? workspaceSubscription.status ?? '') || undefined,
     currentPeriodStart: (source.currentPeriodStart ?? source.startedAt ?? source.subscriptionStartedAt ?? workspaceSubscription.currentPeriodStart) as string | undefined,
     currentPeriodEnd: (source.currentPeriodEnd ?? source.endsAt ?? source.subscriptionExpiresAt ?? workspaceSubscription.currentPeriodEnd) as string | undefined,
@@ -615,14 +622,20 @@ function normalizeActivation(payload: unknown): AdminFamilyActivationStatus {
     status: String(source.status ?? provision.status ?? '') || undefined,
     workspaceUrl: (source.workspaceUrl ?? provision.workspaceUrl) as string | undefined,
     provisionedAt: (source.provisionedAt ?? provision.provisionedAt) as string | undefined,
-    lastProvisioningLog: (source.lastProvisioningLog ?? provision.lastProvisioningLog) as AdminFamilyActivationStatus['lastProvisioningLog'],
+    lastProvisioningLog: (source.latestLog ?? source.lastProvisioningLog ?? provision.latestLog ?? provision.lastProvisioningLog) as AdminFamilyActivationStatus['lastProvisioningLog'],
   }
 }
 
 function normalizeProvisioningLogs(payload: unknown): Paginated<AdminProvisioningLog> {
   const source = payload && typeof payload === 'object' ? payload as Record<string, unknown> : {}
   const candidate = source.items ?? source.logs ?? source.data
-  return { ...source, items: Array.isArray(candidate) ? candidate as AdminProvisioningLog[] : [] } as Paginated<AdminProvisioningLog>
+  const items = Array.isArray(candidate)
+    ? candidate.map((item) => {
+      const log = item as AdminProvisioningLog
+      return { ...log, result: log.result ?? log.status }
+    })
+    : []
+  return { ...source, items } as Paginated<AdminProvisioningLog>
 }
 
 export function useAdminFamilySubscription(familyId: string | null) {

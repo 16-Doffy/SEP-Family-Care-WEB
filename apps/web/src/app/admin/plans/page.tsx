@@ -16,28 +16,51 @@ import {
 } from '@/hooks/useAdmin'
 
 /**
- * Các key featureAccess được BE document trong swagger example.
- * BE nhận bất kỳ key nào (generic map), nhưng FE chỉ hiển thị các key đã biết
- * dưới dạng checkbox. Key lạ từ BE vẫn được giữ nguyên khi PATCH.
+ * Danh sách key featureAccess chính thức theo Swagger.
+ * FE chỉ gửi giá trị boolean từ danh sách này; key legacy từ dữ liệu cũ vẫn được
+ * giữ nguyên khi PATCH để không làm mất cấu hình đã lưu.
  */
 const KNOWN_FEATURES: { key: string; label: string; description: string }[] = [
-  { key: 'calendar.enabled', label: 'Calendar', description: 'Tạo, sửa và hủy sự kiện lịch' },
-  { key: 'calendar.reminders', label: 'Calendar reminders', description: 'Bật/tắt nhắc lịch cá nhân' },
-  { key: 'calendar.recurringEvents', label: 'Recurring calendar', description: 'Tạo sự kiện lịch lặp lại' },
-  { key: 'aiChatbot', label: 'AI Chatbot', description: 'Trợ lý AI trong ứng dụng' },
-  { key: 'sos', label: 'SOS khẩn cấp', description: 'Gửi tín hiệu SOS cho thành viên gia đình' },
-  { key: 'advancedReports', label: 'Báo cáo nâng cao', description: 'Thống kê tài chính chi tiết' },
-  { key: 'unlimitedStorage', label: 'Lưu trữ không giới hạn', description: 'Dung lượng album ảnh không giới hạn' },
+  { key: 'calendar.enabled', label: 'Lịch gia đình', description: 'Tạo, sửa và hủy sự kiện lịch' },
+  { key: 'calendar.reminders', label: 'Nhắc lịch', description: 'Bật/tắt reminder cho sự kiện' },
+  { key: 'calendar.recurringEvents', label: 'Lịch lặp lại', description: 'Tạo sự kiện lịch định kỳ' },
+  { key: 'finance.budgetPlanning', label: 'Lập kế hoạch ngân sách', description: 'Lập ngân sách chi tiêu' },
+  { key: 'finance.financialGoals', label: 'Mục tiêu tài chính', description: 'Theo dõi mục tiêu tiết kiệm' },
+  { key: 'finance.budgetAlerts', label: 'Cảnh báo ngân sách', description: 'Cảnh báo vượt ngân sách' },
+  { key: 'finance.supportRequests', label: 'Yêu cầu hỗ trợ chi tiêu', description: 'Quy trình xin hỗ trợ tài chính' },
+  { key: 'finance.reportExport', label: 'Xuất báo cáo tài chính', description: 'Báo cáo và xuất dữ liệu nâng cao' },
+  { key: 'finance.aiOcrSuggestion', label: 'Gợi ý AI/OCR tài chính', description: 'Đọc và gợi ý dữ liệu giao dịch' },
+  { key: 'tasks.recurringTasks', label: 'Công việc lặp lại', description: 'Thiết lập công việc định kỳ' },
+  { key: 'tasks.proofUpload', label: 'Bằng chứng công việc', description: 'Tải bằng chứng hoàn thành' },
+  { key: 'tasks.rewardSettlement', label: 'Quyết toán phần thưởng', description: 'Quyết toán và tranh chấp phần thưởng' },
+  { key: 'tasks.rewardAllocation', label: 'Phân bổ phần thưởng', description: 'Phân bổ phần thưởng công việc' },
+  { key: 'album.videoUpload', label: 'Tải video album', description: 'Cho phép lưu video album' },
+  { key: 'album.faceSuggestions', label: 'Gợi ý khuôn mặt AI', description: 'AI gợi ý thành viên trong ảnh; người dùng xác nhận tag' },
+  { key: 'ai.assistant', label: 'Trợ lý AI', description: 'Trợ lý AI trong ứng dụng' },
+  { key: 'ai.financeSummary', label: 'Tóm tắt tài chính AI', description: 'Tóm tắt tình hình tài chính' },
+  { key: 'ai.taskSummary', label: 'Tóm tắt công việc AI', description: 'Tóm tắt tiến độ công việc' },
+  { key: 'ai.savingSuggestions', label: 'Gợi ý tiết kiệm AI', description: 'Gợi ý tối ưu chi tiêu' },
+  { key: 'sos.wearablePairing', label: 'Kết nối thiết bị đeo', description: 'Ghép thiết bị đeo' },
+  { key: 'sos.fallDetection', label: 'Phát hiện té ngã', description: 'Cảnh báo té ngã' },
+  { key: 'sos.liveLocation', label: 'SOS vị trí trực tiếp', description: 'Chia sẻ vị trí trực tiếp khi SOS' },
+  { key: 'sos.routeHistory', label: 'Lịch sử hành trình', description: 'Xem lịch sử vị trí nâng cao' },
+  { key: 'chat.privateChat', label: 'Chat riêng tư', description: 'Nhắn tin riêng' },
+  { key: 'chat.attachments', label: 'Đính kèm chat', description: 'Gửi file và media' },
+  { key: 'chat.announcements', label: 'Thông báo gia đình', description: 'Đăng thông báo gia đình' },
 ]
 
 function featureLabel(key: string) {
   return KNOWN_FEATURES.find((f) => f.key === key)?.label ?? key
 }
 
+const isOfficialFeatureKey = (key: string) => KNOWN_FEATURES.some((feature) => feature.key === key)
+
 interface FormState {
   planCode: string
   name: string
-  annualPrice: string
+  billingPeriod: 'FREE' | 'MONTHLY' | 'YEARLY'
+  monthlyPrice: string
+  yearlyPrice: string
   maxMembers: string   // required on CREATE per swagger
   storageLimit: string
   stripePriceId: string
@@ -46,7 +69,7 @@ interface FormState {
 }
 
 const EMPTY: FormState = {
-  planCode: '', name: '', annualPrice: '0', maxMembers: '', storageLimit: '0',
+  planCode: '', name: '', billingPeriod: 'FREE', monthlyPrice: '', yearlyPrice: '', maxMembers: '', storageLimit: '0',
   stripePriceId: '',
   features: Object.fromEntries(KNOWN_FEATURES.map((f) => [f.key, false])),
   isActive: true,
@@ -56,20 +79,22 @@ const PLAN_CODE_RE = /^[A-Z0-9_]+$/
 
 const toPrice = (value: number | string) => Number(value) || 0
 const money = (value: number) => `${value.toLocaleString('vi-VN')} VND`
-const isMonthlyPlan = (plan: SubscriptionPlan) => /MONTH|THANG/i.test(plan.planCode)
-const isYearlyPlan = (plan: SubscriptionPlan) => /YEAR|NAM/i.test(plan.planCode)
+const planBillingPeriod = (plan: SubscriptionPlan): FormState['billingPeriod'] =>
+  plan.billingPeriod ?? (plan.planCode === 'FREE' ? 'FREE' : /YEAR|NAM/i.test(plan.planCode) ? 'YEARLY' : 'MONTHLY')
+const monthlyPlanPrice = (plan: SubscriptionPlan) => toPrice(plan.monthlyPrice ?? plan.annualPrice ?? 0)
+const yearlyPlanPrice = (plan: SubscriptionPlan) => toPrice(plan.yearlyPrice ?? plan.annualPrice ?? 0)
 
 function PriceSummary({ plan, plans }: { plan: SubscriptionPlan; plans: SubscriptionPlan[] }) {
-  const price = toPrice(plan.annualPrice)
-  const monthlyPlan = plans.find((candidate) => isMonthlyPlan(candidate))
-  const monthlyPrice = monthlyPlan ? toPrice(monthlyPlan.annualPrice) : 0
-  const isYearly = isYearlyPlan(plan)
-  const originalYearlyPrice = isYearly && monthlyPrice ? monthlyPrice * 12 : 0
+  const billingPeriod = planBillingPeriod(plan)
+  const price = billingPeriod === 'YEARLY' ? yearlyPlanPrice(plan) : monthlyPlanPrice(plan)
+  const monthlyPlan = plans.find((candidate) => planBillingPeriod(candidate) === 'MONTHLY')
+  const monthlyPrice = monthlyPlan ? monthlyPlanPrice(monthlyPlan) : 0
+  const originalYearlyPrice = billingPeriod === 'YEARLY' && monthlyPrice ? monthlyPrice * 12 : 0
   const saving = originalYearlyPrice > price ? originalYearlyPrice - price : 0
   const savingPercent = saving ? Math.round((saving / originalYearlyPrice) * 100) : 0
 
-  if (price === 0) return <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-3"><p className="text-2xl font-bold text-emerald-700">Miễn phí</p><p className="mt-1 text-xs text-emerald-700/80">Không phát sinh chi phí</p></div>
-  if (!isYearly) return <div className="rounded-xl border border-violet-100 bg-gradient-to-br from-violet-50 to-blue-50 px-3 py-3"><p className="text-xs font-medium text-muted-foreground">Thanh toán theo tháng</p><p className="mt-0.5 text-2xl font-bold tracking-tight text-violet-700">{money(price)} <span className="text-sm font-medium">/ tháng</span></p><p className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground"><CalendarDays className="h-3.5 w-3.5" />Tổng 12 tháng: <span className="font-semibold text-foreground">{money(price * 12)}</span></p></div>
+  if (billingPeriod === 'FREE') return <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-3"><p className="text-2xl font-bold text-emerald-700">Miễn phí</p><p className="mt-1 text-xs text-emerald-700/80">Không phát sinh chi phí</p></div>
+  if (billingPeriod === 'MONTHLY') return <div className="rounded-xl border border-violet-100 bg-gradient-to-br from-violet-50 to-blue-50 px-3 py-3"><p className="text-xs font-medium text-muted-foreground">Thanh toán theo tháng</p><p className="mt-0.5 text-2xl font-bold tracking-tight text-violet-700">{money(price)} <span className="text-sm font-medium">/ tháng</span></p><p className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground"><CalendarDays className="h-3.5 w-3.5" />Tổng 12 tháng: <span className="font-semibold text-foreground">{money(price * 12)}</span></p></div>
   return <div className="rounded-xl border border-blue-100 bg-gradient-to-br from-blue-50 to-indigo-50 px-3 py-3"><div className="flex items-start justify-between gap-2"><div><p className="text-xs font-medium text-muted-foreground">Thanh toán theo năm</p><p className="mt-0.5 text-2xl font-bold tracking-tight text-blue-700">{money(price)}</p></div>{saving > 0 && <Badge className="gap-1 bg-emerald-600 hover:bg-emerald-600"><BadgePercent className="h-3 w-3" />Tiết kiệm {savingPercent}%</Badge>}</div>{originalYearlyPrice > 0 && <div className="mt-2 flex items-center gap-2 text-xs"><span className="text-muted-foreground line-through">{money(originalYearlyPrice)}</span><span className="font-semibold text-emerald-700">Giảm {money(saving)}</span></div>}<p className="mt-2 text-xs text-muted-foreground">Tương đương {money(Math.round(price / 12))} / tháng</p></div>
 }
 
@@ -85,19 +110,24 @@ export default function PlansAdminPage() {
   const [codeError, setCodeError] = useState('')
 
   const plans = data?.items ?? []
+  const legacyFeatureKeys = editing
+    ? Object.entries((editing.featureAccess ?? {}) as Record<string, unknown>)
+      .filter(([key, value]) => Boolean(value) && !isOfficialFeatureKey(key))
+      .map(([key]) => key)
+    : []
 
   useEffect(() => {
     if (!open) return
     if (editing) {
-      // Giữ lại các key lạ từ BE (ngoài KNOWN_FEATURES) để không mất data khi PATCH
       const fa = (editing.featureAccess ?? {}) as Record<string, boolean>
       const features: Record<string, boolean> = {}
       KNOWN_FEATURES.forEach((f) => { features[f.key] = !!fa[f.key] })
-      Object.entries(fa).forEach(([k, v]) => { if (!(k in features)) features[k] = !!v })
       setForm({
         planCode: editing.planCode,
         name: editing.name,
-        annualPrice: String(editing.annualPrice ?? 0),
+        billingPeriod: planBillingPeriod(editing),
+        monthlyPrice: editing.monthlyPrice != null ? String(editing.monthlyPrice) : planBillingPeriod(editing) === 'MONTHLY' ? String(editing.annualPrice ?? '') : '',
+        yearlyPrice: editing.yearlyPrice != null ? String(editing.yearlyPrice) : planBillingPeriod(editing) === 'YEARLY' ? String(editing.annualPrice ?? '') : '',
         maxMembers: editing.maxMembers != null ? String(editing.maxMembers) : '',
         storageLimit: String(editing.storageLimit ?? 0),
         stripePriceId: editing.stripePriceId ?? '',
@@ -116,7 +146,8 @@ export default function PlansAdminPage() {
 
   const setCode = (v: string) => {
     const upper = v.toUpperCase().replace(/[^A-Z0-9_]/g, '')
-    setForm((prev) => ({ ...prev, planCode: upper }))
+    const billingPeriod = upper === 'FREE' ? 'FREE' : upper === 'YEARLY' ? 'YEARLY' : upper === 'MONTHLY' ? 'MONTHLY' : undefined
+    setForm((prev) => ({ ...prev, planCode: upper, ...(billingPeriod ? { billingPeriod } : {}) }))
     setCodeError(upper && !PLAN_CODE_RE.test(upper) ? 'Chỉ dùng chữ HOA, số, dấu gạch dưới' : '')
   }
 
@@ -127,6 +158,9 @@ export default function PlansAdminPage() {
     if (!form.planCode.trim()) { toast.error('Mã gói không được để trống'); return false }
     if (!PLAN_CODE_RE.test(form.planCode)) { toast.error('Mã gói chỉ dùng chữ HOA, số, dấu _'); return false }
     if (!form.name.trim()) { toast.error('Tên hiển thị không được để trống'); return false }
+    if (form.billingPeriod === 'MONTHLY' && Number(form.monthlyPrice) <= 0) { toast.error('Nhập giá tháng lớn hơn 0'); return false }
+    if (form.billingPeriod === 'YEARLY' && Number(form.yearlyPrice) <= 0) { toast.error('Nhập giá năm lớn hơn 0'); return false }
+    if (form.billingPeriod !== 'FREE' && !form.stripePriceId.trim()) { toast.error('Gói trả phí cần Stripe Price ID'); return false }
     if (!editing && !form.maxMembers) { toast.error('Số thành viên tối đa là bắt buộc'); return false }
     return true
   }
@@ -136,10 +170,12 @@ export default function PlansAdminPage() {
     const payload = {
       planCode: form.planCode,
       name: form.name.trim(),
-      annualPrice: Number(form.annualPrice) || 0,
+      billingPeriod: form.billingPeriod,
+      monthlyPrice: form.billingPeriod === 'MONTHLY' ? Number(form.monthlyPrice) : undefined,
+      yearlyPrice: form.billingPeriod === 'YEARLY' ? Number(form.yearlyPrice) : undefined,
       maxMembers: form.maxMembers ? Number(form.maxMembers) : undefined,
       storageLimit: Number(form.storageLimit) || 0,
-      stripePriceId: form.stripePriceId.trim() || undefined,
+      stripePriceId: form.billingPeriod === 'FREE' ? undefined : form.stripePriceId.trim() || undefined,
       featureAccess: form.features,
       isActive: form.isActive,
     }
@@ -225,12 +261,15 @@ export default function PlansAdminPage() {
                     )}
                   </div>
 
-                  {p.featureAccess && Object.entries(p.featureAccess).some(([, v]) => v) && (
+                  {p.featureAccess && Object.entries(p.featureAccess).some(([key, v]) => Boolean(v) && isOfficialFeatureKey(key)) && (
                     <div className="flex flex-wrap gap-1 pt-1">
-                      {Object.entries(p.featureAccess).filter(([, v]) => v).map(([k]) => (
+                      {Object.entries(p.featureAccess).filter(([key, v]) => Boolean(v) && isOfficialFeatureKey(key)).map(([k]) => (
                         <Badge key={k} variant="secondary" className="text-[10px]">{featureLabel(k)}</Badge>
                       ))}
                     </div>
+                  )}
+                  {p.featureAccess && Object.entries(p.featureAccess).some(([key, value]) => Boolean(value) && !isOfficialFeatureKey(key)) && (
+                    <p className="text-[11px] text-amber-700">Có featureAccess legacy; mở Sửa để chọn lại quyền theo key chuẩn.</p>
                   )}
 
                   <div className="flex justify-between items-center pt-2 border-t">
@@ -287,16 +326,29 @@ export default function PlansAdminPage() {
               </div>
             </div>
 
-            {/* Row 2: price + maxMembers */}
-            <div className="grid grid-cols-2 gap-3">
+            {/* Row 2: billing + price + maxMembers */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="space-y-1.5">
-                <Label>Giá / năm (VND)</Label>
+                <Label>Chu kỳ thanh toán</Label>
+                <select
+                  value={form.billingPeriod}
+                  onChange={(e) => setForm({ ...form, billingPeriod: e.target.value as FormState['billingPeriod'] })}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                >
+                  <option value="FREE">Miễn phí</option>
+                  <option value="MONTHLY">Theo tháng</option>
+                  <option value="YEARLY">Theo năm</option>
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>{form.billingPeriod === 'MONTHLY' ? 'Giá / tháng (VND)' : form.billingPeriod === 'YEARLY' ? 'Giá / năm (VND)' : 'Giá'}</Label>
                 <Input
                   type="number"
                   min={0}
-                  value={form.annualPrice}
-                  onChange={(e) => setForm({ ...form, annualPrice: e.target.value })}
-                  placeholder="0 = miễn phí"
+                  disabled={form.billingPeriod === 'FREE'}
+                  value={form.billingPeriod === 'MONTHLY' ? form.monthlyPrice : form.yearlyPrice}
+                  onChange={(e) => setForm({ ...form, ...(form.billingPeriod === 'MONTHLY' ? { monthlyPrice: e.target.value } : { yearlyPrice: e.target.value }) })}
+                  placeholder={form.billingPeriod === 'FREE' ? 'Miễn phí' : '0'}
                 />
               </div>
               <div className="space-y-1.5">
@@ -327,10 +379,11 @@ export default function PlansAdminPage() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label>Stripe Price ID</Label>
+                <Label>Stripe Price ID {form.billingPeriod !== 'FREE' && <span className="text-red-500">*</span>}</Label>
                 <Input
                   value={form.stripePriceId}
                   onChange={(e) => setForm({ ...form, stripePriceId: e.target.value })}
+                  disabled={form.billingPeriod === 'FREE'}
                   placeholder="price_xxx (gói trả phí)"
                   className="font-mono text-xs"
                 />
@@ -343,6 +396,11 @@ export default function PlansAdminPage() {
               <p className="text-[11px] text-muted-foreground">
                 Key gửi lên BE: <code className="bg-muted px-1 rounded">featureAccess</code> — map key→boolean.
               </p>
+              {legacyFeatureKeys.length > 0 && (
+                <p className="text-[11px] leading-snug text-amber-700">
+                  Key legacy ({legacyFeatureKeys.join(', ')}) không thuộc contract mới và sẽ không được gửi lại. Hãy chọn quyền chuẩn bên dưới trước khi lưu.
+                </p>
+              )}
               <div className="border rounded-md divide-y">
                 {KNOWN_FEATURES.map((f) => (
                   <label key={f.key} className="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-muted/40 transition-colors">
