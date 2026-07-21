@@ -190,6 +190,26 @@ function FamilySubscriptionDialog({
     ?? provLogs?.items?.[0]?.status
   const activationStatus = activation?.status ?? latestProvisionStatus
   const canRetryProvision = latestProvisionStatus === 'FAILED'
+  const renewalOptions = sub?.planCode === 'YEARLY'
+    ? [
+      { value: '12', label: '1 năm' },
+      { value: '24', label: '2 năm' },
+      { value: '36', label: '3 năm' },
+      { value: '48', label: '4 năm' },
+      { value: '60', label: '5 năm' },
+    ]
+    : [
+      { value: '1', label: '1 tháng' },
+      { value: '3', label: '3 tháng' },
+      { value: '6', label: '6 tháng' },
+      { value: '12', label: '12 tháng' },
+      { value: '24', label: '24 tháng' },
+    ]
+
+  useEffect(() => {
+    if (!sub?.planCode) return
+    setRenewForm((form) => ({ ...form, monthsToAdd: sub.planCode === 'YEARLY' ? '12' : '1' }))
+  }, [sub?.planCode])
 
   if (!familyId) return null
 
@@ -292,7 +312,7 @@ function FamilySubscriptionDialog({
                   {/* Manual renew */}
                   <div>
                     <p className="text-xs font-semibold text-muted-foreground mb-1.5">Gia hạn thủ công</p>
-                    <p className="text-[10px] text-muted-foreground mb-1.5">Chỉ gia hạn gói hiện tại; đổi gói thực hiện trên Mobile.</p>
+                    <p className="text-[10px] text-muted-foreground mb-1.5">Chỉ gia hạn gói hiện tại. Đổi gói thực hiện trên Mobile.</p>
                     <div className="flex flex-wrap gap-2 items-end">
                       <Input
                         className="h-8 text-xs w-28"
@@ -301,13 +321,19 @@ function FamilySubscriptionDialog({
                         readOnly
                         disabled
                       />
-                      <Input
-                        type="number" min="1" max="24"
-                        className="h-8 text-xs w-20"
-                        placeholder="Tháng *"
+                      <Select
                         value={renewForm.monthsToAdd}
-                        onChange={(e) => setRenewForm({ ...renewForm, monthsToAdd: e.target.value })}
-                      />
+                        onValueChange={(monthsToAdd) => setRenewForm({ ...renewForm, monthsToAdd })}
+                      >
+                        <SelectTrigger className="h-8 text-xs w-28" aria-label="Thời gian gia hạn">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {renewalOptions.map((option) => (
+                            <SelectItem key={option.value} value={option.value} className="text-xs">{option.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       <Input
                         className="h-8 text-xs flex-1 min-w-28"
                         placeholder="Lý do (tuỳ chọn)"
