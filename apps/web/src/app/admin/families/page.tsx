@@ -180,7 +180,7 @@ function FamilySubscriptionDialog({
   const syncStripe = useSyncStripeFamilySubscription()
   const retryProvision = useRetryFamilyProvisioning()
 
-  const [renewForm, setRenewForm] = useState({ planCode: '', monthsToAdd: '1', reason: '' })
+  const [renewForm, setRenewForm] = useState({ monthsToAdd: '1', reason: '' })
   const [newSubStatus, setNewSubStatus] = useState<'ACTIVE' | 'PAST_DUE' | 'CANCELED'>('ACTIVE')
   const [statusReason, setStatusReason] = useState('')
   const hasPlan = Boolean(sub?.planCode)
@@ -191,16 +191,12 @@ function FamilySubscriptionDialog({
   const activationStatus = activation?.status ?? latestProvisionStatus
   const canRetryProvision = latestProvisionStatus === 'FAILED'
 
-  useEffect(() => {
-    if (sub?.planCode) setRenewForm((f) => ({ ...f, planCode: sub.planCode ?? '' }))
-  }, [sub])
-
   if (!familyId) return null
 
   const handleRenew = () => {
-    if (!renewForm.planCode || !renewForm.monthsToAdd) { toast.error('Nhập đầy đủ planCode và số tháng'); return }
+    if (!sub?.planCode || !renewForm.monthsToAdd) { toast.error('Không tìm thấy gói hiện tại hoặc số tháng gia hạn'); return }
     manualRenew.mutate(
-      { familyId, planCode: renewForm.planCode, monthsToAdd: Number(renewForm.monthsToAdd), reason: renewForm.reason || undefined },
+      { familyId, planCode: sub.planCode, monthsToAdd: Number(renewForm.monthsToAdd), reason: renewForm.reason || undefined },
       { onSuccess: () => toast.success('Đã gia hạn'), onError: (e) => toast.error(getApiErrorMessage(e, 'Gia hạn thất bại')) },
     )
   }
@@ -296,12 +292,14 @@ function FamilySubscriptionDialog({
                   {/* Manual renew */}
                   <div>
                     <p className="text-xs font-semibold text-muted-foreground mb-1.5">Gia hạn thủ công</p>
+                    <p className="text-[10px] text-muted-foreground mb-1.5">Chỉ gia hạn gói hiện tại; đổi gói thực hiện trên Mobile.</p>
                     <div className="flex flex-wrap gap-2 items-end">
                       <Input
                         className="h-8 text-xs w-28"
-                        placeholder="Plan Code *"
-                        value={renewForm.planCode}
-                        onChange={(e) => setRenewForm({ ...renewForm, planCode: e.target.value.toUpperCase() })}
+                        aria-label="Gói hiện tại"
+                        value={sub?.planCode ?? ''}
+                        readOnly
+                        disabled
                       />
                       <Input
                         type="number" min="1" max="24"
@@ -316,7 +314,7 @@ function FamilySubscriptionDialog({
                         value={renewForm.reason}
                         onChange={(e) => setRenewForm({ ...renewForm, reason: e.target.value })}
                       />
-                      <Button size="sm" className="h-8 text-xs gap-1" variant="outline" onClick={handleRenew} disabled={manualRenew.isPending || !renewForm.planCode}>
+                      <Button size="sm" className="h-8 text-xs gap-1" variant="outline" onClick={handleRenew} disabled={manualRenew.isPending || !hasPlan}>
                         {manualRenew.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <RotateCcw className="w-3 h-3" />}
                         Gia hạn
                       </Button>
