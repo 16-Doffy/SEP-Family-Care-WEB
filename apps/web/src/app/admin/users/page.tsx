@@ -144,6 +144,7 @@ type StatusFilter = 'ALL' | 'ACTIVE' | 'INACTIVE' | 'SUSPENDED'
 type RoleFilter = 'ALL' | 'NORMAL_USER' | 'SYSTEM_ADMIN'
 
 export default function AdminUsersPage() {
+  const { user } = useAuth()
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL')
@@ -151,8 +152,6 @@ export default function AdminUsersPage() {
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState<typeof PAGE_SIZES[number]>(10)
   const [selected, setSelected] = useState<Set<string>>(new Set())
-  const [editingUser, setEditingUser] = useState<AdminUser | null>(null)
-  const [editRole, setEditRole] = useState<'NORMAL_USER' | 'SYSTEM_ADMIN'>('NORMAL_USER')
   const searchTimerRef = useState<ReturnType<typeof setTimeout> | undefined>(undefined)
 
   const handleSearchChange = (val: string) => {
@@ -251,27 +250,11 @@ export default function AdminUsersPage() {
   }
 
   /* ── Actions ── */
-  const openEditRole = (u: AdminUser) => {
-    setEditingUser(u)
-    setEditRole(u.userType)
-  }
-
   const toggleStatus = (u: AdminUser) => {
     updateUser.mutate(
       { id: u.id, accountStatus: u.accountStatus === 'SUSPENDED' ? 'ACTIVE' : 'SUSPENDED' },
       {
         onSuccess: () => toast.success('Đã cập nhật trạng thái'),
-        onError: e => toast.error(getApiErrorMessage(e, 'Cập nhật thất bại')),
-      },
-    )
-  }
-
-  const saveRole = () => {
-    if (!editingUser) return
-    updateUser.mutate(
-      { id: editingUser.id, userType: editRole },
-      {
-        onSuccess: () => { toast.success('Đã cập nhật vai trò'); setEditingUser(null) },
         onError: e => toast.error(getApiErrorMessage(e, 'Cập nhật thất bại')),
       },
     )
@@ -412,12 +395,9 @@ export default function AdminUsersPage() {
                               {initials}
                             </div>
                             <div className="min-w-0">
-                              <button
-                                onClick={() => openEditRole(u)}
-                                className="text-[13px] font-semibold text-slate-800 hover:text-teal-600 transition-colors leading-tight block max-w-[130px] truncate text-left"
-                              >
+                              <p className="text-[13px] font-semibold text-slate-800 leading-tight block max-w-[130px] truncate text-left">
                                 {u.fullName || '—'}
-                              </button>
+                              </p>
                               <p className="text-[10px] text-slate-400 mt-0.5 font-mono">
                                 usr-{u.id.slice(-4)}
                               </p>
@@ -467,12 +447,15 @@ export default function AdminUsersPage() {
                         <td className="py-3 px-3">
                           <button
                             onClick={() => toggleStatus(u)}
-                            disabled={updateUser.isPending}
+                            disabled={updateUser.isPending || u.id === user?.id || u.userType === 'SYSTEM_ADMIN'}
                             className={`text-[11px] font-medium px-2.5 py-1 rounded-lg border transition-colors whitespace-nowrap ${
-                              u.accountStatus === 'SUSPENDED'
-                                ? 'text-emerald-600 border-emerald-100 bg-emerald-50 hover:bg-emerald-100'
-                                : 'text-rose-600 border-rose-100 bg-rose-50 hover:bg-rose-100'
+                              u.id === user?.id || u.userType === 'SYSTEM_ADMIN'
+                                ? 'text-slate-400 border-slate-200 bg-slate-50 cursor-not-allowed'
+                                : u.accountStatus === 'SUSPENDED'
+                                  ? 'text-emerald-600 border-emerald-100 bg-emerald-50 hover:bg-emerald-100'
+                                  : 'text-rose-600 border-rose-100 bg-rose-50 hover:bg-rose-100'
                             }`}
+                            title={u.id === user?.id ? 'Không thể thao tác lên chính mình' : u.userType === 'SYSTEM_ADMIN' ? 'Không thể thao tác lên Admin khác' : ''}
                           >
                             {u.accountStatus === 'SUSPENDED' ? 'Mở khóa' : 'Khóa'}
                           </button>
@@ -536,46 +519,6 @@ export default function AdminUsersPage() {
         </div>
       </div>
 
-      {/* Edit role modal */}
-      <Dialog open={!!editingUser} onOpenChange={o => { if (!o) setEditingUser(null) }}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Đổi vai trò người dùng</DialogTitle>
-            <DialogDescription className="text-slate-500">{editingUser?.email}</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3 py-2">
-            <Select value={editRole} onValueChange={v => setEditRole(v as typeof editRole)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="NORMAL_USER">
-                  <span className="flex items-center gap-2"><ShieldOff className="w-4 h-4" /> User thường</span>
-                </SelectItem>
-                <SelectItem value="SYSTEM_ADMIN">
-                  <span className="flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-rose-500" /> Admin hệ thống</span>
-                </SelectItem>
-              </SelectContent>
-            </Select>
-            {editRole === 'SYSTEM_ADMIN' && (
-              <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3">
-                ⚠️ Admin hệ thống có toàn quyền quản lý. Chỉ cấp cho người tin cậy.
-              </p>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditingUser(null)}>Huỷ</Button>
-            <Button
-              className="bg-teal-500 hover:bg-teal-600 text-white"
-              onClick={saveRole}
-              disabled={updateUser.isPending || editRole === editingUser?.userType}
-            >
-              {updateUser.isPending && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
-              Lưu thay đổi
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }
